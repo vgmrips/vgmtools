@@ -77,7 +77,6 @@ typedef struct _vgm_extra_chip_data32
 typedef struct _vgm_extra_chip_data16
 {
 	UINT8 Type;
-	UINT8 Flags;
 	UINT16 Data;
 } VGMX_CHIP_DATA16;
 typedef struct _vgm_extra_chip_extra32
