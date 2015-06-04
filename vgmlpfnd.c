@@ -1,6 +1,7 @@
 // vgmlpfnd.c - VGM Loop Finder
 //
 //TODO: Change "Start Pos" to "Start Sample"
+// more TODO: 0:59.999 becomes 0:60.00
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -10,6 +11,8 @@
 #ifdef WIN32
 #include <conio.h>
 #include <windows.h>	// for GetTickCount
+#else
+#define _stricmp	strcasecmp
 #endif
 
 #include "zlib.h"
@@ -18,7 +21,6 @@
 #include "VGMFile.h"
 
 
-#define INLINE	__inline
 //#define TECHNICAL_OUTPUT
 
 
@@ -36,10 +38,10 @@ static bool OpenVGMFile(const char* FileName);
 static void ReadVGMData(void);
 static void FindEqualitiesVGM(void);
 static bool EqualityCheck(UINT32 CmpCmd, UINT32 SrcCmd, UINT32 CmdCount);
-static INLINE bool CompareVGMCommand(VGM_CMD* CmdA, VGM_CMD* CmdB);
+INLINE bool CompareVGMCommand(VGM_CMD* CmdA, VGM_CMD* CmdB);
 static void PrintMinSec(const UINT32 SamplePos, char* TempStr);
-//static INLINE bool IgnoredCmd(UINT8 Command, UINT8 RegData);
-static INLINE bool IgnoredCmd(const UINT8* VGMPnt);
+//INLINE bool IgnoredCmd(UINT8 Command, UINT8 RegData);
+INLINE bool IgnoredCmd(const UINT8* VGMPnt);
 
 
 // semi-constants
@@ -620,7 +622,7 @@ static void FindEqualitiesVGM(void)
 	UINT32 CmpCmd;
 	
 	UINT32 CurCmd;
-	UINT8 CmpMode;
+	//UINT8 CmpMode;
 	//UINT16 TempSht;
 	//UINT32 TempLng;
 	bool CmpResult;
@@ -650,7 +652,9 @@ static void FindEqualitiesVGM(void)
 	while(CurCmd < VGMCmdCount)
 	{
 		CmpStart = CurCmd;
-		CmpMode = 0x00;
+		// Old routine
+		// Works (and is faster), but doesn't find all loops (or finds them always at the first possible spot)
+		/*CmpMode = 0x00;
 		for (SrcCmd = CurCmd + 0x01; SrcCmd < VGMCmdCount; SrcCmd ++)
 		{
 			switch(CmpMode)
@@ -685,6 +689,27 @@ static void FindEqualitiesVGM(void)
 			EqualityCheck(CmpStart, SrcStart, CmpCmd - CmpStart);
 			//CmpCmd = 0x00;
 			//CmpMode = 0x00;
+		}*/
+		
+		// New routine.
+		// now with complexity O(n^3)
+		for (SrcStart = CurCmd + 0x01; SrcStart < VGMCmdCount; SrcStart ++)
+		{
+			CmpResult = CompareVGMCommand(VGMCommand + SrcStart, VGMCommand + CmpStart);
+			if (CmpResult)
+			{
+				SrcCmd = SrcStart + 0x01;
+				CmpCmd = CmpStart + 0x01;
+				for (; SrcCmd < VGMCmdCount; SrcCmd ++, CmpCmd ++)
+				{
+					CmpResult = CompareVGMCommand(VGMCommand + CmpCmd, VGMCommand + SrcCmd);
+					if (! CmpResult)
+					{
+						EqualityCheck(CmpStart, SrcStart, CmpCmd - CmpStart);
+						break;
+					}
+				}
+			}
 		}
 		
 #ifdef WIN32
@@ -774,7 +799,7 @@ static bool EqualityCheck(UINT32 CmpCmd, UINT32 SrcCmd, UINT32 CmdCount)
 	return true;
 }
 
-static INLINE bool CompareVGMCommand(VGM_CMD* CmdA, VGM_CMD* CmdB)
+INLINE bool CompareVGMCommand(VGM_CMD* CmdA, VGM_CMD* CmdB)
 {
 	if (CmdA->Command != CmdB->Command)
 		return false;
@@ -796,8 +821,8 @@ static void PrintMinSec(const UINT32 SamplePos, char* TempStr)
 	return;
 }
 
-//static INLINE bool IgnoredCmd(UINT8 Command, UINT8 RegData)
-static INLINE bool IgnoredCmd(const UINT8* VGMPnt)
+//INLINE bool IgnoredCmd(UINT8 Command, UINT8 RegData)
+INLINE bool IgnoredCmd(const UINT8* VGMPnt)
 {
 #define Command	VGMPnt[0x00]
 #define RegData	VGMPnt[0x01]
@@ -806,7 +831,7 @@ static INLINE bool IgnoredCmd(const UINT8* VGMPnt)
 		return true;	// Delays, Data Block etc.
 	if (Command >= 0x70 && Command <= 0x8F)
 		return true;	// 1-16 Sample Delay and YM2612 DAC Write + 0-15 Sample Delay
-	if ((Command == 0x52 || Command == 0x55 || Command == 0x56 || Command == 0x58) &&
+	if ((Command == 0x52 || Command == 0x53 || Command == 0x55 || Command == 0x56 || Command == 0x58) &&
 		(RegData == 0x2A || (RegData >= 0x24 && RegData <= 0x27) || (RegData & 0xBC) == 0xB4 ||
 		(RegData >= 0x0E && RegData <= 0x0F)))
 		return true;	// YM2612 DAC or OPN Timer or SSG Port Write
@@ -827,7 +852,7 @@ static INLINE bool IgnoredCmd(const UINT8* VGMPnt)
 	
 	if (Command == 0x54 && (RegData >= 0x10 && RegData <= 0x14))
 		return true;	// YM2151 Timer
-	if ((Command >= 0x5A && Command <= 0x5C || Command == 0x5E) &&
+	if (((Command >= 0x5A && Command <= 0x5C) || Command == 0x5E) &&
 		(RegData >= 0x02 && RegData <= 0x04))
 		return true;	// OPL Timer Registers
 	if (Command == 0x5D && (RegData & 0xE3) == 0x03)
@@ -846,6 +871,8 @@ static INLINE bool IgnoredCmd(const UINT8* VGMPnt)
 		return true;	// C140 Bank Writes and unknown Regs (Timer?)
 	if (Command == 0xB7 && RegData == 0x01)
 		return true;	// OKIM6258 ADPCM Data
+	if (Command == 0xB5 && RegData >= 0x01)
+		return true;	// MultiPCM "Set Slot"
 	
 	/*if (Command == 0xBA)
 	{

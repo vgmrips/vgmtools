@@ -651,7 +651,7 @@ static UINT32 DACCommandsToKill(void)
 			break;
 	}
 	
-	if (CmdCount < 0x40)
+	if (CmdCount < 0x80)	// with a sample rate of 8 KHz, this equals 16 ms
 		CmdCount = 0x00;
 	
 	return CmdCount;

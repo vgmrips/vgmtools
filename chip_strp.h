@@ -1,12 +1,12 @@
 typedef struct stip_generic	// contains all common values
 {
 	bool All;
-	UINT8 ChnMask;
+	UINT32 ChnMask;
 } STRIP_GENERIC;
 typedef struct stip_sn76496
 {
 	bool All;
-	UINT8 ChnMask;	// 0, 1, 2, noise
+	UINT32 ChnMask;	// 0, 1, 2, noise
 	UINT8 Other;	// Bit 0 - GG Stereo
 } STRIP_PSG;
 typedef struct stip_ym3812
@@ -18,19 +18,19 @@ typedef struct stip_ym3812
 typedef struct stip_ym2612
 {
 	bool All;
-	UINT8 ChnMask;	// 0-5, DAC
+	UINT32 ChnMask;	// 0-5, DAC
 	UINT8 Other;	// Bit 7 - Delta-T
 } STRIP_OPN;
 typedef struct stip_ym2151
 {
 	bool All;
-	UINT8 ChnMask;	// 0-7
+	UINT32 ChnMask;	// 0-7
 	UINT8 Other;
 } STRIP_OPM;
 typedef struct stip_pcm
 {
 	bool All;
-	UINT8 ChnMask;	// 0-7
+	UINT32 ChnMask;	// 0-7
 	UINT8 Other;
 } STRIP_PCM;
 typedef struct stip_ymf278b_wt
@@ -42,13 +42,13 @@ typedef struct stip_ymf278b_wt
 typedef struct stip_ymf271
 {
 	bool All;
-	UINT16 ChnMask;	// 0-11
+	UINT32 ChnMask;	// 0-11
 	UINT8 Other;
 } STRIP_OPX;
 typedef struct stip_ymz280b
 {
 	bool All;
-	UINT8 ChnMask;	// 0-7
+	UINT32 ChnMask;	// 0-7
 	UINT8 Other;
 } STRIP_YMZ;
 typedef struct stip_pwm
@@ -110,7 +110,7 @@ bool ym2413_write(UINT8 Register, UINT8 Data);
 bool ym2612_write(UINT8 Port, UINT8 Register, UINT8 Data);
 bool ym2151_write(UINT8 Register, UINT8 Data);
 bool segapcm_mem_write(UINT16 Offset, UINT8 Data);
-bool rf5c68_reg_write(UINT8 Register, UINT8 Data);
+bool rf5c68_reg_write(UINT8 Register, UINT8* Data);
 bool rf5c68_mem_write(UINT16 Offset, UINT8 Data);
 bool ym2203_write(UINT8 Register, UINT8 Data);
 bool ym2608_write(UINT8 Port, UINT8 Register, UINT8 Data);
@@ -120,6 +120,6 @@ bool ym3526_write(UINT8 Register, UINT8 Data);
 bool y8950_write(UINT8 Register, UINT8 Data);
 bool ymf262_write(UINT8 Port, UINT8 Register, UINT8 Data);
 bool ymz280b_write(UINT8 Register, UINT8 Data);
-bool rf5c164_reg_write(UINT8 Register, UINT8 Data);
+bool rf5c164_reg_write(UINT8 Register, UINT8* Data);
 bool rf5c164_mem_write(UINT16 Offset, UINT8 Data);
 bool c140_write(UINT8 Port, UINT8 Register, UINT8 Data);

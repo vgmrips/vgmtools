@@ -302,7 +302,7 @@ static void CountVGMData()
 		if (TempLng)
 		{
 			ChipState[0x00][CurChip].Used = true;
-			ChipState[0x01][CurChip].Used = (TempLng & 0x80000000) >> 31;
+			ChipState[0x01][CurChip].Used = (TempLng & 0x40000000) >> 30;
 		}
 		else
 		{
@@ -1148,6 +1148,7 @@ static void DoKeyOnOff(CHIP_STATE* CState, UINT8 Chn, UINT8 OnOff, UINT8 VolFlag
 			if (! (CState->VolState & KeyMask))
 			{
 				CState->VolState |= KeyMask;
+				// TODO: place parentheses
 				if (! (VolFlag & 0x80) | CState->VolState & KeyMask)
 					CState->KeyOnCnt ++;
 			}

@@ -13,6 +13,7 @@ OBJ = obj
 TOOLS = \
 	dro2vgm \
 	optdac \
+	opt_oki \
 	optvgm32 \
 	optvgmrf \
 	vgm2txt \
@@ -34,12 +35,19 @@ TOOLS = \
 	vgmlpfnd \
 	vgmmerge
 
-all:	$(TOOLS)
+
+all:	$(OBJ) $(TOOLS)
 
 DRO2VGM_OBJS = \
 	$(OBJ)/dro2vgm.o
 
 dro2vgm:	$(DRO2VGM_OBJS)
+	$(CC) $^ -lm -Wl,-lz -o $@
+
+OPT_OKI_OBJS = \
+	$(OBJ)/opt_oki.o
+
+opt_oki:	$(OPT_OKI_OBJS)
 	$(CC) $^ -lm -Wl,-lz -o $@
 
 OPTDAC_OBJS = \
@@ -177,7 +185,7 @@ VGMMERGE_OBJS = \
 vgmmerge:	$(VGMMERGE_OBJS)
 	$(CC) $^ -lm -Wl,-lz -o $@
 
-$(OBJ)/%.o:	$(SRC)/%.c
+$(OBJ)/%.o:	$(OBJ) $(SRC)/%.c
 	$(CC) $(CCFLAGS) $(MAINFLAGS) -c $< -o $@
 
 $(OBJ):

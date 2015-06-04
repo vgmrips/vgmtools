@@ -59,6 +59,12 @@ void k053260_write(char* TempStr, UINT8 Register, UINT8 Data);
 void pokey_write(char* TempStr, UINT8 Register, UINT8 Data);
 void k051649_write(char* TempStr, UINT8 Port, UINT8 Register, UINT8 Data);
 void okim6295_write(char* TempStr, UINT8 Port, UINT8 Data);
+void okim6258_write(char* TempStr, UINT8 Port, UINT8 Data);
+void multipcm_write(char* TempStr, UINT8 Port, UINT8 Data);
+void multipcm_bank_write(char* TempStr, UINT8 Port, UINT8 Data);
+void upd7759_write(char* TempStr, UINT8 Port, UINT8 Data);
+void vsu_write(char* TempStr, UINT16 Register, UINT8 Data);
+void saa1099_write(char* TempStr, UINT8 Register, UINT8 Data);
 
 
 VGM_HEADER VGMHead;
@@ -326,28 +332,28 @@ static void WriteVGM2Txt(const char* FileName)
 	WriteClockText(TempStr, VGMHead.lngHzY8950, "Y8950");
 	fprintf(hFile, "Y8950 Clock:\t\t%s\n", TempStr);
 	
-	WriteClockText(TempStr, VGMHead.lngHzYMF262, NULL);
+	WriteClockText(TempStr, VGMHead.lngHzYMF262, "YMF262");
 	fprintf(hFile, "YMF262 Clock:\t\t%s\n", TempStr);
 	
-	WriteClockText(TempStr, VGMHead.lngHzYMF278B, NULL);
+	WriteClockText(TempStr, VGMHead.lngHzYMF278B, "YMF278B");
 	fprintf(hFile, "YMF278B Clock:\t\t%s\n", TempStr);
 	
-	WriteClockText(TempStr, VGMHead.lngHzYMF271, NULL);
+	WriteClockText(TempStr, VGMHead.lngHzYMF271, "YMF271");
 	fprintf(hFile, "YMF271 Clock:\t\t%s\n", TempStr);
 	
-	WriteClockText(TempStr, VGMHead.lngHzYMZ280B, NULL);
+	WriteClockText(TempStr, VGMHead.lngHzYMZ280B, "YMZ280B");
 	fprintf(hFile, "YMZ280B Clock:\t\t%s\n", TempStr);
 	
-	WriteClockText(TempStr, VGMHead.lngHzRF5C164 & 0x3FFFFFFF, NULL);
+	WriteClockText(TempStr, VGMHead.lngHzRF5C164 & 0x3FFFFFFF, "RF5C164");
 	fprintf(hFile, "RF5C164 Clock:\t\t%s\n", TempStr);
 	
-	WriteClockText(TempStr, VGMHead.lngHzPWM & 0x3FFFFFFF, NULL);
+	WriteClockText(TempStr, VGMHead.lngHzPWM & 0x3FFFFFFF, "PWM");
 	fprintf(hFile, "PWM Clock:\t\t%s\n", TempStr);
 	
-	WriteClockText(TempStr, VGMHead.lngHzAY8910, NULL);
+	WriteClockText(TempStr, VGMHead.lngHzAY8910, "AY8910");
 	fprintf(hFile, "AY8910 Clock:\t\t%s\n", TempStr);
 	if (VGMHead.bytAYType & ~0x13)
-		fprintf(hFile, "AY8910 Type:\t\t0x%02hX - %s\n", "???", VGMHead.bytAYType);
+		fprintf(hFile, "AY8910 Type:\t\t0x%02hX - %s\n", VGMHead.bytAYType, "???");
 	else
 		fprintf(hFile, "AY8910 Type:\t\t0x%02hX - %s\n", VGMHead.bytAYType,
 				AY_NAMES[(VGMHead.bytAYType >> 2) | VGMHead.bytAYType]);
@@ -378,47 +384,47 @@ static void WriteVGM2Txt(const char* FileName)
 	fprintf(hFile, "Loop Modifier:\t\t0x%02hX (MaxLoops * %.2f)\n", VGMHead.bytLoopModifier,
 			TempDbl);
 	
-	WriteClockText(TempStr, VGMHead.lngHzGBDMG, NULL);
+	WriteClockText(TempStr, VGMHead.lngHzGBDMG, "GB DMG");
 	fprintf(hFile, "GB DMG Clock:\t\t%s\n", TempStr);
 	
 	//WriteClockText(TempStr, VGMHead.lngHzNESAPU & 0x3FFFFFFF, NULL);
-	WriteClockText(TempStr, VGMHead.lngHzNESAPU, NULL);
+	WriteClockText(TempStr, VGMHead.lngHzNESAPU, "NES APU");
 	fprintf(hFile, "NES APU Clock:\t\t%s\n", TempStr);
 	
-	WriteClockText(TempStr, VGMHead.lngHzMultiPCM, NULL);
+	WriteClockText(TempStr, VGMHead.lngHzMultiPCM, "MultiPCM");
 	fprintf(hFile, "MultiPCM Clock:\t\t%s\n", TempStr);
 	
-	WriteClockText(TempStr, VGMHead.lngHzUPD7759, NULL);
+	WriteClockText(TempStr, VGMHead.lngHzUPD7759, "UPD7759");
 	fprintf(hFile, "UPD7759 Clock:\t\t%s\n", TempStr);
 	
-	WriteClockText(TempStr, VGMHead.lngHzOKIM6258, NULL);
+	WriteClockText(TempStr, VGMHead.lngHzOKIM6258, "OKIM6258");
 	fprintf(hFile, "OKIM6258 Clock:\t\t%s\n", TempStr);
 	fprintf(hFile, "OKIM6258 Flags:\t\t0x%02hX\n", VGMHead.bytOKI6258Flags);
 	fprintf(hFile, "K054539 Flags:\t\t0x%02hX\n", VGMHead.bytK054539Flags);
 	fprintf(hFile, "C140 Type:\t\t0x%02hX\n", VGMHead.bytC140Type);
 	
-	WriteClockText(TempStr, VGMHead.lngHzOKIM6295, NULL);
+	WriteClockText(TempStr, VGMHead.lngHzOKIM6295, "OKIM6295");
 	fprintf(hFile, "OKIM6295 Clock:\t\t%s\n", TempStr);
 	
-	WriteClockText(TempStr, VGMHead.lngHzK051649, NULL);
+	WriteClockText(TempStr, VGMHead.lngHzK051649, "K051649");
 	fprintf(hFile, "K051649 Clock:\t\t%s\n", TempStr);
 	
-	WriteClockText(TempStr, VGMHead.lngHzK054539, NULL);
+	WriteClockText(TempStr, VGMHead.lngHzK054539, "K054539");
 	fprintf(hFile, "K054539 Clock:\t\t%s\n", TempStr);
 	
-	WriteClockText(TempStr, VGMHead.lngHzHuC6280, NULL);
+	WriteClockText(TempStr, VGMHead.lngHzHuC6280, "HuC6280");
 	fprintf(hFile, "HuC6280 Clock:\t\t%s\n", TempStr);
 	
-	WriteClockText(TempStr, VGMHead.lngHzC140, NULL);
+	WriteClockText(TempStr, VGMHead.lngHzC140, "C140");
 	fprintf(hFile, "C140 Clock:\t\t%s\n", TempStr);
 	
-	WriteClockText(TempStr, VGMHead.lngHzK053260, NULL);
+	WriteClockText(TempStr, VGMHead.lngHzK053260, "K053260");
 	fprintf(hFile, "K053260 Clock:\t\t%s\n", TempStr);
 	
-	WriteClockText(TempStr, VGMHead.lngHzPokey, NULL);
+	WriteClockText(TempStr, VGMHead.lngHzPokey, "Pokey");
 	fprintf(hFile, "Pokey Clock:\t\t%s\n", TempStr);
 	
-	WriteClockText(TempStr, VGMHead.lngHzQSound, NULL);
+	WriteClockText(TempStr, VGMHead.lngHzQSound, "QSound");
 	fprintf(hFile, "QSound Clock:\t\t%s\n", TempStr);
 	
 	fprintf(hFile, "\n");
@@ -873,6 +879,9 @@ static void WriteVGMData2Txt(FILE* hFile)
 							break;
 						case 0x8A:	// UPD7759 ROM Image
 							strcpy(MinSecStr, "UPD7759 ROM");
+							
+							SetChip(CurChip);
+							upd7759_write(NULL, 0xFF, 0x01);
 							break;
 						case 0x8B:	// OKIM6295 ROM Image
 							strcpy(MinSecStr, "OKIM6295 ROM");
@@ -885,6 +894,9 @@ static void WriteVGMData2Txt(FILE* hFile)
 							break;
 						case 0x8E:	// K053260 ROM Image
 							strcpy(MinSecStr, "K053260 ROM");
+							break;
+						case 0x8F:	// QSound ROM Image
+							strcpy(MinSecStr, "QSound ROM");
 							break;
 						default:
 							strcpy(MinSecStr, "Unknown ROM Type");
@@ -918,7 +930,9 @@ static void WriteVGMData2Txt(FILE* hFile)
 					switch(TempByt & 0xC0)
 					{
 					case 0x00:	// Database Block
-					case 0x40:
+						break;
+					case 0x40:	// compressed Database Block
+						// TODO: print information about compression type etc.
 						break;
 					case 0x80:	// ROM/RAM Dump
 						sprintf(TempStr, "%s\n\t\t\tROM Size: 0x%08lX\tData Start: 0x%08lX",
@@ -1131,7 +1145,7 @@ static void WriteVGMData2Txt(FILE* hFile)
 				if (WriteEvents)
 				{
 					SetChip((VGMPnt[0x01] & 0x80) >> 7);
-					//multipcm_write(TempStr, VGMPnt[0x01] & 0x7F, VGMPnt[0x02]);
+					multipcm_write(TempStr, VGMPnt[0x01] & 0x7F, VGMPnt[0x02]);
 				}
 				CmdLen = 0x03;
 				break;
@@ -1139,8 +1153,8 @@ static void WriteVGMData2Txt(FILE* hFile)
 				if (WriteEvents)
 				{
 					SetChip((VGMPnt[0x01] & 0x80) >> 7);
-					//memcpy(&TempSht, &VGMPnt[0x02], 0x02);
-					//multipcm_bank_write(TempStr, VGMPnt[0x01] & 0x7F, TempSht);
+					memcpy(&TempSht, &VGMPnt[0x02], 0x02);
+					multipcm_bank_write(TempStr, VGMPnt[0x01] & 0x7F, TempSht);
 				}
 				CmdLen = 0x04;
 				break;
@@ -1148,7 +1162,7 @@ static void WriteVGMData2Txt(FILE* hFile)
 				if (WriteEvents)
 				{
 					SetChip((VGMPnt[0x01] & 0x80) >> 7);
-					//upd7759_write(TempStr, VGMPnt[0x01] & 0x7F, VGMPnt[0x02]);
+					upd7759_write(TempStr, VGMPnt[0x01] & 0x7F, VGMPnt[0x02]);
 				}
 				CmdLen = 0x03;
 				break;
@@ -1156,7 +1170,7 @@ static void WriteVGMData2Txt(FILE* hFile)
 				if (WriteEvents)
 				{
 					SetChip((VGMPnt[0x01] & 0x80) >> 7);
-					//okim6258_write(TempStr, VGMPnt[0x01] & 0x7F, VGMPnt[0x02]);
+					okim6258_write(TempStr, VGMPnt[0x01] & 0x7F, VGMPnt[0x02]);
 				}
 				CmdLen = 0x03;
 				break;
@@ -1223,6 +1237,23 @@ static void WriteVGMData2Txt(FILE* hFile)
 					qsound_write(TempStr, VGMPnt[0x03], (VGMPnt[0x01] << 8) | (VGMPnt[0x02] << 0));
 				}
 				CmdLen = 0x04;
+				break;
+			case 0xC7:	// VSU write
+				if (WriteEvents)
+				{
+					SetChip((VGMPnt[0x01] & 0x80) >> 7);
+					TempSht = ((VGMPnt[0x01] & 0x7F) << 8) | (VGMPnt[0x02] << 0);
+					vsu_write(TempStr, TempSht, VGMPnt[0x03]);
+				}
+				CmdLen = 0x04;
+				break;
+			case 0xBD:	// SAA1099 write
+				if (WriteEvents)
+				{
+					SetChip((VGMPnt[0x01] & 0x80) >> 7);
+					saa1099_write(TempStr, VGMPnt[0x01] & 0x7F, VGMPnt[0x02]);
+				}
+				CmdLen = 0x03;
 				break;
 			case 0x90:	// DAC Ctrl: Setup Chip
 				if (WriteEvents)

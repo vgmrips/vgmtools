@@ -5,6 +5,7 @@
 #include <stdlib.h>
 #include "stdbool.h"
 #include <string.h>
+#include <ctype.h>	// for toupper()
 #include <math.h>	// for log(x) in GetVolModVal
 
 #ifdef WIN32
@@ -17,9 +18,6 @@
 #include "stdtype.h"
 #include "VGMFile.h"
 #include "chip_strp.h"
-
-
-#define INLINE	__inline
 
 
 // GD3 Tag Entry Count
@@ -47,6 +45,7 @@ static bool ChipCommandIsValid(UINT8 Command);
 static UINT32 RelocateVGMLoop(void);
 static UINT32 CalcGD3Length(UINT32 DataPos, UINT16 TagEntries);
 static void StripVGMData(void);
+static bool StripClock(bool* StripAllPtr, UINT32* ClockPtr);
 
 
 VGM_HEADER VGMHead;
@@ -56,7 +55,7 @@ VGM_HDR_EXTRA VGMHeadX;
 VGM_EXTRA VGMH_Extra;
 UINT32 VGMDataLen;
 UINT8* VGMData;
-STRIP_DATA StripVGM;
+STRIP_DATA StripVGM[2];
 #ifdef WIN32
 FILETIME VGMDate;
 #endif
@@ -90,6 +89,7 @@ int main(int argc, char* argv[])
 		//printf("(no command)  like -ShowTag\n");
 		printf("    -Help         Show this help\n");
 		printf("    -ChipCmdList  List all supported chips with SetHzxx command\n");
+		printf("    -StripList    List all supported chips and channels for the Stip command\n");
 		//printf("    -xxxxxxxxx  xxxxxxxxxxxxxxxxxx (following commands are ignored)\n");
 		printf("\n");
 		printf("Patching Commands:\n");
@@ -116,7 +116,7 @@ int main(int argc, char* argv[])
 		printf("    -CheckO       like above, but tries to relocate loop offset\n");
 		printf("\n");
 		printf("    -Strip        Strip the data of a chip and/or channel\n");
-		printf("                   Format: -Strip:Chip[:Ch,Ch,...];Chip\n");
+		printf("                   Format: -Strip:Chip[-Num][:Ch,Ch,...];Chip\n");
 		printf("                   e.g.: -Strip:PSG:0,1,2,Noise,Stereo;YM2151\n");
 		printf("                   Note: Channel-Stripping isn't yet done.\n");
 		printf("\n");
@@ -177,6 +177,53 @@ int main(int argc, char* argv[])
 		printf("    -SetHzQSound   Sets the QSound chip clock\n");
 		printf("\n");
 		printf("Setting a clock rate to 0 disables the chip.\n");
+		goto EndProgram;
+	}
+	else if (! stricmp_u(argv[1], "-StripList"))
+	{
+		printf("    Chips          Channels\n");
+		printf("    --------       --------\n");
+		printf("    PSG/SN76496    0..3, Stereo\n");
+		printf("    YM2413        *0..8, BD, SD, TT, TC, HH\n");
+		printf("    YM2612        *0..5, DAC\n");
+		printf("    YM2151        *0..7\n");
+		printf("    RF5C68         0..7, Mem\n");
+		printf("    YM2203        *0..2, S0..S2\n");
+		printf("    YM2608        *0..5, P0..P5, DT, S0..S2\n");
+		printf("    YM2610        *0..5, P0..P5, DT, S0..S2\n");
+		printf("    YM3812        *0..8, BD, SD, TT, TC, HH\n");
+		printf("    YM3526        *0..8, BD, SD, TT, TC, HH\n");
+		printf("    Y8950         *0..8, BD, SD, TT, TC, HH, DT\n");
+		printf("    YMF262        *0..17, BD, SD, TT, TC, HH\n");
+		printf("    YMF278B        -\n");
+		printf("    YMF278B_FM    *0..17, BD, SD, TT, TC, HH\n");
+		printf("    YMF278B_WT    *0..23\n");
+		printf("    YMF271        *0..11\n");
+		printf("    YMZ280B       *0..7\n");
+		printf("    RF5C164        0..7, Mem\n");
+		printf("    PWM            -\n");
+		printf("    AY8910        *0..5\n");
+#ifdef WIN32
+		_getch();
+#else
+		getchar();
+#endif
+		printf("    GBDMG         *0..3\n");
+		printf("    NESAPU        *0..4\n");
+		printf("    MultiPCM      *0..27\n");
+		printf("    UPD7759        -\n");
+		printf("    OKIM6258       -\n");
+		printf("    OKIM6295      *0..3\n");
+		printf("    SCC1/K051649  *0..4\n");
+		printf("    K054539       *\n");
+		printf("    HuC6280       *\n");
+		printf("    C140           0..23, Other\n");
+		printf("    K053260       *\n");
+		printf("    Pokey         *\n");
+		printf("    QSound        *0..15\n");
+		printf("    DacCtrl        0..255\n");
+		printf("* not yet working\n");
+		printf("\n");
 		goto EndProgram;
 	}
 	
@@ -567,7 +614,7 @@ static UINT8 PreparseCommands(int ArgCount, char* ArgList[])
 	//UINT16 TempSht;
 	//UINT32 TempLng;
 	
-	memset(&StripVGM, 0x00, sizeof(STRIP_DATA));
+	memset(&StripVGM, 0x00, sizeof(STRIP_DATA) * 2);
 	for (CurArg = 0x00; CurArg < ArgCount; CurArg ++)
 	{
 		CmdStr = ArgList[CurArg] + 0x01;	// Skip the '-' at the beginning
@@ -591,8 +638,8 @@ static UINT8 PreparseCommands(int ArgCount, char* ArgList[])
 			if (RetVal)
 				return RetVal;
 			// TODO: Parse "Strip"-Command
-			//StripVGM.SN76496.All = true;
-			//StripVGM.YM2612.All = true;
+			//StripVGM[0].SN76496.All = true;
+			//StripVGM[0].YM2612.All = true;
 		}
 		if (CmdData != NULL)
 		{
@@ -609,24 +656,29 @@ static UINT8 ParseStripCommand(const char* StripCmd)
 {
 	char* StripTmp;
 	char* ChipPos;
+	char* CpNumPos;
 	char* ChnPos;
 	char* NxtChip;
+	char* StopPos;
 	//char* TempStr;
 	UINT8 StripMode;
 	UINT8 CurChip;
 	STRIP_GENERIC* TempChip;
+	bool* TChipAll;
 	//UINT8 TempByt;
 	//UINT16 TempSht;
 	//UINT32 TempLng;
+	UINT8 ChnNum;
+	UINT8 ChipMask;
+	UINT8 CurCSet;
 	
 	if (StripCmd == NULL)
 		return 0x00;	// Passing no argument is valid
 	
-	// Format: "ChipA:Chn1,Chn2,Chn3;ChipB"
-	StripTmp = (char*)malloc(strlen(StripCmd) + 0x01);
-	strcpy(StripTmp, StripCmd);
+	// Format: "ChipA:Chn1,Chn2,Chn3;ChipB-#;ChipC"
+	StripTmp = _strdup(StripCmd);
 	ChipPos = StripTmp;
-	while(ChipPos != NULL)
+	while(ChipPos != NULL && *ChipPos != '\0')
 	{
 		ChnPos = strchr(ChipPos, ':');
 		NxtChip = strchr(ChipPos, ';');
@@ -650,183 +702,216 @@ static UINT8 ParseStripCommand(const char* StripCmd)
 		switch(StripMode)
 		{
 		case 0x00:	// 00 - Strip All
-			if (NxtChip != NULL)
-			{
-				*NxtChip = 0x00;
-				NxtChip ++;
-			}
+			// nothing to do
 			break;
 		case 0x01:	// 01 - Strip Channels
 			*ChnPos = 0x00;	// ChnPos can't be NULL
 			ChnPos ++;
 			break;
 		}
+		if (NxtChip != NULL)
+		{
+			*NxtChip = '\0';
+			NxtChip ++;
+		}
+		
+		// Detect the chip IDs to strip
+		ChipMask = 0x03;
+		
+		CpNumPos = strchr(ChipPos, '-');
+		if (CpNumPos != NULL)
+		{
+			*CpNumPos = '\0';
+			CpNumPos ++;
+			CurChip = (UINT8)strtol(CpNumPos, NULL, 10);
+			if (CurChip < 2)
+				ChipMask = 1 << CurChip;
+		}
 		
 		// I can compare ChipPos, because I zeroed the split-char
 		if (! stricmp_u(ChipPos, "PSG") || ! stricmp_u(ChipPos, "SN76496"))
 		{
 			CurChip = 0x00;
-			TempChip = (STRIP_GENERIC*)&StripVGM.SN76496;
+			TempChip = (STRIP_GENERIC*)&StripVGM[0].SN76496;
 		}
 		else if (! stricmp_u(ChipPos, "YM2413"))
 		{
 			CurChip = 0x01;
-			TempChip = (STRIP_GENERIC*)&StripVGM.YM2413;
+			TempChip = (STRIP_GENERIC*)&StripVGM[0].YM2413;
 		}
 		else if (! stricmp_u(ChipPos, "YM2612"))
 		{
 			CurChip = 0x02;
-			TempChip = (STRIP_GENERIC*)&StripVGM.YM2612;
+			TempChip = (STRIP_GENERIC*)&StripVGM[0].YM2612;
 		}
 		else if (! stricmp_u(ChipPos, "YM2151"))
 		{
 			CurChip = 0x03;
-			TempChip = (STRIP_GENERIC*)&StripVGM.YM2151;
+			TempChip = (STRIP_GENERIC*)&StripVGM[0].YM2151;
 		}
 		else if (! stricmp_u(ChipPos, "SegaPCM"))
 		{
 			CurChip = 0x04;
-			TempChip = (STRIP_GENERIC*)&StripVGM.SegaPCM;
+			TempChip = (STRIP_GENERIC*)&StripVGM[0].SegaPCM;
 		}
 		else if (! stricmp_u(ChipPos, "RF5C68"))
 		{
 			CurChip = 0x05;
-			TempChip = (STRIP_GENERIC*)&StripVGM.RF5C68;
+			TempChip = (STRIP_GENERIC*)&StripVGM[0].RF5C68;
 		}
 		else if (! stricmp_u(ChipPos, "YM2203"))
 		{
 			CurChip = 0x06;
-			TempChip = (STRIP_GENERIC*)&StripVGM.YM2203;
+			TempChip = (STRIP_GENERIC*)&StripVGM[0].YM2203;
 		}
 		else if (! stricmp_u(ChipPos, "YM2608"))
 		{
 			CurChip = 0x07;
-			TempChip = (STRIP_GENERIC*)&StripVGM.YM2608;
+			TempChip = (STRIP_GENERIC*)&StripVGM[0].YM2608;
 		}
 		else if (! stricmp_u(ChipPos, "YM2610"))
 		{
 			CurChip = 0x08;
-			TempChip = (STRIP_GENERIC*)&StripVGM.YM2610;
+			TempChip = (STRIP_GENERIC*)&StripVGM[0].YM2610;
 		}
 		else if (! stricmp_u(ChipPos, "YM3812"))
 		{
 			CurChip = 0x09;
-			TempChip = (STRIP_GENERIC*)&StripVGM.YM3812;
+			TempChip = (STRIP_GENERIC*)&StripVGM[0].YM3812;
 		}
 		else if (! stricmp_u(ChipPos, "YM3526"))
 		{
 			CurChip = 0x0A;
-			TempChip = (STRIP_GENERIC*)&StripVGM.YM3526;
+			TempChip = (STRIP_GENERIC*)&StripVGM[0].YM3526;
 		}
 		else if (! stricmp_u(ChipPos, "Y8950"))
 		{
 			CurChip = 0x0B;
-			TempChip = (STRIP_GENERIC*)&StripVGM.Y8950;
+			TempChip = (STRIP_GENERIC*)&StripVGM[0].Y8950;
 		}
 		else if (! stricmp_u(ChipPos, "YMF262"))
 		{
 			CurChip = 0x0C;
-			TempChip = (STRIP_GENERIC*)&StripVGM.YMF262;
+			TempChip = (STRIP_GENERIC*)&StripVGM[0].YMF262;
 		}
 		else if (! stricmp_u(ChipPos, "YMF278B"))
 		{
 			CurChip = 0x0D;
-			TempChip = (STRIP_GENERIC*)&StripVGM.YMF278B_FM;
+			if (StripMode == 0x00)
+			{
+				TempChip = NULL;
+				TChipAll = &StripVGM[0].YMF278B_All;
+			}
+			else
+			{
+				TempChip = (STRIP_GENERIC*)&StripVGM[0].YMF278B_WT;
+			}
+		}
+		else if (! stricmp_u(ChipPos, "YMF278B_WT"))
+		{
+			CurChip = 0x0D;
+			TempChip = (STRIP_GENERIC*)&StripVGM[0].YMF278B_WT;
+		}
+		else if (! stricmp_u(ChipPos, "YMF278B_FM"))
+		{
+			CurChip = 0x8D;
+			TempChip = (STRIP_GENERIC*)&StripVGM[0].YMF278B_FM;
 		}
 		else if (! stricmp_u(ChipPos, "YMF271"))
 		{
 			CurChip = 0x0E;
-			TempChip = (STRIP_GENERIC*)&StripVGM.YMF271;
+			TempChip = (STRIP_GENERIC*)&StripVGM[0].YMF271;
 		}
 		else if (! stricmp_u(ChipPos, "YMZ280B"))
 		{
 			CurChip = 0x0F;
-			TempChip = (STRIP_GENERIC*)&StripVGM.YMZ280B;
+			TempChip = (STRIP_GENERIC*)&StripVGM[0].YMZ280B;
 		}
 		else if (! stricmp_u(ChipPos, "RF5C164"))
 		{
 			CurChip = 0x10;
-			TempChip = (STRIP_GENERIC*)&StripVGM.RF5C164;
+			TempChip = (STRIP_GENERIC*)&StripVGM[0].RF5C164;
 		}
 		else if (! stricmp_u(ChipPos, "PWM"))
 		{
 			CurChip = 0x11;
-			TempChip = (STRIP_GENERIC*)&StripVGM.PWM;
+			TempChip = NULL;
+			TChipAll = &StripVGM[0].PWM.All;
 		}
 		else if (! stricmp_u(ChipPos, "AY8910"))
 		{
 			CurChip = 0x12;
-			TempChip = (STRIP_GENERIC*)&StripVGM.AY8910;
+			TempChip = (STRIP_GENERIC*)&StripVGM[0].AY8910;
 		}
 		else if (! stricmp_u(ChipPos, "GBDMG"))
 		{
 			CurChip = 0x13;
-			TempChip = (STRIP_GENERIC*)&StripVGM.GBDMG;
+			TempChip = (STRIP_GENERIC*)&StripVGM[0].GBDMG;
 		}
 		else if (! stricmp_u(ChipPos, "NESAPU"))
 		{
 			CurChip = 0x14;
-			TempChip = (STRIP_GENERIC*)&StripVGM.NESAPU;
+			TempChip = (STRIP_GENERIC*)&StripVGM[0].NESAPU;
 		}
 		else if (! stricmp_u(ChipPos, "MultiPCM"))
 		{
 			CurChip = 0x15;
-			TempChip = (STRIP_GENERIC*)&StripVGM.MultiPCM;
+			TempChip = (STRIP_GENERIC*)&StripVGM[0].MultiPCM;
 		}
 		else if (! stricmp_u(ChipPos, "UPD7759"))
 		{
 			CurChip = 0x16;
-			TempChip = (STRIP_GENERIC*)&StripVGM.UPD7759;
+			TempChip = (STRIP_GENERIC*)&StripVGM[0].UPD7759;
 		}
 		else if (! stricmp_u(ChipPos, "OKIM6258"))
 		{
 			CurChip = 0x17;
-			TempChip = (STRIP_GENERIC*)&StripVGM.OKIM6258;
+			TempChip = (STRIP_GENERIC*)&StripVGM[0].OKIM6258;
 		}
 		else if (! stricmp_u(ChipPos, "OKIM6295"))
 		{
 			CurChip = 0x18;
-			TempChip = (STRIP_GENERIC*)&StripVGM.OKIM6295;
+			TempChip = (STRIP_GENERIC*)&StripVGM[0].OKIM6295;
 		}
-		else if (! stricmp_u(ChipPos, "SCC1"))
+		else if (! stricmp_u(ChipPos, "SCC1") || ! stricmp_u(ChipPos, "K051649"))
 		{
 			CurChip = 0x19;
-			TempChip = (STRIP_GENERIC*)&StripVGM.K051649;
+			TempChip = (STRIP_GENERIC*)&StripVGM[0].K051649;
 		}
 		else if (! stricmp_u(ChipPos, "K054539"))
 		{
 			CurChip = 0x1A;
-			TempChip = (STRIP_GENERIC*)&StripVGM.K054539;
+			TempChip = (STRIP_GENERIC*)&StripVGM[0].K054539;
 		}
 		else if (! stricmp_u(ChipPos, "HuC6280"))
 		{
 			CurChip = 0x1B;
-			TempChip = (STRIP_GENERIC*)&StripVGM.HuC6280;
+			TempChip = (STRIP_GENERIC*)&StripVGM[0].HuC6280;
 		}
 		else if (! stricmp_u(ChipPos, "C140"))
 		{
 			CurChip = 0x1C;
-			TempChip = (STRIP_GENERIC*)&StripVGM.C140;
+			TempChip = (STRIP_GENERIC*)&StripVGM[0].C140;
 		}
 		else if (! stricmp_u(ChipPos, "K053260"))
 		{
 			CurChip = 0x1D;
-			TempChip = (STRIP_GENERIC*)&StripVGM.K053260;
+			TempChip = (STRIP_GENERIC*)&StripVGM[0].K053260;
 		}
 		else if (! stricmp_u(ChipPos, "Pokey"))
 		{
 			CurChip = 0x1E;
-			TempChip = (STRIP_GENERIC*)&StripVGM.Pokey;
+			TempChip = (STRIP_GENERIC*)&StripVGM[0].Pokey;
 		}
 		else if (! stricmp_u(ChipPos, "QSound"))
 		{
 			CurChip = 0x1F;
-			TempChip = (STRIP_GENERIC*)&StripVGM.QSound;
+			TempChip = (STRIP_GENERIC*)&StripVGM[0].QSound;
 		}
 		else if (! stricmp_u(ChipPos, "DacCtrl"))
 		{
 			CurChip = 0x7F;
-			TempChip = (STRIP_GENERIC*)&StripVGM.DacCtrl;
+			TempChip = (STRIP_GENERIC*)&StripVGM[0].DacCtrl;
 		}
 		else
 		{
@@ -834,28 +919,79 @@ static UINT8 ParseStripCommand(const char* StripCmd)
 			return 0x80;
 		}
 		
-		switch(StripMode)
+		for (CurCSet = 0; CurCSet < 2; CurCSet ++)
 		{
-		case 0x00:	// 00 - Strip All
-			if (CurChip != 0x0D)	// the OPL4 is special
-				TempChip->All = true;
-			else
-				StripVGM.YMF278B_All = true;
-			break;
-		case 0x01:	// 01 - Strip Channels
-			// ChnPos contains the Channel-List
-			if (CurChip == 0x00 && ! stricmp_u(ChnPos, "Stereo"))
+			if (! (ChipMask & (1 << CurCSet)))
 			{
-				StripVGM.SN76496.Other |= 0x01;
+				TempChip = (STRIP_GENERIC*)( (STRIP_DATA*)TempChip + 1 );
+				continue;	// bit not set - skip
 			}
-			printf("TODO ...\n");
-			//return 0x10;
-			//ChnPos ++;
-			break;
+			
+			switch(StripMode)
+			{
+			case 0x00:	// 00 - Strip All
+				if (TempChip == NULL)
+					*TChipAll = true;
+				else
+					TempChip->All = true;
+				break;
+			case 0x01:	// 01 - Strip Channels
+				// ChnPos contains the Channel-List
+				ChipPos = ChnPos;
+				while(ChipPos != NULL)
+				{
+					ChnPos = strchr(ChipPos, ',');
+					if (ChnPos != NULL)
+					{
+						*ChnPos = '\0';
+						ChnPos ++;
+					}
+					
+					ChnNum = (UINT8)strtoul(ChipPos, &StopPos, 0);
+					if (StopPos != ChipPos)
+					{
+						if (CurChip == 0x7F)
+							StripVGM[CurCSet].DacCtrl.	// set the n-th bit in the array
+								StrMsk[ChnNum >> 3] |= (1 << (ChnNum & 0x07));
+						else
+							TempChip->ChnMask |= (1 << ChnNum);
+					}
+					else
+					{
+						if (CurChip == 0x00 && ! stricmp_u(ChipPos, "Stereo"))
+						{
+							StripVGM[CurCSet].SN76496.Other |= 0x01;
+						}
+						else if (CurChip == 0x05 && ! stricmp_u(ChipPos, "Mem"))
+						{
+							StripVGM[CurCSet].RF5C68.Other |= 0x01;
+						}
+						else if (CurChip == 0x10 && ! stricmp_u(ChipPos, "Mem"))
+						{
+							StripVGM[CurCSet].RF5C164.Other |= 0x01;
+						}
+						else if (CurChip == 0x1C && ! stricmp_u(ChipPos, "Other"))
+						{
+							StripVGM[CurCSet].C140.Other |= 0x01;
+						}
+						else
+						{
+							printf("Unknown channel: %s\n", ChipPos);
+						}
+					}
+					
+					ChipPos = ChnPos;
+				}
+				break;
+			}
+			
+			// advance by one STRIP_DATA
+			TempChip = (STRIP_GENERIC*)( (STRIP_DATA*)TempChip + 1 );
 		}
 		
 		ChipPos = NxtChip;
 	}
+	free(StripTmp);
 	
 	return 0x00;
 }
@@ -1007,9 +1143,9 @@ static UINT8 PatchVGM(int ArgCount, char* ArgList[])
 		{
 			if (VGMHead.lngVersion >= 0x150)
 			{
+#if 0
 				NewVal = sizeof(VGM_HEADER);
 				ChipHzPnt = (UINT32*)((UINT8*)&VGMHead + NewVal);
-				
 				while(ChipHzPnt > &VGMHead.lngDataOffset)
 				{
 					ChipHzPnt --;
@@ -1017,6 +1153,17 @@ static UINT8 PatchVGM(int ArgCount, char* ArgList[])
 						break;
 					NewVal -= 0x04;
 				}
+#else
+				NewVal = RealHdrSize;
+				ChipHzPnt = (UINT32*)(&VGMData[NewVal]);
+				while(ChipHzPnt > &VGMData[0x34])
+				{
+					ChipHzPnt --;
+					if (*ChipHzPnt)
+						break;
+					NewVal -= 0x04;
+				}
+#endif
 				NewVal = (NewVal + 0x3F) >> 6 << 6;	// round up to 0x40 bytes;
 				
 				//OldVal = 0x34 + VGMHead.lngDataOffset;
@@ -1225,7 +1372,7 @@ static UINT8 PatchVGM(int ArgCount, char* ArgList[])
 				ChipHzPnt = &VGMHead.lngHzOKIM6295;
 				OldVal = 0x161;
 			}
-			else if (! stricmp_u(CmdStr, "SCC1"))
+			else if (! stricmp_u(CmdStr, "SCC1") || ! stricmp_u(CmdStr, "K051649"))
 			{
 				ChipHzPnt = &VGMHead.lngHzK051649;
 				OldVal = 0x161;
@@ -1690,8 +1837,13 @@ static UINT32 CheckForMinVersion(void)
 		MinVer = 0x151;
 	else if (TempLng <= 0xB4)
 		MinVer = 0x161;
-	else
+	else if (TempLng == 0xBC)
 		MinVer = 0x170;
+	else //if (TempLng < 0xF0)
+		MinVer = 0x171;
+	if (VGMHead.lngVersion > 0x171)
+		return VGMHead.lngVersion;
+	
 	if (MinVer == 0x150)
 	{
 		// check for dual chip usage of <1.51 chips
@@ -2080,10 +2232,10 @@ static UINT8 CheckVGMFile(UINT8 Mode)
 					{
 						CmdWarning[Command] = true;
 						if (ChipCommandIsUnknown(Command))
-							printf("Warning! Unknown Command %02X found!\n", Command);
+							printf("0x%X: Warning! Unknown Command %02X found!\n", CurPos, Command);
 						else
-							printf("Warning! Command %02X found, but associated chip not "
-									"used!\n", Command);
+							printf("0x%X: Warning! Command %02X found, but associated chip not "
+									"used!\n", CurPos, Command);
 					}
 					break;
 				case 0x50:
@@ -2094,10 +2246,10 @@ static UINT8 CheckVGMFile(UINT8 Mode)
 					{
 						CmdWarning[Command] = true;
 						if (ChipCommandIsUnknown(Command))
-							printf("Warning! Unknown Command %02X found!\n", Command);
+							printf("0x%X: Warning! Unknown Command %02X found!\n", CurPos, Command);
 						else
-							printf("Warning! Command %02X found, but associated chip not "
-									"used!\n", Command);
+							printf("0x%X: Warning! Command %02X found, but associated chip not "
+									"used!\n", CurPos, Command);
 					}
 					break;
 				case 0xC0:
@@ -2107,10 +2259,10 @@ static UINT8 CheckVGMFile(UINT8 Mode)
 					{
 						CmdWarning[Command] = true;
 						if (ChipCommandIsUnknown(Command))
-							printf("Warning! Unknown Command %02X found!\n", Command);
+							printf("0x%X: Warning! Unknown Command %02X found!\n", CurPos, Command);
 						else
-							printf("Warning! Command %02X found, but associated chip not "
-									"used!\n", Command);
+							printf("0x%X: Warning! Command %02X found, but associated chip not "
+									"used!\n", CurPos, Command);
 					}
 					break;
 				case 0xE0:
@@ -2120,10 +2272,10 @@ static UINT8 CheckVGMFile(UINT8 Mode)
 					{
 						CmdWarning[Command] = true;
 						if (ChipCommandIsUnknown(Command))
-							printf("Warning! Unknown Command %02X found!\n", Command);
+							printf("0x%X: Warning! Unknown Command %02X found!\n", CurPos, Command);
 						else
-							printf("Warning! Command %02X found, but associated chip not "
-									"used!\n", Command);
+							printf("0x%X: Warning! Command %02X found, but associated chip not "
+									"used!\n", CurPos, Command);
 					}
 					break;
 				default:
@@ -2133,7 +2285,7 @@ static UINT8 CheckVGMFile(UINT8 Mode)
 					{
 						CmdWarning[Command] = true;
 						BadCmdFound = true;
-						printf("Warning! Command with unknown argument length found!\n");
+						printf("0x%X: Warning! Command with unknown argument length found!\n", CurPos);
 					}
 					break;
 				}
@@ -2253,13 +2405,19 @@ static UINT8 CheckVGMFile(UINT8 Mode)
 			if (GD3Ver == 0x100)
 			{
 				VGMErr |= 0x20;
+				// Catch the special case where VGMTool r2 adds an additional \0 character.
+				// In that case, -CheckT does an automatic fix.
 				if (TempLng == CmdLen - 0x02 && ! *(UINT16*)(VGMData + CurPos + 0x0C + TempLng))
 					GD3Flags |= 0x80;
 			}
-			TempLng = CmdLen;
+			else
+			{
+				// unknown GD3 version - don't fix length
+			}
 		}
 		
-		TempLng += 0x0C;
+		//TempLng += 0x0C;	// calculate EOF based on calculated GD3 length
+		TempLng = 0x0C + CmdLen;	// calculate EOF based on current GD3 length
 		if (CurPos + TempLng != 0x04 + VGMHead.lngEOFOffset)	// Check EOF Offset
 		{
 			printf("Wrong EOF Offset! (Header: 0x%06lX  File: 0x%06lX)\n",
@@ -2298,18 +2456,24 @@ static UINT8 CheckVGMFile(UINT8 Mode)
 		printf(" !");
 	printf("\n");
 	
-	if (! VGMErr)
+	if (! VGMErr && ! BadCmdFound)
 		return 0x00;	// No errors - It's all okay
 	
-	if (BadCmdFound && VGMHead.lngVersion > 0x161)
+	if (BadCmdFound)
 	{
-		printf("Unknown Commands found and VGM version newer than supported!\n"
-				"Set to Read-Only Mode!\n");
-		Mode &= ~0x03;	// Set Read-Only-Mode
+		Mode |= 0x10;
+		if (VGMHead.lngVersion > 0x161)
+		{
+			printf("Unknown Commands found and VGM version newer than supported!\n"
+					"Set to Read-Only Mode!\n");
+			Mode &= ~0x03;	// Set Read-Only-Mode
+		}
+		if (! VGMErr)
+			Mode &= ~0x03;	// If there are no fixable errors, we don't need to ask.
 	}
 	
 	printf("There are some errors. ");
-	if ((Mode & 0x03) == 0x00)
+	if ((Mode & 0x13) == 0x00)
 	{
 		printf("Please try -Check to fix them.\n");
 	}
@@ -2698,7 +2862,7 @@ static UINT32 CalcGD3Length(UINT32 DataPos, UINT16 TagEntries)
 	return CurPos - DataPos;
 }
 
-static INLINE bool GetFromMask(const UINT8* Mask, const UINT8 Data)
+INLINE bool GetFromMask(const UINT8* Mask, const UINT8 Data)
 {
 	return (Mask[Data >> 3] >> (Data & 0x07)) & 0x01;
 }
@@ -2723,7 +2887,7 @@ static void StripVGMData(void)
 	bool WriteEvent;
 	UINT32 NewLoopS;
 	bool WroteCmd80;
-	const UINT8* VGMPnt;
+	UINT8* VGMPnt;
 	
 	DstData = (UINT8*)malloc(VGMDataLen + 0x100);
 	AllDelay = 0;
@@ -2781,7 +2945,7 @@ static void StripVGMData(void)
 				break;
 			case 0x80:
 				// Handling is done at WriteEvent
-				if (StripVGM.YM2612.All || StripVGM.YM2612.ChnMask & (1 << 6))
+				if (StripVGM[0].YM2612.All || StripVGM[0].YM2612.ChnMask & (1 << 6))
 				{
 					CmdDelay = Command & 0x0F;
 					WriteEvent = false;
@@ -2949,19 +3113,20 @@ static void StripVGMData(void)
 					switch(TempByt & 0x3F)
 					{
 					case 0x00:	// YM2612 PCM Data
-						if (StripVGM.YM2612.All || (StripVGM.YM2612.ChnMask & (0x01 << 6)))
+						if (StripVGM[ChipID].YM2612.All ||
+							(StripVGM[ChipID].YM2612.ChnMask & (0x01 << 6)))
 							WriteEvent = false;
 						break;
 					case 0x01:	// RF5C68 PCM Database
-						if (StripVGM.RF5C68.All)
+						if (StripVGM[ChipID].RF5C68.All)
 							WriteEvent = false;
 						break;
 					case 0x02:	// RF5C164 PCM Database
-						if (StripVGM.RF5C164.All)
+						if (StripVGM[ChipID].RF5C164.All)
 							WriteEvent = false;
 						break;
 					default:
-						if (StripVGM.Unknown)
+						if (StripVGM[ChipID].Unknown)
 							WriteEvent = false;
 						break;
 					}
@@ -2970,61 +3135,61 @@ static void StripVGMData(void)
 					switch(TempByt)
 					{
 					case 0x80:	// SegaPCM ROM
-						if (StripVGM.SegaPCM.All)
+						if (StripVGM[ChipID].SegaPCM.All)
 							WriteEvent = false;
 						break;
 					case 0x81:	// YM2608 DELTA-T ROM Image
-						if (StripVGM.YM2608.All)
+						if (StripVGM[ChipID].YM2608.All)
 							WriteEvent = false;
 						break;
 					case 0x82:	// YM2610 ADPCM ROM Image
 					case 0x83:	// YM2610 DELTA-T ROM Image
-						if (StripVGM.YM2610.All)
+						if (StripVGM[ChipID].YM2610.All)
 							WriteEvent = false;
 						break;
 					case 0x84:	// YMF278B ROM Image
 					case 0x87:	// YMF278B RAM Image
-						if (StripVGM.YMF278B_All || StripVGM.YMF278B_WT.All)
+						if (StripVGM[ChipID].YMF278B_All || StripVGM[ChipID].YMF278B_WT.All)
 							WriteEvent = false;
 						break;
 					case 0x85:	// YMF271 ROM Image
-						if (StripVGM.YMF271.All)
+						if (StripVGM[ChipID].YMF271.All)
 							WriteEvent = false;
 						break;
 					case 0x86:	// YMZ280B ROM Image
-						if (StripVGM.YMZ280B.All)
+						if (StripVGM[ChipID].YMZ280B.All)
 							WriteEvent = false;
 						break;
 					case 0x88:	// Y8950 DELTA-T ROM Image
-						if (StripVGM.Y8950.All)
+						if (StripVGM[ChipID].Y8950.All)
 							WriteEvent = false;
 						break;
 					case 0x89:	// MultiPCM ROM Image
-						if (StripVGM.MultiPCM.All)
+						if (StripVGM[ChipID].MultiPCM.All)
 							WriteEvent = false;
 						break;
 					case 0x8A:	// UPD7759 ROM Image
-						if (StripVGM.UPD7759.All)
+						if (StripVGM[ChipID].UPD7759.All)
 							WriteEvent = false;
 						break;
 					case 0x8B:	// OKIM6295 ROM Image
-						if (StripVGM.OKIM6295.All)
+						if (StripVGM[ChipID].OKIM6295.All)
 							WriteEvent = false;
 						break;
 					case 0x8C:	// K054539 ROM Image
-						if (StripVGM.K054539.All)
+						if (StripVGM[ChipID].K054539.All)
 							WriteEvent = false;
 						break;
 					case 0x8D:	// C140 ROM Image
-						if (StripVGM.C140.All)
+						if (StripVGM[ChipID].C140.All)
 							WriteEvent = false;
 						break;
 					case 0x8E:	// K053260 ROM Image
-						if (StripVGM.K053260.All)
+						if (StripVGM[ChipID].K053260.All)
 							WriteEvent = false;
 						break;
 					case 0x8F:	// Q-Sound ROM Image
-						if (StripVGM.QSound.All)
+						if (StripVGM[ChipID].QSound.All)
 							WriteEvent = false;
 						break;
 					}
@@ -3033,11 +3198,11 @@ static void StripVGMData(void)
 					switch(TempByt)
 					{
 					case 0xC0:	// RF5C68 RAM Database
-						if (StripVGM.RF5C68.All)
+						if (StripVGM[ChipID].RF5C68.All)
 							WriteEvent = false;
 						break;
 					case 0xC1:	// RF5C164 RAM Database
-						if (StripVGM.RF5C164.All)
+						if (StripVGM[ChipID].RF5C164.All)
 							WriteEvent = false;
 						break;
 					}
@@ -3047,7 +3212,8 @@ static void StripVGMData(void)
 				break;
 			case 0xE0:	// Seek to PCM Data Bank Pos
 				memcpy(&TempLng, &VGMPnt[0x01], 0x04);
-				if (StripVGM.YM2612.All || StripVGM.YM2612.ChnMask & (1 << 6))
+				if (StripVGM[ChipID].YM2612.All ||
+					StripVGM[ChipID].YM2612.ChnMask & (1 << 6))
 					WriteEvent = false;
 				CmdLen = 0x05;
 				break;
@@ -3065,7 +3231,7 @@ static void StripVGMData(void)
 				CmdLen = 0x04;
 				break;
 			case 0xB0:	// RF5C68 register write
-				WriteEvent = rf5c68_reg_write(VGMPnt[0x01], VGMPnt[0x02]);
+				WriteEvent = rf5c68_reg_write(VGMPnt[0x01], &VGMPnt[0x02]);
 				CmdLen = 0x03;
 				break;
 			case 0xC1:	// RF5C68 memory write
@@ -3112,166 +3278,187 @@ static void StripVGMData(void)
 				CmdLen = 0x03;
 				break;
 			case 0xD0:	// YMF278B register write
+				ChipID = (VGMPnt[0x01] & 0x80) >> 7;
 				WriteEvent = true;
-				if (StripVGM.YMF278B_All ||
-					(StripVGM.YMF278B_FM.All && StripVGM.YMF278B_WT.All))
+				if (StripVGM[ChipID].YMF278B_All ||
+					(StripVGM[ChipID].YMF278B_FM.All && StripVGM[ChipID].YMF278B_WT.All))
 					WriteEvent = false;
 				
-				if (StripVGM.YMF278B_FM.All && VGMPnt[0x01] < 0x02 &&
+				if (StripVGM[ChipID].YMF278B_FM.All && VGMPnt[0x01] < 0x02 &&
 					! (VGMPnt[0x01] == 0x01 && VGMPnt[0x02] == 0x05))
 					WriteEvent = false;	// Don't kill the WaveTable-On Command at Reg 0x105
-				if (StripVGM.YMF278B_WT.All && VGMPnt[0x01] == 0x02)
+				if (StripVGM[ChipID].YMF278B_WT.All && VGMPnt[0x01] == 0x02)
 					WriteEvent = false;
-				CmdLen = 0x03;
+				CmdLen = 0x04;
 				break;
 			case 0xD1:	// YMF271 register write
+				ChipID = (VGMPnt[0x01] & 0x80) >> 7;
 				WriteEvent = true;
-				if (StripVGM.YMF271.All)
+				if (StripVGM[ChipID].YMF271.All)
 					WriteEvent = false;
-				CmdLen = 0x03;
+				CmdLen = 0x04;
 				break;
 			case 0xB1:	// RF5C164 register write
-				WriteEvent = rf5c164_reg_write(VGMPnt[0x01], VGMPnt[0x02]);
+				SetChipSet(0x00);
+				WriteEvent = rf5c164_reg_write(VGMPnt[0x01], &VGMPnt[0x02]);
 				CmdLen = 0x03;
 				break;
 			case 0xC2:	// RF5C164 memory write
+				SetChipSet(0x00);
 				memcpy(&TempSht, &VGMPnt[0x01], 0x02);
 				WriteEvent = rf5c164_mem_write(TempSht, VGMPnt[0x03]);
 				CmdLen = 0x04;
 				break;
 			case 0xB2:	// PWM register write
-				if (StripVGM.PWM.All)
+				ChipID = 0x00;
+				if (StripVGM[ChipID].PWM.All)
 					WriteEvent = false;
 				CmdLen = 0x03;
 				break;
 			case 0x68:	// PCM RAM write
+				ChipID = 0x00;
 				TempByt = VGMPnt[0x02];
 				switch(TempByt)
 				{
 				case 0xC0:	// RF5C68 RAM Database
-					if (StripVGM.RF5C68.All)
+					if (StripVGM[ChipID].RF5C68.All)
 						WriteEvent = false;
 					break;
 				case 0xC1:	// RF5C164 RAM Database
-					if (StripVGM.RF5C164.All)
+					if (StripVGM[ChipID].RF5C164.All)
 						WriteEvent = false;
 					break;
 				}
 				CmdLen = 0x0C;
 				break;
 			case 0xA0:	// AY8910 register write
-				if (StripVGM.AY8910.All)
+				ChipID = (VGMPnt[0x01] & 0x80) >> 7;
+				if (StripVGM[ChipID].AY8910.All)
 					WriteEvent = false;
 				CmdLen = 0x03;
 				break;
 			case 0xB3:	// GameBoy DMG write
-				if (StripVGM.GBDMG.All)
+				ChipID = (VGMPnt[0x01] & 0x80) >> 7;
+				if (StripVGM[ChipID].GBDMG.All)
 					WriteEvent = false;
 				CmdLen = 0x03;
 				break;
 			case 0xB4:	// NES APU write
-				if (StripVGM.NESAPU.All)
+				ChipID = (VGMPnt[0x01] & 0x80) >> 7;
+				if (StripVGM[ChipID].NESAPU.All)
 					WriteEvent = false;
 				CmdLen = 0x03;
 				break;
 			case 0xB5:	// MultiPCM write
-				if (StripVGM.MultiPCM.All)
+				ChipID = (VGMPnt[0x01] & 0x80) >> 7;
+				if (StripVGM[ChipID].MultiPCM.All)
 					WriteEvent = false;
 				CmdLen = 0x03;
 				break;
 			case 0xC3:	// MultiPCM memory write
-				if (StripVGM.MultiPCM.All)
+				ChipID = (VGMPnt[0x01] & 0x80) >> 7;
+				if (StripVGM[ChipID].MultiPCM.All)
 					WriteEvent = false;
 				CmdLen = 0x04;
 				break;
 			case 0xB6:	// UPD7759 write
-				if (StripVGM.UPD7759.All)
+				ChipID = (VGMPnt[0x01] & 0x80) >> 7;
+				if (StripVGM[ChipID].UPD7759.All)
 					WriteEvent = false;
 				CmdLen = 0x03;
 				break;
 			case 0xB7:	// OKIM6258 write
-				if (StripVGM.OKIM6258.All)
+				ChipID = (VGMPnt[0x01] & 0x80) >> 7;
+				if (StripVGM[ChipID].OKIM6258.All)
 					WriteEvent = false;
 				CmdLen = 0x03;
 				break;
 			case 0xB8:	// OKIM6295 write
-				if (StripVGM.OKIM6295.All)
+				ChipID = (VGMPnt[0x01] & 0x80) >> 7;
+				if (StripVGM[ChipID].OKIM6295.All)
 					WriteEvent = false;
 				CmdLen = 0x03;
 				break;
 			case 0xD2:	// SCC1 write
-				if (StripVGM.K051649.All)
+				ChipID = (VGMPnt[0x01] & 0x80) >> 7;
+				if (StripVGM[ChipID].K051649.All)
 					WriteEvent = false;
 				CmdLen = 0x04;
 				break;
 			case 0xD3:	// K054539 write
-				if (StripVGM.K054539.All)
+				ChipID = (VGMPnt[0x01] & 0x80) >> 7;
+				if (StripVGM[ChipID].K054539.All)
 					WriteEvent = false;
 				CmdLen = 0x04;
 				break;
 			case 0xB9:	// HuC6280 write
-				if (StripVGM.HuC6280.All)
+				ChipID = (VGMPnt[0x01] & 0x80) >> 7;
+				if (StripVGM[ChipID].HuC6280.All)
 					WriteEvent = false;
 				CmdLen = 0x03;
 				break;
 			case 0xD4:	// C140 write
+				ChipID = (VGMPnt[0x01] & 0x80) >> 7;
 				SetChipSet((VGMPnt[0x01] & 0x80) >> 7);
 				WriteEvent = c140_write(VGMPnt[0x01] & 0x7F, VGMPnt[0x02], VGMPnt[0x03]);
 				CmdLen = 0x04;
 				break;
 			case 0xBA:	// K053260 write
-				if (StripVGM.K053260.All)
+				ChipID = (VGMPnt[0x01] & 0x80) >> 7;
+				if (StripVGM[ChipID].K053260.All)
 					WriteEvent = false;
 				CmdLen = 0x03;
 				break;
 			case 0xBB:	// Pokey write
-				if (StripVGM.Pokey.All)
+				ChipID = (VGMPnt[0x01] & 0x80) >> 7;
+				if (StripVGM[ChipID].Pokey.All)
 					WriteEvent = false;
 				CmdLen = 0x03;
 				break;
 			case 0xC4:	// Q-Sound write
-				if (StripVGM.QSound.All)
+				ChipID = 0x00;
+				if (StripVGM[ChipID].QSound.All)
 					WriteEvent = false;
 				CmdLen = 0x04;
 				break;
 			case 0x90:	// DAC Ctrl: Setup Chip
-				if (StripVGM.DacCtrl.All ||
-					GetFromMask(StripVGM.DacCtrl.StrMsk, VGMPnt[0x01]))
+				if (StripVGM[0].DacCtrl.All ||
+					GetFromMask(StripVGM[0].DacCtrl.StrMsk, VGMPnt[0x01]))
 					WriteEvent = false;
 				CmdLen = 0x05;
 				break;
 			case 0x91:	// DAC Ctrl: Set Data
-				if (StripVGM.DacCtrl.All ||
-					GetFromMask(StripVGM.DacCtrl.StrMsk, VGMPnt[0x01]))
+				if (StripVGM[0].DacCtrl.All ||
+					GetFromMask(StripVGM[0].DacCtrl.StrMsk, VGMPnt[0x01]))
 					WriteEvent = false;
 				CmdLen = 0x05;
 				break;
 			case 0x92:	// DAC Ctrl: Set Freq
-				if (StripVGM.DacCtrl.All ||
-					GetFromMask(StripVGM.DacCtrl.StrMsk, VGMPnt[0x01]))
+				if (StripVGM[0].DacCtrl.All ||
+					GetFromMask(StripVGM[0].DacCtrl.StrMsk, VGMPnt[0x01]))
 					WriteEvent = false;
 				CmdLen = 0x06;
 				break;
 			case 0x93:	// DAC Ctrl: Play from Start Pos
-				if (StripVGM.DacCtrl.All ||
-					GetFromMask(StripVGM.DacCtrl.StrMsk, VGMPnt[0x01]))
+				if (StripVGM[0].DacCtrl.All ||
+					GetFromMask(StripVGM[0].DacCtrl.StrMsk, VGMPnt[0x01]))
 					WriteEvent = false;
 				CmdLen = 0x0B;
 				break;
 			case 0x94:	// DAC Ctrl: Stop immediately
-				if (StripVGM.DacCtrl.All ||
-					GetFromMask(StripVGM.DacCtrl.StrMsk, VGMPnt[0x01]))
+				if (StripVGM[0].DacCtrl.All ||
+					GetFromMask(StripVGM[0].DacCtrl.StrMsk, VGMPnt[0x01]))
 					WriteEvent = false;
 				CmdLen = 0x02;
 				break;
 			case 0x95:	// DAC Ctrl: Play Block (small)
-				if (StripVGM.DacCtrl.All ||
-					GetFromMask(StripVGM.DacCtrl.StrMsk, VGMPnt[0x01]))
+				if (StripVGM[0].DacCtrl.All ||
+					GetFromMask(StripVGM[0].DacCtrl.StrMsk, VGMPnt[0x01]))
 					WriteEvent = false;
 				CmdLen = 0x05;
 				break;
 			default:
-				if (StripVGM.Unknown)
+				if (StripVGM[0].Unknown)
 					WriteEvent = false;
 				switch(Command & 0xF0)
 				{
@@ -3455,91 +3642,53 @@ static void StripVGMData(void)
 	VGMDataLen = DstPos;
 	VGMHead.lngEOFOffset = VGMDataLen - 0x04;
 	
-	if (StripVGM.SN76496.All)
+	if (StripClock(&StripVGM[0].SN76496.All, &VGMHead.lngHzPSG))
 	{
-		VGMHead.lngHzPSG = 0;
 		VGMHead.shtPSG_Feedback = 0x00;
 		VGMHead.bytPSG_SRWidth = 0x00;
 		VGMHead.bytPSG_Flags = 0x00;
 	}
-	if (StripVGM.YM2413.All)
-		VGMHead.lngHzYM2413 = 0;
-	if (StripVGM.YM2612.All)
-		VGMHead.lngHzYM2612 = 0;
-	if (StripVGM.YM2151.All)
-		VGMHead.lngHzYM2151 = 0;
-	if (StripVGM.SegaPCM.All)
-	{
-		VGMHead.lngHzSPCM = 0;
+	StripClock(&StripVGM[0].YM2413.All, &VGMHead.lngHzYM2413);
+	StripClock(&StripVGM[0].YM2612.All, &VGMHead.lngHzYM2612);
+	StripClock(&StripVGM[0].YM2151.All, &VGMHead.lngHzYM2151);
+	if (StripClock(&StripVGM[0].SegaPCM.All, &VGMHead.lngHzSPCM))
 		VGMHead.lngSPCMIntf = 0x00;
-	}
-	if (StripVGM.RF5C68.All)
-		VGMHead.lngHzRF5C68 = 0;
-	if (StripVGM.YM2203.All)
-	{
-		VGMHead.lngHzYM2203 = 0;
+	StripClock(&StripVGM[0].RF5C68.All, &VGMHead.lngHzRF5C68);
+	if (StripClock(&StripVGM[0].YM2203.All, &VGMHead.lngHzYM2203))
 		VGMHead.bytAYFlagYM2203 = 0x00;
-	}
-	if (StripVGM.YM2608.All)
-	{
-		VGMHead.lngHzYM2608 = 0;
+	if (StripClock(&StripVGM[0].YM2608.All, &VGMHead.lngHzYM2608))
 		VGMHead.bytAYFlagYM2608 = 0x00;
-	}
-	if (StripVGM.YM2610.All)
-		VGMHead.lngHzYM2610 = 0;
-	if (StripVGM.YM3812.All)
-		VGMHead.lngHzYM3812 = 0;
-	if (StripVGM.YM3526.All)
-		VGMHead.lngHzYM3526 = 0;
-	if (StripVGM.Y8950.All)
-		VGMHead.lngHzY8950 = 0;
-	if (StripVGM.YMF262.All)
-		VGMHead.lngHzYMF262 = 0;
-	if (StripVGM.YMF278B_All)
-		VGMHead.lngHzYMF278B = 0;
-	if (StripVGM.YMF271.All)
-		VGMHead.lngHzYMF271 = 0;
-	if (StripVGM.YMZ280B.All)
-		VGMHead.lngHzYMZ280B = 0;
-	if (StripVGM.RF5C164.All)
-		VGMHead.lngHzRF5C164 = 0;
-	if (StripVGM.PWM.All)
-		VGMHead.lngHzPWM = 0;
-	if (StripVGM.AY8910.All)
+	StripClock(&StripVGM[0].YM2610.All, &VGMHead.lngHzYM2610);
+	StripClock(&StripVGM[0].YM3812.All, &VGMHead.lngHzYM3812);
+	StripClock(&StripVGM[0].YM3526.All, &VGMHead.lngHzYM3526);
+	StripClock(&StripVGM[0].Y8950.All, &VGMHead.lngHzY8950);
+	StripClock(&StripVGM[0].YMF278B_All, &VGMHead.lngHzYMF278B);
+	StripClock(&StripVGM[0].YMF271.All, &VGMHead.lngHzYMF271);
+	StripClock(&StripVGM[0].YMZ280B.All, &VGMHead.lngHzYMZ280B);
+	StripClock(&StripVGM[0].RF5C164.All, &VGMHead.lngHzRF5C164);
+	StripClock(&StripVGM[0].PWM.All, &VGMHead.lngHzPWM);
+	if (StripClock(&StripVGM[0].AY8910.All, &VGMHead.lngHzAY8910))
 	{
-		VGMHead.lngHzAY8910 = 0;
 		VGMHead.bytAYType = 0x00;
 		VGMHead.bytAYFlag = 0x00;
 	}
-	if (StripVGM.GBDMG.All)
-		VGMHead.lngHzGBDMG = 0;
-	if (StripVGM.NESAPU.All)
-		VGMHead.lngHzNESAPU = 0;
-	if (StripVGM.MultiPCM.All)
-		VGMHead.lngHzMultiPCM = 0;
-	if (StripVGM.UPD7759.All)
-		VGMHead.lngHzUPD7759 = 0;
-	if (StripVGM.OKIM6258.All)
-	{
-		VGMHead.lngHzOKIM6258 = 0;
+	StripClock(&StripVGM[0].GBDMG.All, &VGMHead.lngHzGBDMG);
+	StripClock(&StripVGM[0].NESAPU.All, &VGMHead.lngHzNESAPU);
+	StripClock(&StripVGM[0].MultiPCM.All, &VGMHead.lngHzMultiPCM);
+	StripClock(&StripVGM[0].UPD7759.All, &VGMHead.lngHzUPD7759);
+	if (StripClock(&StripVGM[0].OKIM6258.All, &VGMHead.lngHzOKIM6258))
 		VGMHead.bytOKI6258Flags = 0x00;
-	}
-	if (StripVGM.OKIM6295.All)
-		VGMHead.lngHzOKIM6295 = 0;
-	if (StripVGM.K051649.All)
-		VGMHead.lngHzK051649 = 0;
-	if (StripVGM.K054539.All)
-		VGMHead.lngHzK054539 = 0;
-	if (StripVGM.HuC6280.All)
-		VGMHead.lngHzHuC6280 = 0;
-	if (StripVGM.C140.All)
-		VGMHead.lngHzC140 = 0;
-	if (StripVGM.K053260.All)
-		VGMHead.lngHzK053260 = 0;
-	if (StripVGM.Pokey.All)
-		VGMHead.lngHzPokey = 0;
-	if (StripVGM.QSound.All)
-		VGMHead.lngHzQSound = 0;
+	StripClock(&StripVGM[0].OKIM6295.All, &VGMHead.lngHzOKIM6295);
+	StripClock(&StripVGM[0].K051649.All, &VGMHead.lngHzK051649);
+	if (StripClock(&StripVGM[0].K054539.All, &VGMHead.lngHzK054539))
+		VGMHead.bytK054539Flags = 0x00;
+	StripClock(&StripVGM[0].HuC6280.All, &VGMHead.lngHzHuC6280);
+	if (StripClock(&StripVGM[0].C140.All, &VGMHead.lngHzC140))
+		VGMHead.bytC140Type = 0x00;
+	StripClock(&StripVGM[0].K053260.All, &VGMHead.lngHzK053260);
+	StripClock(&StripVGM[0].Pokey.All, &VGMHead.lngHzPokey);
+	StripClock(&StripVGM[0].QSound.All, &VGMHead.lngHzQSound);
+	//StripClock(&StripVGM[0].SCSP.All, &VGMHead.lngHzSCSP);
 	
 	// PatchVGM will rewrite the header later
 	
@@ -3550,4 +3699,26 @@ static void StripVGMData(void)
 	FreeAllChips();
 	
 	return;
+}
+
+static bool StripClock(bool* StripAllPtr, UINT32* ClockPtr)
+{
+	bool* StpAll1 = (bool*)((STRIP_DATA*)StripAllPtr + 1);	// StripVGM[1].###.All
+	
+	if (*StpAll1)
+		*ClockPtr &= ~0x40000000;	// strip Chip 1 clock
+	
+	if (*ClockPtr & 0x40000000)
+		return false;	// Chip 1 still in use - don't stip chip 0 clock
+	
+	// if Chip 0 to be stripped and Chip 1 is not used
+	if (*StripAllPtr)
+	{
+		*ClockPtr = 0;	// strip Chip 0 clock
+		return true;
+	}
+	else
+	{
+		return false;
+	}
 }

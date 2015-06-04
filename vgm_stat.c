@@ -1,5 +1,6 @@
 // vgm_stat.c - VGM Statistics
 //
+// TODO: Proper hours support.
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -10,7 +11,7 @@
 #include <conio.h>
 #include <windows.h>	// for Directory Listing
 #else
-#error "Sorry, but it's only compatible with Windows."
+#error "Sorry, but it's only compatible with Windows (due to directory listing)."
 #endif
 
 #include "zlib.h"
@@ -27,6 +28,7 @@ static void ShowFileStats(char* FileTitle);
 static void PrintSampleTime(char* buffer, const UINT32 Samples, bool LoopMode);
 static INT8 stricmp_u(const char *string1, const char *string2);
 static void ShowStatistics(void);
+UINT32 GetTitleLines(UINT32* StrAlloc, char** String, const char* TitleStr);
 
 
 typedef struct track_list
@@ -573,53 +575,55 @@ static INT8 stricmp_u(const char *string1, const char *string2)
 	return 0;
 }
 
+#define MAX_TITLE_CHARS		35
 static void ShowStatistics(void)
 {
-	const UINT8 MAX_TITLE_CHARS = 35;
 	UINT32 CurTL;
 	char* TitleStr;
 	UINT32 TitleLen;
-	UINT32 TitlePos;
 	INT32 Spaces;
 	char TimeTotal[0x10];
 	char TimeLoop[0x10];
 	//char* TempPnt;
+	UINT32 TempStrAlloc;
+	char* TempStr;
+	UINT32 CurLine;
+	UINT32 LineCnt;
+	
+	TempStrAlloc = 0x00;
+	TempStr = NULL;
 	
 	printf("Song list:                          Total  Loop\n");
 	for (CurTL = 0x00; CurTL < TrackCount; CurTL ++)
 	{
 		CurTrkEntry = &TrackList[CurTL];
 		
-		TitleStr = CurTrkEntry->Title;
-		TitleLen = strlen(TitleStr);
-		TitlePos = 0x00;
-		// TODO: Insert extra lines for titles with > 35 characters
-		// Currently the title is stripped after char 35
-		/*do
-		{*/
-			if (TitleLen - TitlePos <= MAX_TITLE_CHARS)
-			{
-				//Spaces = MAX_TITLE_CHARS - (TitleLen - TitlePos);
+		LineCnt = GetTitleLines(&TempStrAlloc, &TempStr, CurTrkEntry->Title);
+		TitleStr = (LineCnt) ? TempStr : CurTrkEntry->Title;
+		if (! LineCnt)
+			LineCnt ++;
+		
+		for (CurLine = 0x00; CurLine < LineCnt; CurLine ++)
+		{
+			if (CurLine)
+				printf("\n");
+			
+			TitleLen = strlen(TitleStr);
+			if (TitleLen <= MAX_TITLE_CHARS)
 				Spaces = MAX_TITLE_CHARS - TitleLen;
-				TitlePos = TitleLen;
-			}
 			else
-			{
-				/*TempPnt = strrchr(TitleStr + TitlePos, ' ');
-				TitlePos = TempPnt - TitleStr;*/
-				//if ...
 				Spaces = 0x00;
-			}
 			
 			printf("%.*s", MAX_TITLE_CHARS, TitleStr);
-			while(Spaces)
-			{
-				printf(" ");
-				Spaces --;
-			}
-			/*if (TitlePos < TitleLen)
-				printf("\n ");
-		} while(TitlePos < TitleLen);*/
+			
+			TitleStr += TitleLen + 1;
+		}
+		
+		while(Spaces)
+		{
+			printf(" ");
+			Spaces --;
+		}
 		
 		PrintSampleTime(TimeTotal, CurTrkEntry->SmplTotal, false);
 		PrintSampleTime(TimeLoop, CurTrkEntry->SmplLoop, true);
@@ -628,10 +632,14 @@ static void ShowStatistics(void)
 	}
 	printf("\n");
 	
+	if (TempStr != NULL)
+	{
+		free(TempStr);	TempStr = NULL;
+	}
+	
 	TitleStr = "Total Length";
 	TitleLen = strlen(TitleStr);
 	Spaces = MAX_TITLE_CHARS - TitleLen;
-	TitlePos = TitleLen;
 	
 	printf("%.*s", MAX_TITLE_CHARS, TitleStr);
 	while(Spaces)
@@ -646,4 +654,97 @@ static void ShowStatistics(void)
 	printf("%s  %s\n", TimeTotal, TimeLoop);
 	
 	return;
+}
+
+UINT32 GetTitleLines(UINT32* StrAlloc, char** String, const char* TitleStr)
+{
+	UINT32 CurLine;
+	UINT32 CurPos;
+	UINT32 SpcPos;
+	UINT32 NoAlphaPos;
+	const char* SrcPtr;
+	char* DstPtr;
+	
+	CurPos = strlen(TitleStr);
+	if (CurPos <= MAX_TITLE_CHARS)
+		return 0;	// didn't do anything
+	
+	if (*StrAlloc < CurPos + 0x10)
+	{
+		*StrAlloc = (CurPos + 0x20) & ~0x0F;
+		*String = (char*)realloc(*String, *StrAlloc);
+	}
+	
+	SrcPtr = TitleStr;
+	DstPtr = *String;
+	NoAlphaPos = SpcPos = CurPos = 0x00;
+	CurLine = 0x01;
+	if (IsPlayList)
+	{
+		for (CurPos = 0x00; CurPos < 0x03; CurPos ++)
+			DstPtr[CurPos] = SrcPtr[CurPos];
+	}
+	while(SrcPtr[CurPos] != '\0')
+	{
+		if (SrcPtr[CurPos] == ' ')
+			SpcPos = CurPos;
+		
+		if (CurPos >= MAX_TITLE_CHARS)
+		{
+			if (SpcPos)	// Space found
+			{
+				// replace last space with line break (which is \0 here)
+				CurPos = SpcPos;
+				DstPtr[CurPos] = '\0';
+				SrcPtr += CurPos + 1;
+				DstPtr += CurPos + 1;
+			}
+			else if (NoAlphaPos)	// non-alnum char found
+			{
+				// break after last non-alpha-numeric character
+				CurPos = NoAlphaPos + 1;
+				DstPtr[CurPos] = '\0';
+				SrcPtr += CurPos;
+				DstPtr += CurPos + 1;
+			}
+			else	// word with more chars than the line has
+			{
+				// break right after the previous letter and insert a -
+				DstPtr[CurPos - 1] = '-';
+				DstPtr[CurPos] = '\0';
+				SrcPtr += CurPos - 1;
+				DstPtr += CurPos + 1;
+			}
+			
+			CurPos = (DstPtr - *String) + strlen(SrcPtr);
+			if (*StrAlloc < CurPos + 0x10)
+			{
+				*StrAlloc = (CurPos + 0x20) & ~0x0F;
+				SpcPos = DstPtr - *String;
+				*String = (char*)realloc(*String, *StrAlloc);
+				DstPtr = *String + SpcPos;
+			}
+			
+			NoAlphaPos = SpcPos = CurPos = 0x00;
+			if (IsPlayList)
+			{
+				// to make this format:
+				//	01 Very
+				//	   Long
+				//     Title
+				DstPtr[0] = DstPtr[1] = DstPtr[2] = ' ';
+				SrcPtr -= 3;	CurPos += 3;
+			}
+			CurLine ++;
+		}
+		
+		if (! isalnum(SrcPtr[CurPos]))
+			NoAlphaPos = CurPos;
+		
+		DstPtr[CurPos] = SrcPtr[CurPos];
+		CurPos ++;
+	}
+	DstPtr[CurPos] = '\0';
+	
+	return CurLine;
 }

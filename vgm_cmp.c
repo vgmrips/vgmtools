@@ -45,6 +45,7 @@ bool ym3812_write(UINT8 Register, UINT8 Data);
 bool ym3526_write(UINT8 Register, UINT8 Data);
 bool y8950_write(UINT8 Register, UINT8 Data);
 bool ymf262_write(UINT8 Port, UINT8 Register, UINT8 Data);
+bool ymf278b_write(UINT8 Port, UINT8 Register, UINT8 Data);
 bool ymz280b_write(UINT8 Register, UINT8 Data);
 bool rf5c164_reg_write(UINT8 Register, UINT8 Data);
 bool ay8910_write_reg(UINT8 Register, UINT8 Data);
@@ -55,7 +56,13 @@ bool c140_write(UINT8 Port, UINT8 Register, UINT8 Data);
 bool qsound_write(UINT8 Offset, UINT16 Value);
 bool pokey_write(UINT8 Register, UINT8 Data);
 bool c6280_write(UINT8 Register, UINT8 Data);
+bool k054539_write(UINT8 Port, UINT8 Register, UINT8 Data);
 bool k051649_write(UINT8 Port, UINT8 Register, UINT8 Data);
+bool scsp_write(UINT8 Port, UINT8 Register, UINT8 Data);
+bool okim6295_write(UINT8 Port, UINT8 Data);
+bool upd7759_write(UINT8 Port, UINT8 Data);
+bool okim6258_write(UINT8 Port, UINT8 Data);
+bool c352_write(UINT16 Register, UINT16 Data);
 
 
 VGM_HEADER VGMHead;
@@ -306,6 +313,35 @@ static void CompressVGMData(void)
 	CmdTimer = 0;
 #endif
 	InitAllChips();
+	if (VGMHead.lngHzOKIM6258)
+	{
+		SetChipSet(0x00);
+		okim6258_write(0x88, (VGMHead.lngHzOKIM6258 >>  0) & 0xFF);
+		okim6258_write(0x89, (VGMHead.lngHzOKIM6258 >>  8) & 0xFF);
+		okim6258_write(0x8A, (VGMHead.lngHzOKIM6258 >> 16) & 0xFF);
+		okim6258_write(0x8B, (VGMHead.lngHzOKIM6258 >> 24) & 0xFF);
+		okim6258_write(0x8C, VGMHead.bytOKI6258Flags & 0x03);
+	}
+	if (VGMHead.lngHzOKIM6295)
+	{
+		TempLng = VGMHead.lngHzOKIM6295 & 0x3FFFFFFF;
+		
+		SetChipSet(0x00);
+		okim6295_write(0x88, (TempLng >>  0) & 0xFF);
+		okim6295_write(0x89, (TempLng >>  8) & 0xFF);
+		okim6295_write(0x8A, (TempLng >> 16) & 0xFF);
+		okim6295_write(0x8B, (TempLng >> 24) & 0xFF);
+		okim6295_write(0x8C, VGMHead.lngHzOKIM6295 >> 31);
+		if (VGMHead.lngHzOKIM6295 & 0x40000000)
+		{
+			SetChipSet(0x01);
+			okim6295_write(0x88, (TempLng >>  0) & 0xFF);
+			okim6295_write(0x89, (TempLng >>  8) & 0xFF);
+			okim6295_write(0x8A, (TempLng >> 16) & 0xFF);
+			okim6295_write(0x8B, (TempLng >> 24) & 0xFF);
+			okim6295_write(0x8C, VGMHead.lngHzOKIM6295 >> 31);
+		}
+	}
 	/*if (VGMHead.lngHzK054539)
 	{
 		SetChipSet(0x00);
@@ -495,6 +531,7 @@ static void CompressVGMData(void)
 				CmdLen = 0x02;
 				break;
 			case 0x51:	// YM2413 write
+			case 0xBD:	// SAA1099 write
 				WriteEvent = ym2413_write(VGMPnt[0x01], VGMPnt[0x02]);
 				CmdLen = 0x03;
 				break;
@@ -599,15 +636,14 @@ static void CompressVGMData(void)
 				CmdLen = 0x03;
 				break;
 			case 0xD0:	// YMF278B write
-				TempByt = VGMPnt[0x01];
-				if (TempByt <= 0x01)
-					WriteEvent = ymf262_write(TempByt, VGMPnt[0x02], VGMPnt[0x03]);
-				else
-					WriteEvent = true;
+				SetChipSet((VGMPnt[0x01] & 0x80) >> 7);
+				TempByt = VGMPnt[0x01] & 0x7F;
+				WriteEvent = ymf278b_write(TempByt, VGMPnt[0x02], VGMPnt[0x03]);
 				CmdLen = 0x04;
 				break;
 			case 0xD1:	// YMF271 write
-				WriteEvent = ymf271_write(VGMPnt[0x01], VGMPnt[0x02], VGMPnt[0x03]);
+				SetChipSet((VGMPnt[0x01] & 0x80) >> 7);
+				WriteEvent = ymf271_write(VGMPnt[0x01] & 0x7F, VGMPnt[0x02], VGMPnt[0x03]);
 				CmdLen = 0x04;
 				break;
 			case 0xB1:	// RF5C164 register write
@@ -669,19 +705,19 @@ static void CompressVGMData(void)
 			case 0xB6:	// UPD7759 write
 				WriteEvent = true;
 				SetChipSet((VGMPnt[0x01] & 0x80) >> 7);
-			//	WriteEvent = upd7759_write(VGMPnt[0x01] & 0x7F, VGMPnt[0x02]);
+				WriteEvent = upd7759_write(VGMPnt[0x01] & 0x7F, VGMPnt[0x02]);
 				CmdLen = 0x03;
 				break;
 			case 0xB7:	// OKIM6258 write
 				WriteEvent = true;
 				SetChipSet((VGMPnt[0x01] & 0x80) >> 7);
-			//	WriteEvent = okim6258_write(VGMPnt[0x01] & 0x7F, VGMPnt[0x02]);
+				WriteEvent = okim6258_write(VGMPnt[0x01] & 0x7F, VGMPnt[0x02]);
 				CmdLen = 0x03;
 				break;
 			case 0xB8:	// OKIM6295 write
 				WriteEvent = true;
 				SetChipSet((VGMPnt[0x01] & 0x80) >> 7);
-			//	WriteEvent = okim6295_write(VGMPnt[0x01] & 0x7F, VGMPnt[0x02]);
+				WriteEvent = okim6295_write(VGMPnt[0x01] & 0x7F, VGMPnt[0x02]);
 				CmdLen = 0x03;
 				break;
 			case 0xD2:	// SCC1 write
@@ -721,6 +757,30 @@ static void CompressVGMData(void)
 				//SetChipSet(0x00);
 				WriteEvent = qsound_write(VGMPnt[0x03], (VGMPnt[0x01] << 8) | (VGMPnt[0x02] << 0));
 				CmdLen = 0x04;
+				break;
+			case 0xC5:	// SCSP write
+				SetChipSet((VGMPnt[0x01] & 0x80) >> 7);
+				WriteEvent = scsp_write(VGMPnt[0x01] & 0x7F, VGMPnt[0x02], VGMPnt[0x03]);
+				CmdLen = 0x04;
+				break;
+			case 0xBC:	//
+				SetChipSet((VGMPnt[0x01] & 0x80) >> 7);
+				if (VGMPnt[0x01] == 0x0E)
+					WriteEvent = true;
+				else
+					WriteEvent = ym3812_write(0x20 + VGMPnt[0x01], VGMPnt[0x02]);
+				CmdLen = 0x03;
+				break;
+			case 0xC6:	//
+				SetChipSet((VGMPnt[0x01] & 0x80) >> 7);
+				WriteEvent = ym3812_write(VGMPnt[0x02], VGMPnt[0x03]);
+				CmdLen = 0x04;
+				break;
+			case 0xE1:	// C352
+				SetChipSet((VGMPnt[0x01] & 0x80) >> 7);
+				TempSht = ((VGMPnt[0x01] & 0x7F) << 8) | (VGMPnt[0x02] << 0);
+				WriteEvent = c352_write(TempSht, (VGMPnt[0x03] << 8) | VGMPnt[0x04]);
+				CmdLen = 0x05;
 				break;
 			default:
 				switch(Command & 0xF0)
@@ -828,7 +888,7 @@ static void CompressVGMData(void)
 	}
 	printf("\t\t\t\t\t\t\t\t\r");
 	
-	if (VGMHead.lngGD3Offset)
+	if (VGMHead.lngGD3Offset && VGMHead.lngGD3Offset + 0x0B < VGMHead.lngEOFOffset)
 	{
 		VGMPos = VGMHead.lngGD3Offset;
 		memcpy(&TempLng, &VGMData[VGMPos + 0x00], 0x04);
@@ -1105,7 +1165,7 @@ bool GetNextChipCommand(void)
 				NxtCmdVal = VGMData[CurPos + 0x02];
 				break;
 			case 0x04:
-				NxtCmdReg = (VGMData[CurPos + 0x01] << 8) | (VGMData[CurPos + 0x01] << 0);
+				NxtCmdReg = (VGMData[CurPos + 0x01] << 8) | (VGMData[CurPos + 0x02] << 0);
 				NxtCmdVal = VGMData[CurPos + 0x03];
 				break;
 			default:

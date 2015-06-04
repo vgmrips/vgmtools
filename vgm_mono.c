@@ -278,6 +278,7 @@ static void CompressVGMData(void)
 	UINT8 MPCMAddr;
 	UINT8 MPCMSlot;
 	UINT16 MPCMBank;
+	UINT32 LastMBnkWrtOfs;
 	
 	//DstData = (UINT8*)malloc(VGMDataLen + 0x100);
 	VGMPos = VGMHead.lngDataOffset;
@@ -311,6 +312,7 @@ static void CompressVGMData(void)
 	}*/
 	
 	memset(ChnBoth, 0x00, sizeof(UINT32) * 0x20);
+	LastMBnkWrtOfs = 0x00;
 	MPCMBank = MPCMAddr = MPCMSlot = 0x00;
 	
 	StopVGM = false;
@@ -709,8 +711,8 @@ static void CompressVGMData(void)
 					{
 						if ((VGMPnt[0x02] & 0xF0) != 0x80)
 						{
-							if ((VGMPnt[0x02] & 0xF0) < 0x80)
-								printf("MultiPCM: Right Channel used!\n");
+							//if ((VGMPnt[0x02] & 0xF0) < 0x80)
+							//	printf("MultiPCM: Right Channel used!\n");
 							VGMPnt[0x02] &= ~0xF0;
 						}
 					}
@@ -737,7 +739,14 @@ static void CompressVGMData(void)
 				else
 				{
 					MPCMBank = TempSht;
+					/*if (LastMBnkWrtOfs)
+					{
+						VGMPnt = &VGMData[LastMBnkWrtOfs];
+						if (VGMPnt[0x01] == 0x01)
+							memcpy(&VGMPnt[0x02], &MPCMBank, 0x02);
+					}*/
 				}
+				LastMBnkWrtOfs = VGMPos;
 				CmdLen = 0x04;
 				break;
 			case 0xB6:	// UPD7759 write (is mono?)

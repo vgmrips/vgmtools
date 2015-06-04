@@ -557,7 +557,7 @@ static void SplitVGMData(void)
 	}
 	printf("\t\t\t\t\t\t\t\t\r");
 	
-	if (SrcHead.lngGD3Offset)
+	if (SrcHead.lngGD3Offset && SrcHead.lngGD3Offset + 0x0B < SrcHead.lngEOFOffset)
 	{
 		SrcPos = SrcHead.lngGD3Offset;
 		memcpy(&TempLng, &SrcData[SrcPos + 0x00], 0x04);

@@ -249,7 +249,7 @@ static bool OpenDROFile(const char* FileName)
 		VGMHead.lngHzYM3812 = 3579545;
 		break;
 	case 0x01:	// Dual OPL2 Chip
-		VGMHead.lngHzYM3812 = 3579545 | 0x40000000;
+		VGMHead.lngHzYM3812 = 3579545 | 0xC0000000;
 		break;
 	case 0x02:	// Single OPL3 Chip
 		VGMHead.lngHzYMF262 = 14318180;

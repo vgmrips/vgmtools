@@ -5,6 +5,7 @@
 #include <stdlib.h>
 #include "stdbool.h"
 #include <string.h>
+#include <ctype.h>	// for toupper()
 #include <wchar.h>
 #include <limits.h>	// for MB_LEN_MAX
 
@@ -34,6 +35,7 @@ static bool CompareSystemNames(const char* StrA, const char* StrB);
 static UINT16 GetSystemString(const char* SystemName);
 static UINT8 TagVGM(const int ArgCount, char* ArgList[]);
 static bool RemoveEqualTag(wchar_t** TagE, wchar_t** TagJ, UINT8 Mode);
+static bool RemoveUnknown(wchar_t** Tag);
 static void ShowTag(const UINT8 UnicodeMode);
 char* ConvertWStr2ASCII_NCR(const wchar_t* WideStr);
 char* ConvertWStr2UTF8(const wchar_t* WideStr);
@@ -56,7 +58,7 @@ const SYSTEM_SHORT SYSTEM_NAMES[] =
 {	{"SMS",		"Sega Master System", "&#x30BB;&#x30AC;&#x30DE;&#x30B9;&#x30BF;&#x30FC;&#x30B7;&#x30B9;&#x30C6;&#x30E0;"},
 	{"SGG",		"Sega Game Gear", "&#x30BB;&#x30AC;&#x30B2;&#x30FC;&#x30E0;&#x30AE;&#x30A2;"},
 	{"SMSGG",	"Sega Master System / Game Gear", "&#x30BB;&#x30AC;&#x30DE;&#x30B9;&#x30BF;&#x30FC;&#x30B7;&#x30B9;&#x30C6;&#x30E0; / "
-													"&#x30B2;&#x30FC;&#x30E0;&#x30AE;&#x30A2;"},
+				"&#x30B2;&#x30FC;&#x30E0;&#x30AE;&#x30A2;"},
 	{"SMD",		"Sega Mega Drive / Genesis", "&#x30BB;&#x30AC;&#x30E1;&#x30AC;&#x30C9;&#x30E9;&#x30A4;&#x30D6;"},
 	{"SG1k",	"Sega Game 1000", "&#x30a8;&#x30b9;&#x30b8;&#x30fc;&#x30fb;&#x30bb;&#x30f3;"},
 	{"SC3k",	"Sega Computer 3000", "&#x30bb;&#x30ac;&#x30b3;&#x30f3;&#x30d4;&#x30e5;&#x30fc;&#x30bf; 3000"},
@@ -84,7 +86,13 @@ const SYSTEM_SHORT SYSTEM_NAMES[] =
 	{"TW16",	"Twin 16", "&#x30c4;&#x30a4;&#x30f3;16"},
 	{"NG",		"Neo Geo", "&#x30cd;&#x30aa;&#x30b8;&#x30aa;"},
 	{"NG*",		"Neo Geo *", "&#x30cd;&#x30aa;&#x30b8;&#x30aa;*"},
-	{"NES",		"Nintendo Entertainment System", "&#x30d5;&#x30a1;&#x30df;&#x30ea;&#x30b3;&#x30f3;&#x30d4;&#x30e5;&#x30fc;&#x30bf;"},
+	{"NES",		"Nintendo Entertainment System", "&#x30d5;&#x30a1;&#x30df;&#x30ea;&#x30fc;&#x30b3;&#x30f3;&#x30d4;&#x30e5;&#x30fc;&#x30bf;"},
+	{"FDS",		"Famicom Disk System", "&#x30d5;&#x30a1;&#x30df;&#x30ea;&#x30fc;&#x30b3;&#x30f3;&#x30d4;&#x30e5;&#x30fc;&#x30bf; "
+										"&#x30c7;&#x30a3;&#x30b9;&#x30af;&#x30b7;&#x30b9;&#x30c6;&#x30e0;"},
+	{"NESFDS",	"Nintendo Entertainment System / Famicom Disk System", 
+				"&#x30d5;&#x30a1;&#x30df;&#x30ea;&#x30fc;&#x30b3;&#x30f3;&#x30d4;&#x30e5;&#x30fc;&#x30bf; / "
+				"&#x30d5;&#x30a1;&#x30df;&#x30ea;&#x30fc;&#x30b3;&#x30f3;&#x30d4;&#x30e5;&#x30fc;&#x30bf; "
+				"&#x30c7;&#x30a3;&#x30b9;&#x30af;&#x30b7;&#x30b9;&#x30c6;&#x30e0;"},
 	{"GB",		"Game Boy", "&#x30b2;&#x30fc;&#x30e0;&#x30dc;&#x30fc;&#x30a4;"},
 	{"GBC",		"Game Boy Color", "&#x30b2;&#x30fc;&#x30e0;&#x30dc;&#x30fc;&#x30a4;&#x30ab;&#x30e9;&#x30fc;"},
 	{"GBGBC",	"Game Boy / Game Boy Color", "&#x30b2;&#x30fc;&#x30e0;&#x30dc;&#x30fc;&#x30a4; / "
@@ -783,9 +791,13 @@ static UINT8 TagVGM(const int ArgCount, char* ArgList[])
 	RetVal = 0x10;	// nothing done - skip writing
 	if (! ArgCount)
 		ShowTag(0x00);
+	CmdStr = NULL;
 	for (CurArg = 0x00; CurArg < ArgCount; CurArg ++)
 	{
-		CmdStr = ArgList[CurArg] + 0x01;	// Skip the '-' at the beginning
+		if (CmdStr != NULL)
+			free(CmdStr);
+		//CmdStr = ArgList[CurArg] + 0x01;	// Skip the '-' at the beginning
+		CmdStr = strdup(ArgList[CurArg] + 0x01);	// I need a copy, since I remove the '=' character
 		
 		CmdData = strchr(CmdStr, ':');
 		if (CmdData != NULL)
@@ -834,9 +846,29 @@ static UINT8 TagVGM(const int ArgCount, char* ArgList[])
 					printf("System, ");
 				if (TempLng & 0x08)
 					printf("Author, ");
-				printf("\b\b \n");
+				printf("\b\b ");
 				RetVal = 0x00;
 			}
+			printf("\n");
+			continue;
+		}
+		else if (! stricmp_u(CmdStr, "RmvUnknown"))
+		{
+			printf("Removing \"Unknown Author\" tag: ");
+			
+			TempLng = 0x00;
+			TempLng |= RemoveUnknown(&VGMTag.strAuthorNameE) << 0;
+			TempLng |= RemoveUnknown(&VGMTag.strAuthorNameJ) << 1;
+			if (TempLng)
+			{
+				if (TempLng & 0x01)
+					printf("AuthorE, ");
+				if (TempLng & 0x02)
+					printf("AuthorJ, ");
+				printf("\b\b ");
+				RetVal = 0x00;
+			}
+			printf("\n");
 			continue;
 		}
 		
@@ -1020,10 +1052,13 @@ static UINT8 TagVGM(const int ArgCount, char* ArgList[])
 			else
 			{
 				printf("Error - Unknown Command: -%s\n", CmdStr);
+				free(CmdStr);
 				return 0x80;
 			}
 		}
 	}
+	if (CmdStr != NULL)
+		free(CmdStr);
 	
 	if (RetVal != 0x10)
 	{
@@ -1068,6 +1103,8 @@ static bool RemoveEqualTag(wchar_t** TagE, wchar_t** TagJ, UINT8 Mode)
 	
 	if (wcscmp(*TagE, *TagJ))
 		return false;	// both are different
+	if (! wcslen(*TagE))
+		return false;	// both are empty
 	
 	// both are equal
 	if (! Mode)
@@ -1075,6 +1112,18 @@ static bool RemoveEqualTag(wchar_t** TagE, wchar_t** TagJ, UINT8 Mode)
 	else
 		Copy2TagStr(TagE, "");
 	
+	return true;
+}
+
+static bool RemoveUnknown(wchar_t** Tag)
+{
+	if (*Tag == NULL)
+		return false;	// NULL - break
+	
+	if (wcsicmp(*Tag, L"unknown") && wcsicmp(*Tag, L"Unknown Author"))
+		return false;
+	
+	Copy2TagStr(Tag, "");
 	return true;
 }
 

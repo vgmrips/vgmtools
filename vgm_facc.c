@@ -49,19 +49,22 @@ UINT16 RoundTo;
 int main(int argc, char* argv[])
 {
 	int ErrVal;
+	int argbase;
 	char FileName[0x100];
 	
 	printf("Make VGM Frame Accurate\n-----------------------\n\n");
 	
 	ErrVal = 0;
+	argbase = 1;
+	
 	printf("File Name:\t");
-	if (argc <= 0x01)
+	if (argc <= argbase)
 	{
 		gets(FileName);
 	}
 	else
 	{
-		strcpy(FileName, argv[0x01]);
+		strcpy(FileName, argv[argbase]);
 		printf("%s\n", FileName);
 	}
 	if (! strlen(FileName))
@@ -76,6 +79,17 @@ int main(int argc, char* argv[])
 	printf("\n");
 	
 	RoundVGMData();
+	
+	if (argc > argbase + 0x01)
+		strcpy(FileName, argv[argbase + 0x01]);
+	else
+		strcpy(FileName, "");
+	if (! FileName[0x00])
+	{
+		strcpy(FileName, FileBase);
+		strcat(FileName, "_frame.vgm");
+	}
+	WriteVGMFile(FileName);
 	
 	free(VGMData);
 	free(DstData);
@@ -588,8 +602,8 @@ static void RoundVGMData(void)
 	
 	WriteVGMHeader(DstData, VGMData, DstPos, SampleCount,
 					LoopPos, SampleCount - LoopSmpl);
-	sprintf(TempStr, "%s_frame.vgm", FileBase);
-	WriteVGMFile(TempStr);
+	/*sprintf(TempStr, "%s_frame.vgm", FileBase);
+	WriteVGMFile(TempStr);*/
 	
 	printf("Maximum Rounding Difference:\n");
 	printf("\t%ld at %06lX\n\t%ld at %06lX\n\t%ld at %06lX (first frame only)\n",
@@ -616,7 +630,7 @@ static void WriteVGMHeader(UINT8* DstData, const UINT8* SrcData, const UINT32 EO
 	memcpy(&DstData[0x20], &LoopSmpls, 0x04);
 	
 	DstPos = EOFPos;
-	if (VGMHead.lngGD3Offset)
+	if (VGMHead.lngGD3Offset && VGMHead.lngGD3Offset + 0x0B < VGMHead.lngEOFOffset)
 	{
 		CurPos = VGMHead.lngGD3Offset;
 		memcpy(&TempLng, &VGMData[CurPos + 0x00], 0x04);

@@ -1,3 +1,6 @@
+#ifndef __VGMFILE_H__
+#define __VGMFILE_H__
+
 // Header file for VGM file handling
 
 typedef struct _vgm_file_header
@@ -59,9 +62,22 @@ typedef struct _vgm_file_header
 	UINT32 lngHzK053260;
 	UINT32 lngHzPokey;
 	UINT32 lngHzQSound;
+	UINT32 lngHzSCSP;
 //	UINT32 lngHzOKIM6376;
-	UINT8 bytReserved[0x04];
+	//UINT8 bytReserved[0x04];
 	UINT32 lngExtraOffset;
+	UINT32 lngHzWSwan;
+	UINT32 lngHzVSU;
+	UINT32 lngHzSAA1099;
+	UINT32 lngHzES5503;
+	UINT32 lngHzES5506;
+	UINT8 bytES5503Chns;
+	UINT8 bytES5506Chns;
+	UINT8 bytC352ClkDiv;
+	UINT8 bytESReserved;
+	UINT32 lngHzX1_010;
+	UINT32 lngHzC352;
+	UINT32 lngHzGA20;
 } VGM_HEADER;
 typedef struct _vgm_header_extra
 {
@@ -132,3 +148,5 @@ typedef struct _vgm_pcm_bank
 
 #define FCC_VGM	0x206D6756	// 'Vgm '
 #define FCC_GD3	0x20336447	// 'Gd3 '
+
+#endif	// __VGMFILE_H__

@@ -30,13 +30,6 @@ typedef struct ym2151_data
 	UINT8 MCMask[0x08];
 	UINT8 MCFirst[0x08];
 } YM2151_DATA;
-typedef struct segapcm_data
-{
-	UINT8* ROMData;
-	UINT8* ROMUsage;
-	UINT8 RAMData[0x800];
-	UINT8 RAMFirst[0x800];
-} SEGAPCM_DATA;
 typedef struct _rf5c68_channel
 {
 	UINT8 ChnReg[0x07];
@@ -44,14 +37,8 @@ typedef struct _rf5c68_channel
 } RF5C68_CHANNEL;
 typedef struct rf5c68_data
 {
-	RF5C68_CHANNEL chan[8];
 	UINT8 cbank;
 	UINT8 wbank;
-	UINT16 OffsetBase;
-	UINT8 CtrlReg;
-	UINT8 ChnMask;
-	UINT8 RAMData[0x10000];
-	UINT8 RAMFirst[0x10000];
 } RF5C68_DATA;
 typedef struct ym2203_data
 {
@@ -121,12 +108,12 @@ typedef struct c140_data
 
 typedef struct all_chips
 {
-	UINT8 GGSt;
+	//UINT8 GGSt;
 	SN76496_DATA SN76496;
 	YM2413_DATA YM2413;
 	YM2612_DATA YM2612;
 	YM2151_DATA YM2151;
-	SEGAPCM_DATA SegaPCM;
+	//SEGAPCM_DATA SegaPCM;
 	RF5C68_DATA RF5C68;
 	YM2203_DATA YM2203;
 	YM2608_DATA YM2608;
@@ -138,6 +125,7 @@ typedef struct all_chips
 	YMF271_DATA YMF271;
 	YMF278B_DATA YMF278B;
 	YMZ280B_DATA YMZ280B;
+	RF5C68_DATA RF5C164;
 	C140_DATA C140;
 } ALL_CHIPS;
 
@@ -145,7 +133,8 @@ typedef struct all_chips
 UINT8 ChipCount = 0x02;
 ALL_CHIPS* ChipData = NULL;
 ALL_CHIPS* ChDat;
-extern STRIP_DATA StripVGM;
+extern STRIP_DATA StripVGM[2];
+STRIP_DATA* StpDat;
 
 void InitAllChips(void)
 {
@@ -156,8 +145,6 @@ void InitAllChips(void)
 	for (CurChip = 0x00; CurChip < ChipCount; CurChip ++)
 	{
 		memset(ChipData, 0xFF, ChipCount * sizeof(ALL_CHIPS));
-		
-		ChipData[CurChip].GGSt = 0x00;
 	}
 	
 	SetChipSet(0x00);
@@ -179,13 +166,14 @@ void FreeAllChips(void)
 void SetChipSet(UINT8 ChipID)
 {
 	ChDat = ChipData + ChipID;
+	StpDat = StripVGM + ChipID;
 	
 	return;
 }
 
 bool GGStereo(UINT8 Data)
 {
-	STRIP_PSG* strip = &StripVGM.SN76496;
+	STRIP_PSG* strip = &StpDat->SN76496;
 	
 	if (strip->All || (strip->Other & 0x01))
 		return false;
@@ -196,14 +184,12 @@ bool GGStereo(UINT8 Data)
 bool sn76496_write(UINT8 Command)
 {
 	SN76496_DATA* chip = &ChDat->SN76496;
-	STRIP_PSG* strip = &StripVGM.SN76496;
+	STRIP_PSG* strip = &StpDat->SN76496;
 	UINT8 Channel;
-	bool RetVal;
 	
 	if (strip->All)
 		return false;
 	
-	RetVal = true;
 	if (Command & 0x80)
 	{
 		Channel = (Command & 0x60) >> 1;
@@ -221,7 +207,7 @@ bool sn76496_write(UINT8 Command)
 
 bool ym2413_write(UINT8 Register, UINT8 Data)
 {
-	STRIP_OPL* strip = &StripVGM.YM2413;
+	STRIP_OPL* strip = &StpDat->YM2413;
 	
 	if (strip->All)
 		return false;
@@ -234,7 +220,7 @@ bool ym2413_write(UINT8 Register, UINT8 Data)
 bool ym2612_write(UINT8 Port, UINT8 Register, UINT8 Data)
 {
 	YM2612_DATA* chip;
-	STRIP_OPN* strip = &StripVGM.YM2612;
+	STRIP_OPN* strip = &StpDat->YM2612;
 	UINT16 RegVal;
 	UINT8 Channel;
 	
@@ -294,7 +280,7 @@ bool ym2612_write(UINT8 Port, UINT8 Register, UINT8 Data)
 bool ym2151_write(UINT8 Register, UINT8 Data)
 {
 	YM2151_DATA* chip;
-	STRIP_OPM* strip = &StripVGM.YM2151;
+	STRIP_OPM* strip = &StpDat->YM2151;
 	UINT8 Channel;
 	
 	if (strip->All)
@@ -324,22 +310,22 @@ bool ym2151_write(UINT8 Register, UINT8 Data)
 
 bool segapcm_mem_write(UINT16 Offset, UINT8 Data)
 {
-	STRIP_PCM* strip = &StripVGM.SegaPCM;
+	STRIP_PCM* strip = &StpDat->SegaPCM;
+	UINT8 CurChn;
 	
 	if (strip->All)
 		return false;
-	return true;
-	ChDat->SegaPCM.RAMFirst[Offset] = 0x00;
-	ChDat->SegaPCM.RAMData[Offset] = Data;
+	
+	CurChn = (Offset & 0x78) >> 3;
+	if (strip->ChnMask & (0x01 << CurChn))
+		return false;
 	return true;
 }
 
-bool rf5c68_reg_write(UINT8 Register, UINT8 Data)
+bool rf5cxx_reg_write(RF5C68_DATA* chip, STRIP_PCM* strip, UINT8 Register, UINT8* Data)
 {
-	// RF5C68 Chips are usually not spammed with Register Writes
-	RF5C68_DATA* chip = &ChDat->RF5C68;
-	RF5C68_CHANNEL* chan = &chip->chan[chip->cbank];
-	STRIP_PCM* strip = &StripVGM.RF5C68;
+	UINT8 CurChn;
+	UINT8 ChnMask;
 	
 	if (strip->All)
 		return false;
@@ -352,62 +338,64 @@ bool rf5c68_reg_write(UINT8 Register, UINT8 Data)
 	case 0x03:	// FD High / step
 	case 0x04:	// Loop Start Low
 	case 0x05:	// Loop Start High
-		//if (Data == chan->ChnReg[Register])
-		//	return false;
-		//else
-			chan->ChnReg[Register] = Data;
-		break;
 	case 0x06:	// Start
-		// Address change - must be set
-		chan->ChnReg[Register] = Data;
-		//chan->addr = chan->start << (8 + 11);
+		CurChn = chip->cbank;
 		break;
 	case 0x07:	// Control Register
-		//if (Data == chip->CtrlReg)
-		//	return false;
-		//else
-			chip->CtrlReg = Data;
-		
-		if (Data & 0x40)
+		if (*Data & 0x40)
 		{
-			chip->cbank = Data & 0x07;
+			chip->cbank = *Data & 0x07;
+			CurChn = chip->cbank;
 		}
 		else
 		{
-			chip->wbank = Data & 0x0F;
-			chip->OffsetBase = chip->wbank << 12;
+			if (strip->Other & 0x01)
+				return false;
+			chip->wbank = *Data & 0x0F;
+			CurChn = 0x0F;
 		}
 		break;
 	case 0x08:	// Channel On/Off Register
-		chip->ChnMask = Data;
-		
-		// Address change
-		/*for (i = 0; i < 8; i++)
+		ChnMask = 0x01;
+		for (CurChn = 0; CurChn < 8; CurChn ++, ChnMask <<= 1)
 		{
-			chip->chan[i].enable = (~data >> i) & 1;
-			if (!chip->chan[i].enable)
-				chip->chan[i].addr = chip->chan[i].start << (8 + 11);
-		}*/
-		break;
+			// 0 - enable, 1 - disable
+			//      Channel Enable &&    Strip Channel
+			if (! (*Data & ChnMask) && (strip->ChnMask & (0x01 << CurChn)))
+				*Data |= ChnMask;	// disable channel
+			
+		}
+		return true;
 	}
 	
+	if (strip->ChnMask & (0x01 << CurChn))
+		return false;
 	return true;
+}
+
+bool rf5c68_reg_write(UINT8 Register, UINT8* Data)
+{
+	RF5C68_DATA* chip = &ChDat->RF5C68;
+	STRIP_PCM* strip = &StpDat->RF5C68;
+	
+	return rf5cxx_reg_write(chip, strip, Register, Data);
 }
 
 bool rf5c68_mem_write(UINT16 Offset, UINT8 Data)
 {
 	//RF5C68_DATA* chip = &ChDat->RF5C68;
-	STRIP_PCM* strip = &StripVGM.RF5C68;
+	STRIP_PCM* strip = &StpDat->RF5C68;
 	
 	if (strip->All || (strip->Other & 0x01))
 		return false;
 	
 	return true;
 }
+
 bool ym2203_write(UINT8 Register, UINT8 Data)
 {
 	YM2203_DATA* chip;
-	STRIP_OPN* strip = &StripVGM.YM2203;
+	STRIP_OPN* strip = &StpDat->YM2203;
 	UINT8 Channel;
 	
 	if (strip->All)
@@ -468,7 +456,7 @@ bool ym2203_write(UINT8 Register, UINT8 Data)
 bool ym2608_write(UINT8 Port, UINT8 Register, UINT8 Data)
 {
 	YM2608_DATA* chip;
-	STRIP_OPN* strip = &StripVGM.YM2608;
+	STRIP_OPN* strip = &StpDat->YM2608;
 	UINT16 RegVal;
 	UINT8 Channel;
 	
@@ -535,7 +523,7 @@ bool ym2608_write(UINT8 Port, UINT8 Register, UINT8 Data)
 bool ym2610_write(UINT8 Port, UINT8 Register, UINT8 Data)
 {
 	YM2610_DATA* chip;
-	STRIP_OPN* strip = &StripVGM.YM2610;
+	STRIP_OPN* strip = &StpDat->YM2610;
 	UINT16 RegVal;
 	UINT8 Channel;
 	
@@ -597,7 +585,7 @@ bool ym2610_write(UINT8 Port, UINT8 Register, UINT8 Data)
 
 bool ym3812_write(UINT8 Register, UINT8 Data)
 {
-	STRIP_OPL* strip = &StripVGM.YM3812;
+	STRIP_OPL* strip = &StpDat->YM3812;
 	
 	if (strip->All)
 		return false;
@@ -609,7 +597,7 @@ bool ym3812_write(UINT8 Register, UINT8 Data)
 
 bool ym3526_write(UINT8 Register, UINT8 Data)
 {
-	STRIP_OPL* strip = &StripVGM.YM3526;
+	STRIP_OPL* strip = &StpDat->YM3526;
 	
 	if (strip->All)
 		return false;
@@ -621,7 +609,7 @@ bool ym3526_write(UINT8 Register, UINT8 Data)
 
 bool y8950_write(UINT8 Register, UINT8 Data)
 {
-	STRIP_OPL* strip = &StripVGM.Y8950;
+	STRIP_OPL* strip = &StpDat->Y8950;
 	
 	if (strip->All)
 		return false;
@@ -633,7 +621,7 @@ bool y8950_write(UINT8 Register, UINT8 Data)
 
 bool ymf262_write(UINT8 Port, UINT8 Register, UINT8 Data)
 {
-	STRIP_OPL* strip = &StripVGM.YMF262;
+	STRIP_OPL* strip = &StpDat->YMF262;
 	UINT16 RegVal;
 	
 	if (strip->All)
@@ -648,7 +636,7 @@ bool ymf262_write(UINT8 Port, UINT8 Register, UINT8 Data)
 
 bool ymz280b_write(UINT8 Register, UINT8 Data)
 {
-	STRIP_YMZ* strip = &StripVGM.YMZ280B;
+	STRIP_YMZ* strip = &StpDat->YMZ280B;
 	
 	if (strip->All)
 		return false;
@@ -658,69 +646,18 @@ bool ymz280b_write(UINT8 Register, UINT8 Data)
 	return true;
 }
 
-bool rf5c164_reg_write(UINT8 Register, UINT8 Data)
+bool rf5c164_reg_write(UINT8 Register, UINT8* Data)
 {
-	RF5C68_DATA* chip = &ChDat->RF5C68;
-	RF5C68_CHANNEL* chan = &chip->chan[chip->cbank];
-	STRIP_PCM* strip = &StripVGM.RF5C164;
+	RF5C68_DATA* chip = &ChDat->RF5C164;
+	STRIP_PCM* strip = &StpDat->RF5C164;
 	
-	if (strip->All)
-		return false;
-	
-	switch(Register)
-	{
-	case 0x00:	// Envelope
-	case 0x01:	// Pan
-	case 0x02:	// FD Low / step
-	case 0x03:	// FD High / step
-	case 0x04:	// Loop Start Low
-	case 0x05:	// Loop Start High
-		//if (Data == chan->ChnReg[Register])
-		//	return false;
-		//else
-			chan->ChnReg[Register] = Data;
-		break;
-	case 0x06:	// Start
-		// Address change - must be set
-		chan->ChnReg[Register] = Data;
-		//chan->addr = chan->start << (8 + 11);
-		break;
-	case 0x07:	// Control Register
-		//if (Data == chip->CtrlReg)
-		//	return false;
-		//else
-			chip->CtrlReg = Data;
-		
-		if (Data & 0x40)
-		{
-			chip->cbank = Data & 0x07;
-		}
-		else
-		{
-			chip->wbank = Data & 0x0F;
-			chip->OffsetBase = chip->wbank << 12;
-		}
-		break;
-	case 0x08:	// Channel On/Off Register
-		chip->ChnMask = Data;
-		
-		// Address change
-		/*for (i = 0; i < 8; i++)
-		{
-			chip->chan[i].enable = (~data >> i) & 1;
-			if (!chip->chan[i].enable)
-				chip->chan[i].addr = chip->chan[i].start << (8 + 11);
-		}*/
-		break;
-	}
-	
-	return true;
+	return rf5cxx_reg_write(chip, strip, Register, Data);
 }
 
 bool rf5c164_mem_write(UINT16 Offset, UINT8 Data)
 {
 	//RF5C68_DATA* chip = &ChDat->RF5C164;
-	STRIP_PCM* strip = &StripVGM.RF5C164;
+	STRIP_PCM* strip = &StpDat->RF5C164;
 	
 	if (strip->All || (strip->Other & 0x01))
 		return false;
@@ -730,7 +667,7 @@ bool rf5c164_mem_write(UINT16 Offset, UINT8 Data)
 
 bool c140_write(UINT8 Port, UINT8 Register, UINT8 Data)
 {
-	STRIP_OPL4WT* strip = &StripVGM.C140;
+	STRIP_OPL4WT* strip = &StpDat->C140;
 	C140_DATA* chip = &ChDat->C140;
 	UINT16 RegVal;
 	UINT8 Channel;
@@ -748,13 +685,18 @@ bool c140_write(UINT8 Port, UINT8 Register, UINT8 Data)
 	RegVal &= 0x1FF;
 	
 	// mirror the bank registers on the 219, fixes bkrtmaq
-	if ((RegVal >= 0x1F8) && (chip->BankType == 0x03))
-		RegVal -= 0x008;
+	if ((RegVal >= 0x1F8) && (chip->BankType >= 0x02))
+		RegVal &= 0x1F7;
 	
 	if (RegVal < 0x180)
 	{
 		Channel = RegVal >> 4;
 		if (strip->ChnMask & (0x01 << Channel))
+			return false;
+	}
+	else
+	{
+		if (strip->Other & 0x01)
 			return false;
 	}
 	

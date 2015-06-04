@@ -25,7 +25,7 @@ static void PrintMinSec(const UINT32 SamplePos, char* TempStr);
 #endif
 
 // Function Prototype from vgm_trml.c
-void SetTrimOptions(bool StateSave);
+void SetTrimOptions(UINT8 TrimMode, UINT8 WarnMask);
 void TrimVGMData(const INT32 StartSmpl, const INT32 LoopSmpl, const INT32 EndSmpl,
 				 const bool HasLoop, const bool KeepESmpl);
 
@@ -69,6 +69,7 @@ int main(int argc, char* argv[])
 	}
 	printf("\n");
 	
+	SetTrimOptions(0x00, 0x00);
 	SplitVGMData(argc, argv);
 	
 	free(VGMData);

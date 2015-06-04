@@ -477,7 +477,7 @@ static void CompressVGMDataBlocks(void)
 	}
 	printf("\t\t\t\t\t\t\t\t\t\r");
 	
-	if (VGMHead.lngGD3Offset)
+	if (VGMHead.lngGD3Offset && VGMHead.lngGD3Offset + 0x0B < VGMHead.lngEOFOffset)
 	{
 		VGMPos = VGMHead.lngGD3Offset;
 		memcpy(&TempLng, &VGMData[VGMPos + 0x00], 0x04);
