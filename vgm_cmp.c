@@ -63,7 +63,7 @@ bool okim6295_write(UINT8 Port, UINT8 Data);
 bool upd7759_write(UINT8 Port, UINT8 Data);
 bool okim6258_write(UINT8 Port, UINT8 Data);
 bool c352_write(UINT16 Register, UINT16 Data);
-
+bool x1_010_write(UINT16 Offset, UINT8 Value);
 
 VGM_HEADER VGMHead;
 UINT32 VGMDataLen;
@@ -774,6 +774,12 @@ static void CompressVGMData(void)
 			case 0xC6:	//
 				SetChipSet((VGMPnt[0x01] & 0x80) >> 7);
 				WriteEvent = ym3812_write(VGMPnt[0x02], VGMPnt[0x03]);
+				CmdLen = 0x04;
+				break;
+			case 0xC8:	// X1-010 write
+				SetChipSet((VGMPnt[0x01] & 0x80) >> 7);
+				TempSht = ((VGMPnt[0x01] & 0x7F) << 8) | (VGMPnt[0x02] << 0);
+				WriteEvent = x1_010_write((VGMPnt[0x01] << 8 | (VGMPnt[0x02] << 0)),VGMPnt[0x03]);
 				CmdLen = 0x04;
 				break;
 			case 0xE1:	// C352

@@ -850,9 +850,9 @@ static void SetImportantCommands(void)
 			case 0x25:	// ES5506
 				break;
 			case 0x26:	// X1-010
-				TempReg->RegMask[0x200] |= 0x80;
 				break;
 			case 0x27:	// C352
+				TempReg->RegMask[0x200] |= 0x80;
 				break;
 			case 0x28:	// GA20
 				break;
@@ -2051,6 +2051,7 @@ static UINT32 ReadCommand(UINT8 Mask)
 	case 0xBB:	// Pokey write
 	case 0xBC:	// WonderSwan write
 	case 0xBD:	// SAA1099 write
+	case 0xBF:	// GA20 write
 		ChipID = VGMData[VGMPos + 0x01] >> 7;
 		if (Command == 0xA0)
 			TempChp = &RC[ChipID].AY8910;
@@ -2074,6 +2075,8 @@ static UINT32 ReadCommand(UINT8 Mask)
 			TempChp = &RC[ChipID].WSwan;
 		else if (Command == 0xBD)
 			TempChp = &RC[ChipID].SAA1099;
+		else if (Command == 0xBF)
+			TempChp = &RC[ChipID].GA20;
 		TempReg = &TempChp->Regs;
 		
 		if (TempReg->RegCount)

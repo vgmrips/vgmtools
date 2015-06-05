@@ -323,6 +323,97 @@ typedef struct multipcmdata
 	MULTIPCM_SLOT slot[28];
 } MULTIPCM_DATA;
 
+#define SETA_NUM_CHANNELS 16
+
+// don't remove anything, size of this struct is used when reading channel regs
+typedef struct {
+	UINT8 status;
+	UINT8 volume;                     //        volume / wave form no.
+	UINT8 frequency;                  //     frequency / pitch lo
+	UINT8 pitch_hi;                   //      reserved / pitch hi
+	UINT8 start;                      // start address / envelope time
+	UINT8 end;                        //   end address / envelope no.
+	UINT8 reserve[2];
+} X1_010_CHANNEL;
+
+typedef struct x1010_data
+{
+	INT32 ROMSize;
+	INT8 *ROMData;
+	UINT8* ROMUsage;
+	
+	UINT8 m_reg[0x2000];
+} X1_010_DATA;
+
+enum {
+	C352_FLG_BUSY       = 0x8000,   // channel is busy
+	C352_FLG_KEYON      = 0x4000,   // Keyon
+	C352_FLG_KEYOFF     = 0x2000,   // Keyoff
+	C352_FLG_LOOPTRG    = 0x1000,   // Loop Trigger
+	C352_FLG_LOOPHIST   = 0x0800,   // Loop History
+	C352_FLG_FM         = 0x0400,   // Frequency Modulation
+	C352_FLG_PHASERL    = 0x0200,   // Rear Left invert phase 180 degrees
+	C352_FLG_PHASEFL    = 0x0100,   // Front Left invert phase 180 degrees
+	C352_FLG_PHASEFR    = 0x0080,   // invert phase 180 degrees (e.g. flip sign of sample)
+	C352_FLG_LDIR       = 0x0040,   // loop direction
+	C352_FLG_LINK       = 0x0020,   // "long-format" sample (can't loop, not sure what else it means)
+	C352_FLG_NOISE      = 0x0010,   // play noise instead of sample
+	C352_FLG_MULAW      = 0x0008,   // sample is mulaw instead of linear 8-bit PCM
+	C352_FLG_FILTER     = 0x0004,   // don't apply filter
+	C352_FLG_REVLOOP    = 0x0003,   // loop backwards
+	C352_FLG_LOOP       = 0x0002,   // loop forward
+	C352_FLG_REVERSE    = 0x0001,   // play sample backwards
+};
+	
+typedef struct 
+{
+	UINT8   bank;
+	UINT16  start_addr;
+	UINT16  end_addr;
+	UINT16  repeat_addr;
+	UINT32  flag;
+	
+	UINT16  start;
+	UINT16  repeat;
+	UINT32  current_addr;
+	UINT32  pos;
+	
+} C352_CHANNEL;
+
+typedef struct c352_data
+{
+	INT32 ROMSize;
+	INT8 *ROMData;
+	UINT8* ROMUsage;
+	
+	C352_CHANNEL channels[32];
+	
+} C352_DATA;
+
+typedef struct 
+{
+	UINT32 rate;
+	UINT32 size;
+	UINT32 start;
+	UINT32 pos;
+	UINT32 frac;
+	UINT32 end;
+	UINT32 volume;
+	UINT32 pan;
+	UINT32 effect;
+	UINT32 play;
+	
+} GA20_CHANNEL;
+
+typedef struct ga20_data
+{
+	INT32 ROMSize;
+	UINT8 *ROMData;
+	UINT8* ROMUsage;
+	
+	GA20_CHANNEL channels[4];
+} GA20_DATA;
+
 typedef struct all_chips
 {
 	SEGAPCM_DATA SegaPCM;
@@ -341,8 +432,10 @@ typedef struct all_chips
 	C140_DATA C140;
 	K053260_DATA K053260;
 	QSOUND_DATA QSound;
+	X1_010_DATA X1_010;
+	C352_DATA C352;
+	GA20_DATA GA20;
 } ALL_CHIPS;
-
 
 void InitAllChips(void);
 void FreeAllChips(void);
@@ -370,6 +463,9 @@ void k054539_write(UINT8 Port, UINT8 Offset, UINT8 Data);
 void c140_write(UINT8 Port, UINT8 Offset, UINT8 Data);
 void k053260_write(UINT8 Register, UINT8 Data);
 void qsound_write(UINT8 Offset, UINT16 Value);
+void x1_010_write(UINT16 Offset, UINT8 Data);
+void c352_write(UINT16 Offset, UINT16 Value);
+void ga20_write(UINT8 Register, UINT8 Data);
 void write_rom_data(UINT8 ROMType, UINT32 ROMSize, UINT32 DataStart, UINT32 DataLength,
 					const UINT8* ROMData);
 UINT32 GetROMMask(UINT8 ROMType, UINT8** MaskData);
@@ -2100,6 +2196,165 @@ void multipcm_bank_write(UINT8 Port, UINT16 Data)
 	return;
 }
 
+void x1_010_write(UINT16 offset, UINT8 data)
+{
+	X1_010_DATA *chip =  &ChDat->X1_010;
+	X1_010_CHANNEL *reg;
+	int channel, regi;
+	UINT32 addr, startpos, endpos;
+
+	channel = offset/sizeof(X1_010_CHANNEL);
+	regi    = offset%sizeof(X1_010_CHANNEL);
+
+	/* Control register write */
+	if( channel < SETA_NUM_CHANNELS && regi == 0)
+	{
+			reg = (X1_010_CHANNEL *)&(chip->m_reg[channel*sizeof(X1_010_CHANNEL)]);
+			
+			/* Key on and PCM mode set? */
+			if( (reg->status&1) && !(reg->status&2) )
+			{
+				startpos = reg->start*0x1000;
+				endpos = ((0x100-reg->end)*0x1000)&0xfffff;
+				for (addr = startpos; addr < endpos; addr ++)
+					chip->ROMUsage[addr] |= 0x01;		
+			}
+	}
+	chip->m_reg[offset] = data;
+}
+
+void c352_write(UINT16 Offset, UINT16 val)
+{
+	C352_DATA *chip = &ChDat->C352;
+	UINT16 address = Offset* 2;
+	UINT32 addr, startpos, endpos, reptpos;
+
+	unsigned long   chan;
+	int i, rev, wrap;
+	
+	chan = (address >> 4) & 0xfff;
+
+	if ( address >= 0x400 )
+	{
+		switch(address)
+		{
+			case 0x404: // execute key-ons/offs
+				for ( i = 0 ; i <= 31 ; i++ )
+				{
+					if ( chip->channels[i].flag & C352_FLG_KEYON )
+					{
+						if (chip->channels[i].start_addr != chip->channels[i].end_addr)
+						{
+							rev = chip->channels[i].flag & C352_FLG_REVERSE;	
+							wrap = rev ? chip->channels[i].end_addr > chip->channels[i].start_addr
+							           : chip->channels[i].end_addr < chip->channels[i].start_addr;
+							
+							startpos = wrap && rev ? ((chip->channels[i].bank-1)<<16) : (chip->channels[i].bank<<16);
+							endpos = wrap && !rev ? ((chip->channels[i].bank+1)<<16) : (chip->channels[i].bank<<16);
+							reptpos = (endpos & 0xFF0000) + chip->channels[i].repeat_addr;
+							
+							startpos += rev ? chip->channels[i].end_addr : chip->channels[i].start_addr;
+							endpos += rev ? chip->channels[i].start_addr : chip->channels[i].end_addr;
+							
+							if((chip->channels[i].flag & C352_FLG_LOOP) && reptpos<startpos)
+								startpos=reptpos;
+							
+							for (addr = startpos; addr <= endpos; addr ++)
+								chip->ROMUsage[addr] |= 0x01;		
+						}
+						chip->channels[i].flag &= ~(C352_FLG_KEYON);
+						chip->channels[i].flag |= C352_FLG_BUSY;
+					}
+					else if ( chip->channels[i].flag & C352_FLG_KEYOFF )
+					{
+						chip->channels[i].flag &= ~(C352_FLG_KEYOFF);
+						chip->channels[i].flag &= ~(C352_FLG_BUSY);
+					}
+				}
+				break;
+			default:
+				break;
+		}
+		return;
+	}
+	if (chan > 31)
+	{
+		return;
+	}
+	switch(address & 0xf)
+	{
+	case 0x0: // volumes (output 1)
+	case 0x2: // volumes (output 2)
+	case 0x4: // pitch
+		break;
+	case 0x6: // flags
+		chip->channels[chan].flag = val;
+		break;
+	case 0x8: // bank (bits 16-31 of address);
+		chip->channels[chan].bank = val & 0xff;
+		break;
+	case 0xa: // start address
+		chip->channels[chan].start_addr = val;
+		// Handle linked samples
+		if((chip->channels[chan].flag & C352_FLG_LINK) && (chip->channels[chan].flag & C352_FLG_BUSY ))
+		{
+			val &= 0xFF;
+			startpos = (val<<16) +chip->channels[chan].repeat_addr;
+			endpos = (val<<16) + chip->channels[chan].end_addr;
+			
+			if(endpos < startpos)
+				endpos += 0x10000;
+			for (addr = startpos; addr <= endpos; addr ++)
+				chip->ROMUsage[addr] |= 0x01;	
+		}
+		break;
+	case 0xc: // end address
+		chip->channels[chan].end_addr = val;
+		break;
+	case 0xe: // loop address
+		chip->channels[chan].repeat_addr = val;
+		break;
+	default:
+		break;
+	}
+}
+
+void ga20_write(UINT8 offset, UINT8 data)
+{
+	GA20_DATA *chip =  &ChDat->GA20;
+	int channel;
+	UINT32 addr, startpos, endpos;
+
+	channel = offset >> 3;
+
+	switch (offset & 0x7)
+	{
+		case 0: /* start address low */
+			chip->channels[channel].start = ((chip->channels[channel].start)&0xff000) | (data<<4);
+			break;
+		case 1: /* start address high */
+			chip->channels[channel].start = ((chip->channels[channel].start)&0x00ff0) | (data<<12);
+			break;
+		case 2: /* end address low */
+			chip->channels[channel].end = ((chip->channels[channel].end)&0xff000) | (data<<4);
+			break;
+		case 3: /* end address high */
+			chip->channels[channel].end = ((chip->channels[channel].end)&0x00ff0) | (data<<12);
+			break;
+		case 4:
+		case 5:
+			break;
+		case 6: //AT: this is always written 2(enabling both channels?)
+			if(data)
+			{
+				startpos = chip->channels[channel].start;
+				endpos = chip->channels[channel].end;	
+				for (addr = startpos; addr < endpos; addr ++)
+					chip->ROMUsage[addr] |= 0x01;		
+			}
+			break;
+	}
+}
 
 #define ROM_BORDER_CHECK					\
 	if (DataStart > ROMSize)				\
@@ -2125,6 +2380,9 @@ void write_rom_data(UINT8 ROMType, UINT32 ROMSize, UINT32 DataStart, UINT32 Data
 	C140_DATA* c140;
 	K053260_DATA* k053260;
 	QSOUND_DATA* qsound;
+	X1_010_DATA* x1_010;
+	C352_DATA* c352;
+	GA20_DATA* ga20;
 	
 	switch(ROMType)
 	{
@@ -2384,6 +2642,50 @@ void write_rom_data(UINT8 ROMType, UINT32 ROMSize, UINT32 DataStart, UINT32 Data
 		memcpy(qsound->ROMData + DataStart, ROMData, DataLength);
 		memset(qsound->ROMUsage + DataStart, 0x00, DataLength);
 		break;
+	case 0x91:	// X1-010 ROM
+		x1_010 = &ChDat->X1_010;
+		
+		if (x1_010->ROMSize != ROMSize)
+		{
+			x1_010->ROMData = (UINT8*)realloc(x1_010->ROMData, ROMSize);
+			x1_010->ROMUsage = (UINT8*)realloc(x1_010->ROMUsage, ROMSize);
+			x1_010->ROMSize = ROMSize;
+			memset(x1_010->ROMData, 0xFF, ROMSize);
+			memset(x1_010->ROMUsage, 0x02, ROMSize);
+		}
+		memcpy(x1_010->ROMData + DataStart, ROMData, DataLength);
+		memset(x1_010->ROMUsage + DataStart, 0x00, DataLength);
+		break;
+	case 0x92:	// C352 ROM
+		c352 = &ChDat->C352;
+		
+		if (c352->ROMSize != ROMSize)
+		{
+			c352->ROMData = (UINT8*)realloc(c352->ROMData, ROMSize);
+			c352->ROMUsage = (UINT8*)realloc(c352->ROMUsage, ROMSize);
+			c352->ROMSize = ROMSize;
+			memset(c352->ROMData, 0xFF, ROMSize);
+			memset(c352->ROMUsage, 0x02, ROMSize);
+		}
+		
+		memcpy(c352->ROMData + DataStart, ROMData, DataLength);
+		memset(c352->ROMUsage + DataStart, 0x00, DataLength);
+		break;
+	case 0x93:	// GA20 ROM
+		ga20 = &ChDat->GA20;
+		
+		if (ga20->ROMSize != ROMSize)
+		{
+			ga20->ROMData = (UINT8*)realloc(ga20->ROMData, ROMSize);
+			ga20->ROMUsage = (UINT8*)realloc(ga20->ROMUsage, ROMSize);
+			ga20->ROMSize = ROMSize;
+			memset(ga20->ROMData, 0xFF, ROMSize);
+			memset(ga20->ROMUsage, 0x02, ROMSize);
+		}
+		
+		memcpy(ga20->ROMData + DataStart, ROMData, DataLength);
+		memset(ga20->ROMUsage + DataStart, 0x00, DataLength);
+		break;
 	case 0xC0:	// RF5C68 RAM
 	case 0xC1:	// RF5C164 RAM
 		rf5c = (ROMType == 0xC0) ? &ChDat->RF5C68 : &ChDat->RF5C164;
@@ -2442,6 +2744,9 @@ UINT32 GetROMMask(UINT8 ROMType, UINT8** MaskData)
 	C140_DATA* c140;
 	K053260_DATA* k053260;
 	QSOUND_DATA* qsound;
+	X1_010_DATA* x1_010;
+	C352_DATA* c352;
+	GA20_DATA* ga20;
 	
 	switch(ROMType)
 	{
@@ -2518,6 +2823,21 @@ UINT32 GetROMMask(UINT8 ROMType, UINT8** MaskData)
 		
 		*MaskData = qsound->ROMUsage;
 		return qsound->ROMSize;
+	case 0x91:	// X1-010 ROM
+		x1_010 = &ChDat->X1_010;
+		
+		*MaskData = x1_010->ROMUsage;
+		return x1_010->ROMSize;
+	case 0x92:	// C352 ROM
+		c352 = &ChDat->C352;
+		
+		*MaskData = c352->ROMUsage;
+		return c352->ROMSize;
+	case 0x93:	// GA20 ROM
+		ga20 = &ChDat->GA20;
+		
+		*MaskData = ga20->ROMUsage;
+		return ga20->ROMSize;
 	case 0xC0:	// RF5C68 RAM
 		rf5c = &ChDat->RF5C68;
 		
@@ -2555,6 +2875,9 @@ UINT32 GetROMData(UINT8 ROMType, UINT8** ROMData)
 	C140_DATA* c140;
 	K053260_DATA* k053260;
 	QSOUND_DATA* qsound;
+	X1_010_DATA* x1_010;
+	C352_DATA* c352;
+	GA20_DATA* ga20;
 	
 	switch(ROMType)
 	{
@@ -2630,6 +2953,21 @@ UINT32 GetROMData(UINT8 ROMType, UINT8** ROMData)
 		
 		*ROMData = qsound->ROMData;
 		return qsound->ROMSize;
+	case 0x91:	// X1-010 ROM
+		x1_010 = &ChDat->X1_010;
+		
+		*ROMData = x1_010->ROMData;
+		return x1_010->ROMSize;
+	case 0x92:	// C352 ROM
+		c352 = &ChDat->C352;
+		
+		*ROMData = c352->ROMData;
+		return c352->ROMSize;
+	case 0x93:	// GA20 ROM
+		ga20 = &ChDat->GA20;
+		
+		*ROMData = ga20->ROMData;
+		return ga20->ROMSize;
 	case 0xC0:	// RF5C68 RAM
 		rf5c = &ChDat->RF5C68;
 		

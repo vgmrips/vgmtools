@@ -245,6 +245,11 @@ typedef struct c352_data
 	UINT16 RegData[0x208];
 	UINT8 RegFirst[0x208];
 } C352_DATA;
+typedef struct x1_010_data
+{
+	UINT8 RegData[0x2000];
+	UINT8 RegFirst[0x2000];
+} X1_010_DATA;
 
 typedef struct all_chips
 {
@@ -281,6 +286,7 @@ typedef struct all_chips
 	QSOUND_DATA QSound;
 	//SCSP_DATA SCSP;
 	C352_DATA C352;
+	X1_010_DATA X1_010;
 } ALL_CHIPS;
 
 
@@ -324,6 +330,8 @@ bool scsp_write(UINT8 Port, UINT8 Register, UINT8 Data);
 bool okim6295_write(UINT8 Port, UINT8 Data);
 bool upd7759_write(UINT8 Port, UINT8 Data);
 bool okim6258_write(UINT8 Port, UINT8 Data);
+bool c352_write(UINT16 Offset, UINT16 Value);
+bool x1_010_write(UINT16 Offset, UINT8 Value);
 
 // Function Prototypes from vgm_cmp.c
 bool GetNextChipCommand(void);
@@ -2574,19 +2582,67 @@ bool okim6258_write(UINT8 Port, UINT8 Data)
 	return true;
 }
 
-bool c352_write(UINT16 Register, UINT16 Data)
+#define C352_FLG_LINKLOOP 0x0022
+bool c352_write(UINT16 offset, UINT16 val)
 {
-	C352_DATA* chip = &ChDat->C352;
-	
-	if (Register >= 0x208)
+	C352_DATA *chip = &ChDat->C352;
+
+	if(offset >= 0x208)
 		return true;
 	
-	if (! chip->RegFirst[Register] && Data == chip->RegData[Register])
-		return false;
+	unsigned long   chan;
+	int i;
 	
-	chip->RegData[Register] = Data;
-	chip->RegFirst[Register] = JustTimerCmds;
-	if (Register < 0x100)
+	if(offset < 0x100 && (chip->RegData[(offset & 0xF8)+3] & C352_FLG_LINKLOOP) == C352_FLG_LINKLOOP)
+	{
+		switch (offset&7)
+		{
+		case 3: // flags
+			if((val&C352_FLG_LINKLOOP) != C352_FLG_LINKLOOP)
+			{
+				chip->RegFirst[(offset&0xf8)+4] = 1; // Force rewrites of address registers
+				chip->RegFirst[(offset&0xf8)+5] = 1; // after end of a linked sample.
+				chip->RegFirst[(offset&0xf8)+6] = 1;
+				chip->RegFirst[(offset&0xf8)+7] = 1;
+			}
+			break;
+		case 4: // bank addr 
+		case 5: // start addr
+		//case 6: // end addr
+		//case 7: // loop addr
+			chip->RegData[offset] = val;
+			chip->RegFirst[offset] = JustTimerCmds;
+			if (offset < 0x100)
+				chip->RegFirst[0x202] = 0x01;	// enforce rewrite of Refresh register
+			return true; // leave these registers alone
+		default:
+			break;
+		}
+	}
+	
+	if (! chip->RegFirst[offset] && val == chip->RegData[offset])
+		return false;
+		
+	chip->RegData[offset] = val;
+	chip->RegFirst[offset] = JustTimerCmds;
+	
+	if (offset < 0x100)
 		chip->RegFirst[0x202] = 0x01;	// enforce rewrite of Refresh register
+	
+	return true;
+}
+
+bool x1_010_write(UINT16 offset, UINT8 val)
+{
+	X1_010_DATA *chip = &ChDat->X1_010;
+
+	if(offset >= 0x2000)
+		return false;
+
+	if (! chip->RegFirst[offset] && val == chip->RegData[offset])
+		return false;
+		
+	chip->RegData[offset] = val;
+	chip->RegFirst[offset] = JustTimerCmds;
 	return true;
 }

@@ -48,6 +48,9 @@ void k054539_write(UINT8 Port, UINT8 Offset, UINT8 Data);
 void c140_write(UINT8 Port, UINT8 Offset, UINT8 Data);
 void k053260_write(UINT8 Register, UINT8 Data);
 void qsound_write(UINT8 Offset, UINT16 Value);
+void x1_010_write(UINT16 Offset, UINT8 Data);
+void c352_write(UINT16 Offset, UINT16 Value);
+void ga20_write(UINT8 Register, UINT8 Data);
 void write_rom_data(UINT8 ROMType, UINT32 ROMSize, UINT32 DataStart, UINT32 DataLength,
 					const UINT8* ROMData);
 UINT32 GetROMMask(UINT8 ROMType, UINT8** MaskData);
@@ -67,10 +70,11 @@ typedef struct rom_region_list
 } ROM_RGN_LIST;
 
 
-#define ROM_TYPES	0x11
+#define ROM_TYPES	0x14
 const UINT8 ROM_LIST[ROM_TYPES] =
 {	0x80, 0x81, 0x82, 0x83, 0x85, 0x86, 0x88,
 	0x89, 0x8A, 0x8B, 0x8C, 0x8D, 0x8E, 0x8F,
+	0x91, 0x92, 0x93,
 	0xC0, 0xC1, 0xC2};
 
 
@@ -127,7 +131,7 @@ int main(int argc, char* argv[])
 		! VGMHead.lngHzRF5C164 && ! VGMHead.lngHzYMF271 && ! VGMHead.lngHzOKIM6295 &&
 		! VGMHead.lngHzK054539 && ! VGMHead.lngHzC140 && ! VGMHead.lngHzK053260 &&
 		! VGMHead.lngHzQSound && ! VGMHead.lngHzUPD7759 && ! VGMHead.lngHzMultiPCM &&
-		! VGMHead.lngHzNESAPU)
+		! VGMHead.lngHzNESAPU  && !VGMHead.lngHzGA20 && !VGMHead.lngHzX1_010 && !VGMHead.lngHzC352)
 	{
 		printf("No chips with Sample-ROM used!\n");
 		ErrVal = 2;
@@ -558,10 +562,25 @@ static void FindUsedROMData(void)
 				k053260_write(VGMPnt[0x01] & 0x7F, VGMPnt[0x02]);
 				CmdLen = 0x03;
 				break;
+			case 0xBF:	// GA20 write
+				SetChipSet((VGMPnt[0x01] & 0x80) >> 7);
+				ga20_write(VGMPnt[0x01] & 0x7F, VGMPnt[0x02]);
+				CmdLen = 0x03;
+				break;
 			case 0xC4:	// Q-Sound write
 				//SetChipSet(0x00);
 				qsound_write(VGMPnt[0x03], (VGMPnt[0x01] << 8) | (VGMPnt[0x02] << 0));
 				CmdLen = 0x04;
+				break;
+			case 0xC8:	// X1-010 write
+				SetChipSet((VGMPnt[0x01] & 0x80) >> 7);
+				x1_010_write(((VGMPnt[0x01]&0x7f) << 8) | (VGMPnt[0x02] << 0), VGMPnt[0x03]);
+				CmdLen = 0x04;
+				break;
+			case 0xE1:	// C352 write
+				SetChipSet((VGMPnt[0x01] & 0x80) >> 7);
+				c352_write(((VGMPnt[0x01]&0x7f) << 8 | (VGMPnt[0x02] << 0)), (VGMPnt[0x03] << 8) | (VGMPnt[0x04] << 0));
+				CmdLen = 0x05;
 				break;
 			case 0x90:	// DAC Ctrl: Setup Chip
 				CmdLen = 0x05;
@@ -680,6 +699,15 @@ char* GetROMRegionText(UINT8 ROM_ID)
 		break;
 	case 0x8F:	// QSound
 		RetStr = "Q-Sound";
+		break;
+	case 0x91:	// X1-010
+		RetStr ="X1-010";
+		break;
+	case 0x92:	// C352
+		RetStr ="C352";
+		break;
+	case 0x93:	// GA20
+		RetStr ="GA20";
 		break;
 	case 0xC0:	// RF5C68 RAM
 		RetStr = "RF5C68";
