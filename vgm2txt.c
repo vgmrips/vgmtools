@@ -65,7 +65,7 @@ void multipcm_bank_write(char* TempStr, UINT8 Port, UINT8 Data);
 void upd7759_write(char* TempStr, UINT8 Port, UINT8 Data);
 void vsu_write(char* TempStr, UINT16 Register, UINT8 Data);
 void saa1099_write(char* TempStr, UINT8 Register, UINT8 Data);
-
+void c352_write(char* TempStr, UINT16 Offset, UINT16 val);
 
 VGM_HEADER VGMHead;
 UINT32 VGMDataLen;
@@ -426,6 +426,33 @@ static void WriteVGM2Txt(const char* FileName)
 	
 	WriteClockText(TempStr, VGMHead.lngHzQSound, "QSound");
 	fprintf(hFile, "QSound Clock:\t\t%s\n", TempStr);
+	
+	WriteClockText(TempStr, VGMHead.lngHzSCSP, "SCSP");
+	fprintf(hFile, "SCSP Clock:\t\t%s\n", TempStr);
+	
+	WriteClockText(TempStr, VGMHead.lngHzWSwan, "WSwan");
+	fprintf(hFile, "WonderSwan Clock:\t\t%s\n", TempStr);
+	
+	WriteClockText(TempStr, VGMHead.lngHzVSU, "VSU");
+	fprintf(hFile, "VSU Clock:\t\t%s\n", TempStr);
+	
+	WriteClockText(TempStr, VGMHead.lngHzSAA1099, "SAA1099");
+	fprintf(hFile, "SAA1099 Clock:\t\t%s\n", TempStr);
+	
+	WriteClockText(TempStr, VGMHead.lngHzES5503, "ES5503");
+	fprintf(hFile, "ES5503 Clock:\t\t%s\n", TempStr);
+	
+	WriteClockText(TempStr, VGMHead.lngHzES5506, "ES5506");
+	fprintf(hFile, "ES5506 Clock:\t\t%s\n", TempStr);
+	
+	WriteClockText(TempStr, VGMHead.lngHzX1_010, "X1-010");
+	fprintf(hFile, "X1-010 Clock:\t\t%s\n", TempStr);
+	
+	WriteClockText(TempStr, VGMHead.lngHzC352, "C352");
+	fprintf(hFile, "C352 Clock:\t\t%s\n", TempStr);
+	
+	WriteClockText(TempStr, VGMHead.lngHzGA20, "GA20");
+	fprintf(hFile, "GA20 Clock:\t\t%s\n", TempStr);
 	
 	fprintf(hFile, "\n");
 	fprintf(hFile, "VGMData:\n");
@@ -898,6 +925,18 @@ static void WriteVGMData2Txt(FILE* hFile)
 						case 0x8F:	// QSound ROM Image
 							strcpy(MinSecStr, "QSound ROM");
 							break;
+						case 0x90:	// ES5506 ROM Image
+							strcpy(MinSecStr, "ES5506 ROM");
+							break;
+						case 0x91: // X1-010 ROM Image
+							strcpy(MinSecStr, "X1-010 ROM");
+							break;
+						case 0x92:	// C352 ROM Image
+							strcpy(MinSecStr, "C352 ROM");
+							break;
+						case 0x93:	// GA20 ROM Image
+							strcpy(MinSecStr, "GA20 ROM");
+							break;
 						default:
 							strcpy(MinSecStr, "Unknown ROM Type");
 							break;
@@ -1254,6 +1293,14 @@ static void WriteVGMData2Txt(FILE* hFile)
 					saa1099_write(TempStr, VGMPnt[0x01] & 0x7F, VGMPnt[0x02]);
 				}
 				CmdLen = 0x03;
+				break;
+			case 0xe1:	// C352 write
+				if (WriteEvents)
+				{
+					SetChip((VGMPnt[0x01] & 0x80) >> 7);
+					c352_write(TempStr,((VGMPnt[0x01]&0x7F) << 8) | (VGMPnt[0x02] << 0), (VGMPnt[0x03] << 8) | (VGMPnt[0x04] << 0));
+				}
+				CmdLen = 0x05;
 				break;
 			case 0x90:	// DAC Ctrl: Setup Chip
 				if (WriteEvents)
