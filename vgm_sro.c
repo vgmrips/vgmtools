@@ -701,13 +701,13 @@ char* GetROMRegionText(UINT8 ROM_ID)
 		RetStr = "Q-Sound";
 		break;
 	case 0x91:	// X1-010
-		RetStr ="X1-010";
+		RetStr = "X1-010";
 		break;
 	case 0x92:	// C352
-		RetStr ="C352";
+		RetStr = "C352";
 		break;
 	case 0x93:	// GA20
-		RetStr ="GA20";
+		RetStr = "GA20";
 		break;
 	case 0xC0:	// RF5C68 RAM
 		RetStr = "RF5C68";

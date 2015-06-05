@@ -246,6 +246,7 @@ static UPD7759_DATA CacheUPD7759[0x02];
 
 void InitChips(UINT32* ChipCounts)
 {
+	memset(&ChpCnt, 0x00, sizeof(CHIP_CNT));
 	memcpy(&ChpCnt, ChipCounts, sizeof(UINT32) * 0x20);
 	memset(CacheYMF271, 0x00, sizeof(YMF271_DATA) * 0x02);
 	memset(CacheOKI6295, 0x00, sizeof(OKIM6295_DATA) * 0x02);
@@ -442,31 +443,31 @@ INLINE UINT32 GetChipName(UINT8 ChipType, const char** RetName)
 		break;
 	case 0x20:
 		ChipName = "SCSP";
-		ChipCnt = 0; // ChpCnt.SCSP;
+		ChipCnt = ChpCnt.SCSP;
 		break;
 	case 0x21:
 		ChipName = "WSwan";
-		ChipCnt = 0; // ChpCnt.WSwan;
+		ChipCnt = ChpCnt.WSwan;
 		break;
 	case 0x22:
 		ChipName = "VSU";
-		ChipCnt = 0; // ChpCnt.VSU;
+		ChipCnt = ChpCnt.VSU;
 		break;
 	case 0x23:
 		ChipName = "SAA1099";
-		ChipCnt = 0; // ChpCnt.SAA1099;
+		ChipCnt = ChpCnt.SAA1099;
 		break;
 	case 0x24:
 		ChipName = "ES5503";
-		ChipCnt = 0; // ChpCnt.ES5503;
+		ChipCnt = ChpCnt.ES5503;
 		break;
 	case 0x25:
 		ChipName = "ES5506";
-		ChipCnt = 0; // ChpCnt.ES5506;
+		ChipCnt = ChpCnt.ES5506;
 		break;
 	case 0x26:
 		ChipName = "X1-010";
-		ChipCnt = 0; // ChpCnt.X1_010;
+		ChipCnt = ChpCnt.X1_010;
 		break;
 	case 0x27:
 		ChipName = "C352";
@@ -474,7 +475,7 @@ INLINE UINT32 GetChipName(UINT8 ChipType, const char** RetName)
 		break;
 	case 0x28:
 		ChipName = "GA20";
-		ChipCnt = 0; // ChpCnt.GA20;
+		ChipCnt = ChpCnt.GA20;
 		break;
 	default:
 		ChipName = "Unknown";
@@ -507,7 +508,7 @@ INLINE void WriteChipID(UINT8 ChipType)
 	if (ChipCnt <= 0x01)
 		sprintf(ChipStr, "%s:", ChipName);
 	else
-		sprintf(ChipStr, "%s #%hu:", ChipName, ChpCur);
+		sprintf(ChipStr, "%s #%u:", ChipName, ChpCur);
 	if (strlen(ChipStr) < 0x08)
 		strcat(ChipStr, "\t");
 	strcat(ChipStr, "\t");
@@ -3413,62 +3414,62 @@ void saa1099_write(char* TempStr, UINT8 Register, UINT8 Data)
 
 void c352_write(char* TempStr, UINT16 Offset, UINT16 val)
 {
-	WriteChipID(0x27);
 	UINT16 address = Offset* 2;
-	unsigned long   chan;
-	UINT32 StrPos;
-	chan = (address >> 4) & 0xfff;
-	if ( address >= 0x400 )
+	UINT8 chan;
+	
+	WriteChipID(0x27);
+	
+	if (address < 0x200)
 	{
-		switch(address)
+		chan = (address >> 4) & 0xfff;
+		switch(address & 0xf)
 		{
-			case 0x404: // execute key-ons/offs
-				sprintf(WriteStr, "Update key-ons");
-				break;
-			default:
-				sprintf(WriteStr, "Reg 0x%04X, Data 0x%04X", Offset, val);
-				break;
+		case 0x0:	// volumes (output 1)
+			sprintf(WriteStr, "Ch %u, volume: L=%02X = %u%%, R=%02X = %u%%", chan,
+					val&0xff, 100 * (val&0x00ff) / 0x00ff,
+					val>>8, 100 * (val&0xff00) / 0xff00);
+			break;
+		case 0x2:	// volumes (output 2)
+			sprintf(WriteStr, "Ch %u, volume: BL=%02X = %u%%, BR=%02X = %u%%", chan,
+					val&0xff, 100 * (val&0x00ff) / 0x00ff,
+					val>>8, 100 * (val&0xff00) / 0xff00);
+			break;
+		case 0x4:	// pitch
+			sprintf(WriteStr, "Ch %u, pitch: %04X", chan, val);
+			break;
+		case 0x6:	// flags
+			sprintf(WriteStr, "Ch %u, flags: %04X", chan, val);
+			break;
+		case 0x8:	// bank (bits 16-31 of address);
+			sprintf(WriteStr, "Ch %u, bank: %02X", chan, val&0xff);
+			break;
+		case 0xa:	// start address
+			sprintf(WriteStr, "Ch %u, start: address %04X", chan, val&0xffff);
+			break;
+		case 0xc:	// end address
+			sprintf(WriteStr, "Ch %u, end address: %04X", chan, val&0xffff);
+			break;
+		case 0xe:	// loop address
+			sprintf(WriteStr, "Ch %u, loop address: %04X", chan, val&0xffff);
+			break;
+		default:
+			sprintf(WriteStr, "Reg 0x%04X, Data 0x%04X", Offset, val);
+			break;
 		}
 	}
 	else
 	{
-		if (chan > 31)
+		switch(address)
 		{
+		case 0x404:	// execute key-ons/offs
+			sprintf(WriteStr, "Update key-ons");
+			break;
+		default:
 			sprintf(WriteStr, "Reg 0x%04X, Data 0x%04X", Offset, val);
-			return;
-		}
-		else
-		{
-			switch(address & 0xf)
-			{
-			case 0x0: // volumes (output 1)
-				sprintf(WriteStr, "Ch %d, volume: L=%02x, R=%02x", chan, val&0xff, val>>8);
-				break;
-			case 0x2: // volumes (output 2)
-				sprintf(WriteStr, "Ch %d, volume: BL=%02x, BR=%02x", chan, val&0xff, val>>8);
-				break;
-			case 0x4: // pitch
-				sprintf(WriteStr, "Ch %d, pitch: %04x", chan, val);
-				break;
-			case 0x6: // flags
-				sprintf(WriteStr, "Ch %d, flags: %04x", chan, val);
-				break;
-			case 0x8: // bank (bits 16-31 of address);
-				sprintf(WriteStr, "Ch %d, bank: %02x", chan, val&0xff);
-				break;
-			case 0xa: // start address
-				sprintf(WriteStr, "Ch %d, start: address %04x", chan, val&0xffff);
-				break;
-			case 0xc: // end address
-				sprintf(WriteStr, "Ch %d, end address: %04x", chan, val&0xffff);
-				break;
-			case 0xe: // loop address
-				sprintf(WriteStr, "Ch %d, loop address: %04x", chan, val&0xffff);
-				break;
-			default:
-				break;
-			}
+			break;
 		}
 	}
 	sprintf(TempStr, "%s%s", ChipStr, WriteStr);
+	
+	return;
 }

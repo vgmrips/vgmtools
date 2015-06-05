@@ -240,6 +240,7 @@ typedef struct upd7759_data
 	UINT8 RegData[0x04];
 	UINT8 RegFirst[0x04];
 } UPD7759_DATA;
+#define C352_FLG_LINKLOOP	0x0022
 typedef struct c352_data
 {
 	UINT16 RegData[0x208];
@@ -2427,39 +2428,31 @@ bool okim6295_write(UINT8 Port, UINT8 Data)
 	{
 	case 0x00:	// okim6295_write_command
 		return true;
+		// possible TODO: remove redundant STOP commands
 		/*if (CacheOKI6295[ChpCur].Command != 0xFF)
 		{
-			sprintf(WriteStr, "Start Channel: ");
-			StrPos = strlen(WriteStr);
+			// start channel
 			for (CurChn = 0x00; CurChn < 0x04; CurChn ++)
 			{
-				ChnEn = Data & (0x10 << CurChn);
-				ChnChar = '0' + CurChn;
-				WriteStr[StrPos] = ChnEn ? ChnChar : '-';
-				StrPos ++;
+				if (Data & (0x10 << CurChn))
+					ChnEnable[CurChn] = 0x01;
 			}
-			sprintf(WriteStr + StrPos, ", Volume: 0x%01X = %u%%",
-					Data & 0x0F, 100 * (Data & 0x0F) / 0x0F);
 			
 			CacheOKI6295[ChpCur].Command = 0xFF;
 		}
 		else if (Data & 0x80)
 		{
-			sprintf(WriteStr, "Play Sample 0x%02X on Channels", Data & 0x7F);
+			// play sample on channels
 			CacheOKI6295[ChpCur].Command = Data & 0x7F;
 		}
 		else
 		{
-			sprintf(WriteStr, "Stop Channel: ");
-			StrPos = strlen(WriteStr);
+			// stop channel
 			for (CurChn = 0x00; CurChn < 0x04; CurChn ++)
 			{
-				ChnEn = Data & (0x08 << CurChn);
-				ChnChar = '0' + CurChn;
-				WriteStr[StrPos] = ChnEn ? ChnChar : '-';
-				StrPos ++;
+				if (Data & (0x08 << CurChn))
+					ChnEn[CurChn] = 0x00;
 			}
-			WriteStr[StrPos] = 0x00;
 		}
 		break;*/
 	case 0x08:	// Master Clock 000000dd
@@ -2582,39 +2575,34 @@ bool okim6258_write(UINT8 Port, UINT8 Data)
 	return true;
 }
 
-#define C352_FLG_LINKLOOP 0x0022
 bool c352_write(UINT16 offset, UINT16 val)
 {
 	C352_DATA *chip = &ChDat->C352;
+	UINT16 ChnBase;
 
-	if(offset >= 0x208)
+	if (offset >= 0x208)
 		return true;
 	
-	unsigned long   chan;
-	int i;
-	
-	if(offset < 0x100 && (chip->RegData[(offset & 0xF8)+3] & C352_FLG_LINKLOOP) == C352_FLG_LINKLOOP)
+	ChnBase = offset & 0x0F8;
+	if (offset < 0x100 && (chip->RegData[ChnBase | 3] & C352_FLG_LINKLOOP) == C352_FLG_LINKLOOP)
 	{
 		switch (offset&7)
 		{
-		case 3: // flags
-			if((val&C352_FLG_LINKLOOP) != C352_FLG_LINKLOOP)
+		case 3:	// flags
+			if ((val&C352_FLG_LINKLOOP) != C352_FLG_LINKLOOP)
 			{
-				chip->RegFirst[(offset&0xf8)+4] = 1; // Force rewrites of address registers
-				chip->RegFirst[(offset&0xf8)+5] = 1; // after end of a linked sample.
-				chip->RegFirst[(offset&0xf8)+6] = 1;
-				chip->RegFirst[(offset&0xf8)+7] = 1;
+				chip->RegFirst[ChnBase | 4] = 1;	// Force rewrites of address registers
+				chip->RegFirst[ChnBase | 5] = 1;	// after end of a linked sample.
+				chip->RegFirst[ChnBase | 6] = 1;
+				chip->RegFirst[ChnBase | 7] = 1;
 			}
 			break;
-		case 4: // bank addr 
-		case 5: // start addr
-		//case 6: // end addr
-		//case 7: // loop addr
-			chip->RegData[offset] = val;
-			chip->RegFirst[offset] = JustTimerCmds;
-			if (offset < 0x100)
-				chip->RegFirst[0x202] = 0x01;	// enforce rewrite of Refresh register
-			return true; // leave these registers alone
+		case 4:	// bank addr
+		case 5:	// start addr
+		//case 6:	// end addr
+		//case 7:	// loop addr
+			chip->RegFirst[offset] = 0x01;	// leave these registers alone
+			break;
 		default:
 			break;
 		}
@@ -2622,13 +2610,11 @@ bool c352_write(UINT16 offset, UINT16 val)
 	
 	if (! chip->RegFirst[offset] && val == chip->RegData[offset])
 		return false;
-		
+	
 	chip->RegData[offset] = val;
 	chip->RegFirst[offset] = JustTimerCmds;
-	
 	if (offset < 0x100)
 		chip->RegFirst[0x202] = 0x01;	// enforce rewrite of Refresh register
-	
 	return true;
 }
 
@@ -2641,7 +2627,7 @@ bool x1_010_write(UINT16 offset, UINT8 val)
 
 	if (! chip->RegFirst[offset] && val == chip->RegData[offset])
 		return false;
-		
+	
 	chip->RegData[offset] = val;
 	chip->RegFirst[offset] = JustTimerCmds;
 	return true;

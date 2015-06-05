@@ -264,22 +264,6 @@ typedef struct k053260_data
 	K053260_CHANNEL	channels[4];
 } K053260_DATA;
 
-/*enum
-{
-	STATE_IDLE,
-	STATE_DROP_DRQ,
-	STATE_START,
-	STATE_FIRST_REQ,
-	STATE_LAST_SAMPLE,
-	STATE_DUMMY1,
-	STATE_ADDR_MSB,
-	STATE_ADDR_LSB,
-	STATE_DUMMY2,
-	STATE_BLOCK_HEADER,
-	STATE_NIBBLE_COUNT,
-	STATE_NIBBLE_MSN,
-	STATE_NIBBLE_LSN
-};*/
 typedef struct upd7759_data
 {
 	UINT8		fifo_in;		// last data written to the sound chip
@@ -326,19 +310,20 @@ typedef struct multipcmdata
 #define SETA_NUM_CHANNELS 16
 
 // don't remove anything, size of this struct is used when reading channel regs
-typedef struct {
+typedef struct
+{
 	UINT8 status;
-	UINT8 volume;                     //        volume / wave form no.
-	UINT8 frequency;                  //     frequency / pitch lo
-	UINT8 pitch_hi;                   //      reserved / pitch hi
-	UINT8 start;                      // start address / envelope time
-	UINT8 end;                        //   end address / envelope no.
+	UINT8 volume;		//        volume / wave form no.
+	UINT8 frequency;	//     frequency / pitch lo
+	UINT8 pitch_hi;		//      reserved / pitch hi
+	UINT8 start;		// start address / envelope time
+	UINT8 end;			//   end address / envelope no.
 	UINT8 reserve[2];
 } X1_010_CHANNEL;
 
 typedef struct x1010_data
 {
-	INT32 ROMSize;
+	UINT32 ROMSize;
 	INT8 *ROMData;
 	UINT8* ROMUsage;
 	
@@ -364,7 +349,7 @@ enum {
 	C352_FLG_LOOP       = 0x0002,   // loop forward
 	C352_FLG_REVERSE    = 0x0001,   // play sample backwards
 };
-	
+
 typedef struct 
 {
 	UINT8   bank;
@@ -375,39 +360,29 @@ typedef struct
 	
 	UINT16  start;
 	UINT16  repeat;
-	UINT32  current_addr;
+	//UINT32  current_addr;
 	UINT32  pos;
-	
 } C352_CHANNEL;
 
 typedef struct c352_data
 {
-	INT32 ROMSize;
+	UINT32 ROMSize;
 	INT8 *ROMData;
 	UINT8* ROMUsage;
 	
 	C352_CHANNEL channels[32];
-	
 } C352_DATA;
 
 typedef struct 
 {
-	UINT32 rate;
-	UINT32 size;
 	UINT32 start;
-	UINT32 pos;
-	UINT32 frac;
 	UINT32 end;
-	UINT32 volume;
-	UINT32 pan;
-	UINT32 effect;
-	UINT32 play;
-	
+	//UINT8 play;
 } GA20_CHANNEL;
 
 typedef struct ga20_data
 {
-	INT32 ROMSize;
+	UINT32 ROMSize;
 	UINT8 *ROMData;
 	UINT8* ROMUsage;
 	
@@ -2202,158 +2177,164 @@ void x1_010_write(UINT16 offset, UINT8 data)
 	X1_010_CHANNEL *reg;
 	int channel, regi;
 	UINT32 addr, startpos, endpos;
-
+	
 	channel = offset/sizeof(X1_010_CHANNEL);
 	regi    = offset%sizeof(X1_010_CHANNEL);
-
+	
 	/* Control register write */
 	if( channel < SETA_NUM_CHANNELS && regi == 0)
 	{
-			reg = (X1_010_CHANNEL *)&(chip->m_reg[channel*sizeof(X1_010_CHANNEL)]);
-			
-			/* Key on and PCM mode set? */
-			if( (reg->status&1) && !(reg->status&2) )
-			{
-				startpos = reg->start*0x1000;
-				endpos = ((0x100-reg->end)*0x1000)&0xfffff;
-				for (addr = startpos; addr < endpos; addr ++)
-					chip->ROMUsage[addr] |= 0x01;		
-			}
+		reg = (X1_010_CHANNEL *)&(chip->m_reg[channel*sizeof(X1_010_CHANNEL)]);
+		
+		/* Key on and PCM mode set? */
+		if( (reg->status&1) && !(reg->status&2) )
+		{
+			startpos = reg->start*0x1000;
+			endpos = ((0x100-reg->end)*0x1000)&0xfffff;
+			for (addr = startpos; addr < endpos; addr ++)
+				chip->ROMUsage[addr] |= 0x01;
+		}
 	}
 	chip->m_reg[offset] = data;
+	return;
 }
 
 void c352_write(UINT16 Offset, UINT16 val)
 {
 	C352_DATA *chip = &ChDat->C352;
+	C352_CHANNEL* TempChn;
 	UINT16 address = Offset* 2;
 	UINT32 addr, startpos, endpos, reptpos;
-
-	unsigned long   chan;
+	
+	UINT16 chan;
 	int i, rev, wrap;
 	
 	chan = (address >> 4) & 0xfff;
-
-	if ( address >= 0x400 )
+	
+	if (address >= 0x400)
 	{
 		switch(address)
 		{
-			case 0x404: // execute key-ons/offs
-				for ( i = 0 ; i <= 31 ; i++ )
+		case 0x404:	// execute key-ons/offs
+			for ( i = 0 ; i <= 31 ; i++ )
+			{
+				TempChn = &chip->channels[i];
+				if (TempChn->flag & C352_FLG_KEYON)
 				{
-					if ( chip->channels[i].flag & C352_FLG_KEYON )
+					if (TempChn->start_addr != TempChn->end_addr)
 					{
-						if (chip->channels[i].start_addr != chip->channels[i].end_addr)
-						{
-							rev = chip->channels[i].flag & C352_FLG_REVERSE;	
-							wrap = rev ? chip->channels[i].end_addr > chip->channels[i].start_addr
-							           : chip->channels[i].end_addr < chip->channels[i].start_addr;
-							
-							startpos = wrap && rev ? ((chip->channels[i].bank-1)<<16) : (chip->channels[i].bank<<16);
-							endpos = wrap && !rev ? ((chip->channels[i].bank+1)<<16) : (chip->channels[i].bank<<16);
-							reptpos = (endpos & 0xFF0000) + chip->channels[i].repeat_addr;
-							
-							startpos += rev ? chip->channels[i].end_addr : chip->channels[i].start_addr;
-							endpos += rev ? chip->channels[i].start_addr : chip->channels[i].end_addr;
-							
-							if((chip->channels[i].flag & C352_FLG_LOOP) && reptpos<startpos)
-								startpos=reptpos;
-							
-							for (addr = startpos; addr <= endpos; addr ++)
-								chip->ROMUsage[addr] |= 0x01;		
-						}
-						chip->channels[i].flag &= ~(C352_FLG_KEYON);
-						chip->channels[i].flag |= C352_FLG_BUSY;
+						rev = TempChn->flag & C352_FLG_REVERSE;
+						wrap = rev ? TempChn->end_addr > TempChn->start_addr
+								   : TempChn->end_addr < TempChn->start_addr;
+						
+						startpos = wrap && rev ? ((TempChn->bank-1)<<16) : (TempChn->bank<<16);
+						endpos = wrap && !rev ? ((TempChn->bank+1)<<16) : (TempChn->bank<<16);
+						reptpos = (endpos & 0xFF0000) + TempChn->repeat_addr;
+						
+						startpos += rev ? TempChn->end_addr : TempChn->start_addr;
+						endpos += rev ? TempChn->start_addr : TempChn->end_addr;
+						
+						if ((TempChn->flag & C352_FLG_LOOP) && reptpos<startpos)
+							startpos=reptpos;
+						
+						for (addr = startpos; addr <= endpos; addr ++)
+							chip->ROMUsage[addr] |= 0x01;
 					}
-					else if ( chip->channels[i].flag & C352_FLG_KEYOFF )
-					{
-						chip->channels[i].flag &= ~(C352_FLG_KEYOFF);
-						chip->channels[i].flag &= ~(C352_FLG_BUSY);
-					}
+					TempChn->flag &= ~(C352_FLG_KEYON);
+					TempChn->flag |= C352_FLG_BUSY;
 				}
-				break;
-			default:
-				break;
+				else if (TempChn->flag & C352_FLG_KEYOFF)
+				{
+					TempChn->flag &= ~(C352_FLG_KEYOFF);
+					TempChn->flag &= ~(C352_FLG_BUSY);
+				}
+			}
+			break;
+		default:
+			break;
 		}
 		return;
 	}
+	
 	if (chan > 31)
-	{
 		return;
-	}
+	TempChn = &chip->channels[chan];
 	switch(address & 0xf)
 	{
-	case 0x0: // volumes (output 1)
-	case 0x2: // volumes (output 2)
-	case 0x4: // pitch
+	case 0x0:	// volumes (output 1)
+	case 0x2:	// volumes (output 2)
+	case 0x4:	// pitch
 		break;
-	case 0x6: // flags
-		chip->channels[chan].flag = val;
+	case 0x6:	// flags
+		TempChn->flag = val;
 		break;
-	case 0x8: // bank (bits 16-31 of address);
-		chip->channels[chan].bank = val & 0xff;
+	case 0x8:	// bank (bits 16-31 of address);
+		TempChn->bank = val & 0xff;
 		break;
-	case 0xa: // start address
-		chip->channels[chan].start_addr = val;
+	case 0xa:	// start address
+		TempChn->start_addr = val;
 		// Handle linked samples
-		if((chip->channels[chan].flag & C352_FLG_LINK) && (chip->channels[chan].flag & C352_FLG_BUSY ))
+		if ((TempChn->flag & C352_FLG_LINK) && (TempChn->flag & C352_FLG_BUSY))
 		{
 			val &= 0xFF;
-			startpos = (val<<16) +chip->channels[chan].repeat_addr;
-			endpos = (val<<16) + chip->channels[chan].end_addr;
+			startpos = (val<<16) +TempChn->repeat_addr;
+			endpos = (val<<16) + TempChn->end_addr;
 			
-			if(endpos < startpos)
+			if (endpos < startpos)
 				endpos += 0x10000;
 			for (addr = startpos; addr <= endpos; addr ++)
-				chip->ROMUsage[addr] |= 0x01;	
+				chip->ROMUsage[addr] |= 0x01;
 		}
 		break;
-	case 0xc: // end address
-		chip->channels[chan].end_addr = val;
+	case 0xc:	// end address
+		TempChn->end_addr = val;
 		break;
-	case 0xe: // loop address
-		chip->channels[chan].repeat_addr = val;
+	case 0xe:	// loop address
+		TempChn->repeat_addr = val;
 		break;
 	default:
 		break;
 	}
+	return;
 }
 
 void ga20_write(UINT8 offset, UINT8 data)
 {
-	GA20_DATA *chip =  &ChDat->GA20;
+	GA20_DATA *chip = &ChDat->GA20;
+	GA20_CHANNEL* TempChn;
 	int channel;
 	UINT32 addr, startpos, endpos;
-
+	
 	channel = offset >> 3;
-
+	TempChn = &chip->channels[channel];
 	switch (offset & 0x7)
 	{
-		case 0: /* start address low */
-			chip->channels[channel].start = ((chip->channels[channel].start)&0xff000) | (data<<4);
-			break;
-		case 1: /* start address high */
-			chip->channels[channel].start = ((chip->channels[channel].start)&0x00ff0) | (data<<12);
-			break;
-		case 2: /* end address low */
-			chip->channels[channel].end = ((chip->channels[channel].end)&0xff000) | (data<<4);
-			break;
-		case 3: /* end address high */
-			chip->channels[channel].end = ((chip->channels[channel].end)&0x00ff0) | (data<<12);
-			break;
-		case 4:
-		case 5:
-			break;
-		case 6: //AT: this is always written 2(enabling both channels?)
-			if(data)
-			{
-				startpos = chip->channels[channel].start;
-				endpos = chip->channels[channel].end;	
-				for (addr = startpos; addr < endpos; addr ++)
-					chip->ROMUsage[addr] |= 0x01;		
-			}
-			break;
+	case 0:	// start address low
+		TempChn->start = (TempChn->start&0xff000) | (data<<4);
+		break;
+	case 1:	// start address high
+		TempChn->start = (TempChn->start&0x00ff0) | (data<<12);
+		break;
+	case 2:	// end address low
+		TempChn->end = (TempChn->end&0xff000) | (data<<4);
+		break;
+	case 3:	// end address high
+		TempChn->end = (TempChn->end&0x00ff0) | (data<<12);
+		break;
+	case 4:
+	case 5:
+		break;
+	case 6:	//AT: this is always written 2(enabling both channels?)
+		if(data)
+		{
+			startpos = TempChn->start;
+			endpos = TempChn->end;
+			for (addr = startpos; addr < endpos; addr ++)
+				chip->ROMUsage[addr] |= 0x01;
+		}
+		break;
 	}
+	return;
 }
 
 #define ROM_BORDER_CHECK					\

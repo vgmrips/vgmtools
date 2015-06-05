@@ -763,7 +763,7 @@ static void CompressVGMData(void)
 				WriteEvent = scsp_write(VGMPnt[0x01] & 0x7F, VGMPnt[0x02], VGMPnt[0x03]);
 				CmdLen = 0x04;
 				break;
-			case 0xBC:	//
+			case 0xBC:	// WonderSwan write
 				SetChipSet((VGMPnt[0x01] & 0x80) >> 7);
 				if (VGMPnt[0x01] == 0x0E)
 					WriteEvent = true;
@@ -771,15 +771,15 @@ static void CompressVGMData(void)
 					WriteEvent = ym3812_write(0x20 + VGMPnt[0x01], VGMPnt[0x02]);
 				CmdLen = 0x03;
 				break;
-			case 0xC6:	//
+			case 0xC6:	// WonderSwan memory write
 				SetChipSet((VGMPnt[0x01] & 0x80) >> 7);
-				WriteEvent = ym3812_write(VGMPnt[0x02], VGMPnt[0x03]);
+				WriteEvent = true;
 				CmdLen = 0x04;
 				break;
 			case 0xC8:	// X1-010 write
 				SetChipSet((VGMPnt[0x01] & 0x80) >> 7);
 				TempSht = ((VGMPnt[0x01] & 0x7F) << 8) | (VGMPnt[0x02] << 0);
-				WriteEvent = x1_010_write((VGMPnt[0x01] << 8 | (VGMPnt[0x02] << 0)),VGMPnt[0x03]);
+				WriteEvent = x1_010_write(TempSht, VGMPnt[0x03]);
 				CmdLen = 0x04;
 				break;
 			case 0xE1:	// C352
