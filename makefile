@@ -185,7 +185,7 @@ VGMMERGE_OBJS = \
 vgmmerge:	$(VGMMERGE_OBJS)
 	$(CC) $^ -lm -Wl,-lz -o $@
 
-$(OBJ)/%.o:	$(OBJ) $(SRC)/%.c
+$(OBJ)/%.o:	$(SRC)/%.c
 	$(CC) $(CCFLAGS) $(MAINFLAGS) -c $< -o $@
 
 $(OBJ):
