@@ -201,6 +201,8 @@ static const float OPX_PCM_DBVol[0x10] =
 {	  0.0f,  2.5f,  6.0f,  8.5f, 12.0f, 14.5f, 18.1f, 20.6f,
 	 24.1f, 26.6f, 30.1f, 32.6f, 36.1f, 96.1f, 96.1f, 96.1f};
 
+static const char* ES5503_MODES[0x04] = {"Free-Run", "One-Shot", "Sync", "Swap"};
+
 typedef struct ymf271_chip
 {
 	UINT8 group_sync[12];
@@ -3469,6 +3471,68 @@ void c352_write(char* TempStr, UINT16 Offset, UINT16 val)
 			break;
 		}
 	}
+	sprintf(TempStr, "%s%s", ChipStr, WriteStr);
+	
+	return;
+}
+
+void es5503_write(char* TempStr, UINT8 Register, UINT8 Data)
+{
+	UINT8 CurChn;
+	
+	WriteChipID(0x24);
+	
+	if (Register < 0xE0)
+	{
+		CurChn = Register & 0x1F;
+		switch(Register & 0xE0)
+		{
+		case 0x00:
+			sprintf(RedirectStr, "Frequency LSB: 0x%02X", Data);
+			break;
+		case 0x20:
+			sprintf(RedirectStr, "Frequency MSB: 0x%02X", Data);
+			break;
+		case 0x40:
+			sprintf(RedirectStr, "Volume: %02X = %u%%", Data, 100 * Data / 0xFF);
+			break;
+		case 0x60:
+			sprintf(RedirectStr, "Data: 0x%02X", Data);
+			break;
+		case 0x80:
+			sprintf(RedirectStr, "WaveRAM Address: 0x%04X", Data << 8);
+			break;
+		case 0xA0:
+			sprintf(RedirectStr, "Osc. Control: Channel %u, IRQ %s, Mode %s, Osc. %s",
+					(Data & 0xF0) >> 4, Enable(Data & 0x08),
+					ES5503_MODES[(Data & 0x06) >> 1], Enable(~Data & 0x01));
+			break;
+		case 0xC0:
+			sprintf(RedirectStr, "Bank %X, WaveTblSize: 0x%02X bytes, Resolution: %u",
+					(Data & 0x40) >> 6, 0x100 << ((Data & 0x38) >> 3), 9 + (Data & 0x07));
+			break;
+		default:
+			sprintf(RedirectStr, "Reg 0x%02X, Data 0x%02X", Register, Data);
+			break;
+		}
+		sprintf(WriteStr, "Ch %u %s", CurChn, RedirectStr);
+	}
+	else
+	{
+		switch(Register)
+		{
+		case 0xE0:
+			sprintf(WriteStr, "Interrupt Status (ignored)");
+			break;
+		case 0xE1:
+			sprintf(WriteStr, "Enabled Oscillators: %u", 1 + ((Data >> 1) & 0x1F));
+			break;
+		default:
+			sprintf(WriteStr, "Reg 0x%02X, Data 0x%02X", Register, Data);
+			break;
+		}
+	}
+	
 	sprintf(TempStr, "%s%s", ChipStr, WriteStr);
 	
 	return;

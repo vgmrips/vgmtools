@@ -169,8 +169,7 @@ typedef struct nes_apu_data
 enum
 {
 	C140_TYPE_SYSTEM2,
-	C140_TYPE_SYSTEM21_A,
-	C140_TYPE_SYSTEM21_B,
+	C140_TYPE_SYSTEM21,
 	C140_TYPE_ASIC219
 };
 typedef struct c140_data
@@ -251,6 +250,11 @@ typedef struct x1_010_data
 	UINT8 RegData[0x2000];
 	UINT8 RegFirst[0x2000];
 } X1_010_DATA;
+typedef struct es5503_data
+{
+	UINT8 RegData[0xE2];
+	UINT8 RegFirst[0xE2];
+} ES5503_DATA;
 
 typedef struct all_chips
 {
@@ -286,6 +290,7 @@ typedef struct all_chips
 	POKEY_DATA Pokey;
 	QSOUND_DATA QSound;
 	//SCSP_DATA SCSP;
+	ES5503_DATA ES5503;
 	C352_DATA C352;
 	X1_010_DATA X1_010;
 } ALL_CHIPS;
@@ -333,6 +338,7 @@ bool upd7759_write(UINT8 Port, UINT8 Data);
 bool okim6258_write(UINT8 Port, UINT8 Data);
 bool c352_write(UINT16 Offset, UINT16 Value);
 bool x1_010_write(UINT16 Offset, UINT8 Value);
+bool es5503_write(UINT8 Register, UINT8 Data);
 
 // Function Prototypes from vgm_cmp.c
 bool GetNextChipCommand(void);
@@ -558,23 +564,24 @@ bool sn76496_write(UINT8 Command/*, UINT8 NextCmd*/)
 
 bool ym2413_write(UINT8 Register, UINT8 Data)
 {
+	YM2413_DATA* chip = &ChDat->YM2413;
+	
 	Register &= 0x3F;
 	
-	if (! ChDat->YM2413.RegFirst[Register] && Data == ChDat->YM2413.RegData[Register])
+	if (! chip->RegFirst[Register] && Data == chip->RegData[Register])
 		return false;
 	
-	ChDat->YM2413.RegFirst[Register] = JustTimerCmds;
-	ChDat->YM2413.RegData[Register] = Data;
+	chip->RegFirst[Register] = JustTimerCmds;
+	chip->RegData[Register] = Data;
 	return true;
 }
 
 bool ym2612_write(UINT8 Port, UINT8 Register, UINT8 Data)
 {
-	YM2612_DATA* chip;
+	YM2612_DATA* chip = &ChDat->YM2612;
 	UINT16 RegVal;
 	UINT8 Channel;
 	
-	chip = &ChDat->YM2612;
 	RegVal = (Port << 8) | Register;
 	switch(RegVal)
 	{
@@ -685,10 +692,9 @@ bool ym2612_write(UINT8 Port, UINT8 Register, UINT8 Data)
 
 bool ym2151_write(UINT8 Register, UINT8 Data)
 {
-	YM2151_DATA* chip;
+	YM2151_DATA* chip = &ChDat->YM2151;
 	UINT8 Channel;
 	
-	chip = &ChDat->YM2151;
 	switch(Register)
 	{
 	case 0x08:
@@ -735,11 +741,10 @@ bool ym2151_write(UINT8 Register, UINT8 Data)
 
 bool segapcm_mem_write(UINT16 Offset, UINT8 Data)
 {
-	SEGAPCM_DATA* chip;
+	SEGAPCM_DATA* chip = &ChDat->SegaPCM;
 	UINT8 Channel;
 	UINT16 RelOffset;
 	
-	chip = &ChDat->SegaPCM;
 	Offset &= 0x07FF;	// it has 2 KB of RAM, but only 256 Byte are used
 	Channel = (Offset >> 3) & 0xF;
 	RelOffset = Offset & ~0x78;
@@ -917,14 +922,13 @@ bool rf5c68_reg_write(UINT8 Register, UINT8 Data)
 
 bool ym2203_write(UINT8 Register, UINT8 Data)
 {
-	YM2203_DATA* chip;
+	YM2203_DATA* chip = &ChDat->YM2203;
 	UINT8 Channel;
 	
 	/*if ((Register & 0x1F0) == 0x000)
 		return ! (Register >= 0x0E && Register <= 0x0F);
 	else
 		return false;*/
-	chip = &ChDat->YM2203;
 	switch(Register)
 	{
 	case 0x24:	// Timer Registers
@@ -1028,11 +1032,10 @@ bool ym2203_write(UINT8 Register, UINT8 Data)
 
 bool ym2608_write(UINT8 Port, UINT8 Register, UINT8 Data)
 {
-	YM2608_DATA* chip;
+	YM2608_DATA* chip = &ChDat->YM2608;
 	UINT16 RegVal;
 	UINT8 Channel;
 	
-	chip = &ChDat->YM2608;
 	RegVal = (Port << 8) | Register;
 	switch(RegVal)
 	{
@@ -1160,11 +1163,10 @@ bool ym2608_write(UINT8 Port, UINT8 Register, UINT8 Data)
 
 bool ym2610_write(UINT8 Port, UINT8 Register, UINT8 Data)
 {
-	YM2610_DATA* chip;
+	YM2610_DATA* chip = &ChDat->YM2610;
 	UINT16 RegVal;
 	UINT8 Channel;
 	
-	chip = &ChDat->YM2610;
 	RegVal = (Port << 8) | Register;
 	switch(RegVal)
 	{
@@ -1777,10 +1779,12 @@ bool ymf271_write(UINT8 Port, UINT8 Register, UINT8 Data)
 
 bool gameboy_write_reg(UINT8 Register, UINT8 Data)
 {
+	GBDMG_DATA* chip = &ChDat->GBDMG;
+	
 	if (Register >= 0x30)
 		return true;	// invalid registers
 	
-	if (! ChDat->GBDMG.RegFirst[Register] && Data == ChDat->GBDMG.RegData[Register])
+	if (! chip->RegFirst[Register] && Data == chip->RegData[Register])
 		return false;
 	
 	if (Register == 0x16)
@@ -1790,25 +1794,25 @@ bool gameboy_write_reg(UINT8 Register, UINT8 Data)
 			UINT8 CurReg;
 			
 			for (CurReg = 0x00; CurReg < 0x16; CurReg ++)
-				ChDat->GBDMG.RegFirst[CurReg] = 0x01;
+				chip->RegFirst[CurReg] = 0x01;
 		}
 		return true;
 	}
-	if (Register < 0x20 && ! (ChDat->GBDMG.RegData[0x16] & 0x80))
+	if (Register < 0x20 && ! (chip->RegData[0x16] & 0x80))
 		return false;	// when the chip is off, writes have no effect (except Wave RAM)
 	
 	// uncomment these lines for sample-accurateness
 	// (otherwise the squares may change one sample too late)
 	// the less accurate way has the advantage of slightly cleaner squares
 	/*if ((Register == 0x02) || (Register >= 0x07 && Register <= 0x08))
-		ChDat->GBDMG.RegFirst[Register] = 0x01;	// Channel Initialize
+		chip->RegFirst[Register] = 0x01;	// Channel Initialize
 	else*/
 	if ((Register == 0x04 || Register == 0x09 || Register == 0x0E || Register == 0x13) &&
-																				(Data & 0x80))
-		ChDat->GBDMG.RegFirst[Register] = 0x01;	// Channel Initialize
+																			(Data & 0x80))
+		chip->RegFirst[Register] = 0x01;	// Channel Initialize
 	else
-		ChDat->GBDMG.RegFirst[Register] = JustTimerCmds;
-	ChDat->GBDMG.RegData[Register] = Data;
+		chip->RegFirst[Register] = JustTimerCmds;
+	chip->RegData[Register] = Data;
 	
 	return true;
 }
@@ -1847,10 +1851,10 @@ static bool ymdeltat_write(UINT8 Register, UINT8 Data, UINT8* RegData, UINT8* Re
 		RegFirst[Register] = 0x01;
 		break;*/
 	case 0x09:	// DELTA-N L (ADPCM Playback Prescaler)
-	case 0x0a:	// DELTA-N H
-	case 0x0b:	// Output level control (volume, linear)
-	case 0x0c:	// Limit Address L
-	case 0x0d:	// Limit Address H
+	case 0x0A:	// DELTA-N H
+	case 0x0B:	// Output level control (volume, linear)
+	case 0x0C:	// Limit Address L
+	case 0x0D:	// Limit Address H
 		if (! RegFirst[Register] && Data == RegData[Register])
 			return false;
 		
@@ -1864,6 +1868,7 @@ static bool ymdeltat_write(UINT8 Register, UINT8 Data, UINT8* RegData, UINT8* Re
 
 bool nes_psg_write(UINT8 Register, UINT8 Data)
 {
+	NESAPU_DATA* chip = &ChDat->NES;
 	UINT8 CurChn;
 	bool ChnIsOn;
 	
@@ -1903,9 +1908,9 @@ bool nes_psg_write(UINT8 Register, UINT8 Data)
 		
 		if (ChnIsOn)
 		{
-			//ChnIsOn = (ChDat->NES.RegData[0x15] >> CurChn) & 0x01;
+			//ChnIsOn = (chip->RegData[0x15] >> CurChn) & 0x01;
 			//return true;
-			ChDat->NES.RegFirst[Register] = 0x01;
+			chip->RegFirst[Register] = 0x01;
 		}
 	}
 	else if (Register >= 0x20 && Register < 0x40)
@@ -1923,25 +1928,26 @@ bool nes_psg_write(UINT8 Register, UINT8 Data)
 		}
 	}
 	
-	if (! ChDat->NES.RegFirst[Register] && Data == ChDat->NES.RegData[Register])
+	if (! chip->RegFirst[Register] && Data == chip->RegData[Register])
 		return false;
 	
 	//if (ChnIsOn)
-	//	ChDat->NES.RegFirst[Register] = 0x01;	// Channel Initialize
+	//	chip->RegFirst[Register] = 0x01;	// Channel Initialize
 	//else
-	ChDat->NES.RegFirst[Register] = JustTimerCmds;
-	ChDat->NES.RegData[Register] = Data;
+	chip->RegFirst[Register] = JustTimerCmds;
+	chip->RegData[Register] = Data;
 	
 	return true;
 }
 
 bool c140_write(UINT8 Port, UINT8 Register, UINT8 Data)
 {
+	C140_DATA* chip = &ChDat->C140;
 	UINT16 RegVal;
 	
 	if (Port == 0xFF)
 	{
-		ChDat->C140.banking_type = Data;
+		chip->banking_type = Data;
 		return true;
 	}
 	
@@ -1949,17 +1955,17 @@ bool c140_write(UINT8 Port, UINT8 Register, UINT8 Data)
 	RegVal &= 0x1FF;
 
 	// mirror the bank registers on the 219, fixes bkrtmaq
-	if ((RegVal >= 0x1F8) && (ChDat->C140.banking_type == C140_TYPE_ASIC219))
+	if ((RegVal >= 0x1F8) && (chip->banking_type == C140_TYPE_ASIC219))
 		RegVal -= 0x008;
 	
-	if (! ChDat->C140.RegFirst[RegVal] && Data == ChDat->C140.RegData[RegVal])
+	if (! chip->RegFirst[RegVal] && Data == chip->RegData[RegVal])
 		return false;
 	
 	if (RegVal < 0x180 && (RegVal & 0x0F) == 0x05 && (Data & 0x80))
-		ChDat->C140.RegFirst[RegVal] = 0x01;
+		chip->RegFirst[RegVal] = 0x01;
 	else
-		ChDat->C140.RegFirst[RegVal] = JustTimerCmds;
-	ChDat->C140.RegData[RegVal] = Data;
+		chip->RegFirst[RegVal] = JustTimerCmds;
+	chip->RegData[RegVal] = Data;
 	
 	return true;
 }
@@ -2630,5 +2636,22 @@ bool x1_010_write(UINT16 offset, UINT8 val)
 	
 	chip->RegData[offset] = val;
 	chip->RegFirst[offset] = JustTimerCmds;
+	return true;
+}
+
+bool es5503_write(UINT8 Register, UINT8 Data)
+{
+	ES5503_DATA* chip = &ChDat->ES5503;
+	
+	if (Register >= 0xE2)
+		return true;
+	if ((Register & 0xE0) == 0xA0)
+		return true;	// don't strip Control register (can be changed by sound chip itself)
+	
+	if (! chip->RegFirst[Register] && Data == chip->RegData[Register])
+		return false;
+	
+	chip->RegFirst[Register] = JustTimerCmds;
+	chip->RegData[Register] = Data;
 	return true;
 }

@@ -66,6 +66,7 @@ void upd7759_write(char* TempStr, UINT8 Port, UINT8 Data);
 void vsu_write(char* TempStr, UINT16 Register, UINT8 Data);
 void saa1099_write(char* TempStr, UINT8 Register, UINT8 Data);
 void c352_write(char* TempStr, UINT16 Offset, UINT16 val);
+void es5503_write(char* TempStr, UINT8 Register, UINT8 Data);
 
 VGM_HEADER VGMHead;
 UINT32 VGMDataLen;
@@ -1302,6 +1303,14 @@ static void WriteVGMData2Txt(FILE* hFile)
 								(VGMPnt[0x03] << 8) | (VGMPnt[0x04] << 0));
 				}
 				CmdLen = 0x05;
+				break;
+			case 0xD5:	// ES5503 write
+				if (WriteEvents)
+				{
+					SetChip((VGMPnt[0x01] & 0x80) >> 7);
+					es5503_write(TempStr, VGMPnt[0x02], VGMPnt[0x03]);
+				}
+				CmdLen = 0x04;
 				break;
 			case 0x90:	// DAC Ctrl: Setup Chip
 				if (WriteEvents)

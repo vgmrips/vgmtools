@@ -64,6 +64,7 @@ bool upd7759_write(UINT8 Port, UINT8 Data);
 bool okim6258_write(UINT8 Port, UINT8 Data);
 bool c352_write(UINT16 Register, UINT16 Data);
 bool x1_010_write(UINT16 Offset, UINT8 Value);
+bool es5503_write(UINT8 Register, UINT8 Data);
 
 VGM_HEADER VGMHead;
 UINT32 VGMDataLen;
@@ -703,31 +704,26 @@ static void CompressVGMData(void)
 				CmdLen = 0x04;
 				break;
 			case 0xB6:	// UPD7759 write
-				WriteEvent = true;
 				SetChipSet((VGMPnt[0x01] & 0x80) >> 7);
 				WriteEvent = upd7759_write(VGMPnt[0x01] & 0x7F, VGMPnt[0x02]);
 				CmdLen = 0x03;
 				break;
 			case 0xB7:	// OKIM6258 write
-				WriteEvent = true;
 				SetChipSet((VGMPnt[0x01] & 0x80) >> 7);
 				WriteEvent = okim6258_write(VGMPnt[0x01] & 0x7F, VGMPnt[0x02]);
 				CmdLen = 0x03;
 				break;
 			case 0xB8:	// OKIM6295 write
-				WriteEvent = true;
 				SetChipSet((VGMPnt[0x01] & 0x80) >> 7);
 				WriteEvent = okim6295_write(VGMPnt[0x01] & 0x7F, VGMPnt[0x02]);
 				CmdLen = 0x03;
 				break;
 			case 0xD2:	// SCC1 write
-				WriteEvent = true;
 				SetChipSet((VGMPnt[0x01] & 0x80) >> 7);
 				WriteEvent = k051649_write(VGMPnt[0x01] & 0x7F, VGMPnt[0x02], VGMPnt[0x03]);
 				CmdLen = 0x04;
 				break;
 			case 0xD3:	// K054539 write
-				WriteEvent = true;
 				SetChipSet((VGMPnt[0x01] & 0x80) >> 7);
 				WriteEvent = k054539_write(VGMPnt[0x01] & 0x7F, VGMPnt[0x02], VGMPnt[0x03]);
 				CmdLen = 0x04;
@@ -787,6 +783,11 @@ static void CompressVGMData(void)
 				TempSht = ((VGMPnt[0x01] & 0x7F) << 8) | (VGMPnt[0x02] << 0);
 				WriteEvent = c352_write(TempSht, (VGMPnt[0x03] << 8) | VGMPnt[0x04]);
 				CmdLen = 0x05;
+				break;
+			case 0xD5:	// ES5503 write
+				SetChipSet((VGMPnt[0x01] & 0x80) >> 7);
+				WriteEvent = es5503_write(VGMPnt[0x02], VGMPnt[0x03]);
+				CmdLen = 0x04;
 				break;
 			default:
 				switch(Command & 0xF0)
