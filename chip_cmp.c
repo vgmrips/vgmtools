@@ -230,8 +230,8 @@ typedef struct k051649_data
 } K051649_DATA;
 typedef struct okim6295_data
 {
-	UINT8 RegData[0x10];
-	UINT8 RegFirst[0x10];
+	UINT8 RegData[0x14];
+	UINT8 RegFirst[0x14];
 } OKIM6295_DATA;
 typedef struct okim6295_data OKIM6258_DATA;
 typedef struct upd7759_data
@@ -2425,8 +2425,8 @@ bool okim6295_write(UINT8 Port, UINT8 Data)
 	
 	if (Port & 0x80)
 	{
-		chip->RegData[Port & 0x0F] = Data;
-		chip->RegFirst[Port & 0x0F] = 0x00;
+		chip->RegData[Port & 0x7F] = Data;
+		chip->RegFirst[Port & 0x7F] = 0x00;
 		return true;
 	}
 	
@@ -2474,14 +2474,23 @@ bool okim6295_write(UINT8 Port, UINT8 Data)
 	case 0x0B:	// Master Clock dd000000
 		Data &= 0x7F;	// fix a bug in MAME VGM logs
 	case 0x0C:	// Clock Divider
+	case 0x0E:	// NMK112 Bank Enable
 	case 0x0F:	// Set Bank
-		if (! chip->RegFirst[Port] && Data == chip->RegData[Port])
-			return false;
-		
-		chip->RegData[Port] = Data;
-		chip->RegFirst[Port] = JustTimerCmds;
+	case 0x10:	// Set NMK Bank 0
+	case 0x11:	// Set NMK Bank 1
+	case 0x12:	// Set NMK Bank 2
+	case 0x13:	// Set NMK Bank 3
 		break;
 	}
+	
+	if (Port >= 0x14)
+		return true;
+	
+	if (! chip->RegFirst[Port] && Data == chip->RegData[Port])
+		return false;
+	
+	chip->RegData[Port] = Data;
+	chip->RegFirst[Port] = JustTimerCmds;
 	
 	return true;
 }

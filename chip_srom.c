@@ -163,8 +163,9 @@ typedef struct okim6295_data
 {
 	OKIM_VOICE	voice[OKIM6295_VOICES];
 	UINT8		command;
-	bool		bank_installed;
+	UINT8		nmk_mode;
 	UINT32		bank_offs;
+	UINT8		nmk_bank[4];
 	
 	UINT32 ROMSize;
 	UINT8* ROMData;
@@ -1325,6 +1326,7 @@ static void okim6295_command_write(OKIM6295_DATA* chip, UINT8 Command)
 	UINT32 SampleLen;
 	UINT32 CurSmpl;
 	UINT8* MaskBase;
+	UINT8 BankID;
 	
 	// if a command is pending, process the second half
 	if (chip->command != 0xFF)
@@ -1346,7 +1348,19 @@ static void okim6295_command_write(OKIM6295_DATA* chip, UINT8 Command)
 			voice = &chip->voice[voicenum];
 			
 			// determine the start/stop positions
-			base = chip->bank_offs | chip->command * 8;
+			base = chip->command * 8;
+			if (! chip->nmk_mode)
+			{
+				base |= chip->bank_offs;
+			}
+			else
+			{
+				if (chip->nmk_mode & 0x80)
+					BankID = base >> 8;
+				else
+					BankID = 0x00;
+				base |= (chip->nmk_bank[BankID & 0x03] << 16);
+			}
 			
 			voice->start  = chip->ROMData[base + 0] << 16;
 			voice->start |= chip->ROMData[base + 1] <<  8;
@@ -1358,8 +1372,26 @@ static void okim6295_command_write(OKIM6295_DATA* chip, UINT8 Command)
 			voice->stop |= chip->ROMData[base + 5] <<  0;
 			voice->stop &= 0x3FFFF;
 			
+			if (! chip->nmk_mode)
+			{
+				voice->start |= chip->bank_offs;
+				voice->stop |= chip->bank_offs;
+			}
+			else
+			{
+				BankID = voice->start >> 16;
+				voice->start &= 0xFFFF;
+				voice->start |= (chip->nmk_bank[BankID & 0x03] << 16);
+				BankID = voice->stop >> 16;
+				voice->stop &= 0xFFFF;
+				voice->stop |= (chip->nmk_bank[BankID & 0x03] << 16);
+				if ((voice->start & ~0xFFFF) != (voice->stop & ~0xFFFF))
+					printf("Warning: NMK112 Start Bank != Stop Bank!\n");
+			}
+			
 			SampleLen = 0x80 * 8;	// header memory
-			MaskBase = &chip->ROMUsage[chip->bank_offs | 0x00];
+			base &= ~0x3FF;			// enforce storing the full table
+			MaskBase = &chip->ROMUsage[base];
 			for (CurSmpl = 0x00; CurSmpl < SampleLen; CurSmpl ++)
 				MaskBase[CurSmpl] |= 0x01;
 			
@@ -1369,7 +1401,7 @@ static void okim6295_command_write(OKIM6295_DATA* chip, UINT8 Command)
 				voice->playing = true;
 				
 				SampleLen = voice->stop - voice->start + 1;
-				MaskBase = &chip->ROMUsage[chip->bank_offs | voice->start];
+				MaskBase = &chip->ROMUsage[voice->start];
 				for (CurSmpl = 0x00; CurSmpl < SampleLen; CurSmpl ++)
 					MaskBase[CurSmpl] |= 0x01;
 			}
@@ -1415,38 +1447,47 @@ void okim6295_write(UINT8 Offset, UINT8 Data)
 	case 0x00:
 		okim6295_command_write(chip, Data);
 		break;
+	case 0x0E:	// NMK112 bank switch enable
+		chip->nmk_mode = Data;
+		break;
 	case 0x0F:
 		TempLng = Data << 18;
-		if (chip->bank_offs != TempLng)
+		if (chip->bank_offs == TempLng)
+			return;
+		
+		ChnMask = 0x00;
+		for (CurChn = 0; CurChn < OKIM6295_VOICES; CurChn ++)
+			ChnMask |= chip->voice[CurChn].playing << CurChn;
+		
+		if (ChnMask)
 		{
-			ChnMask = 0x00;
-			for (CurChn = 0; CurChn < OKIM6295_VOICES; CurChn ++)
-				ChnMask |= chip->voice[CurChn].playing << CurChn;
+			UINT32 SampleLen;
+			UINT32 CurSmpl;
+			UINT8* MaskBase;
 			
-			if (ChnMask)
+			printf("Warning! OKIM6295 Bank change (%X -> %X) while channel ",
+					chip->bank_offs, TempLng);
+			for (CurChn = 0; CurChn < OKIM6295_VOICES; CurChn ++)
 			{
-				UINT32 SampleLen;
-				UINT32 CurSmpl;
-				UINT8* MaskBase;
-				
-				printf("Warning! OKIM6295 Bank change (%X -> %X) while channel ",
-						chip->bank_offs, TempLng);
-				for (CurChn = 0; CurChn < OKIM6295_VOICES; CurChn ++)
+				if (ChnMask & (1 << CurChn))
 				{
-					if (ChnMask & (1 << CurChn))
-					{
-						printf("%c", '0' + CurChn);
-						
-						SampleLen = chip->voice[CurChn].stop - chip->voice[CurChn].start + 1;
-						MaskBase = &chip->ROMUsage[TempLng | chip->voice[CurChn].start];
-						for (CurSmpl = 0x00; CurSmpl < SampleLen; CurSmpl ++)
-							MaskBase[CurSmpl] |= 0x01;
-					}
+					printf("%c", '0' + CurChn);
+					
+					SampleLen = chip->voice[CurChn].stop - chip->voice[CurChn].start + 1;
+					MaskBase = &chip->ROMUsage[TempLng | chip->voice[CurChn].start];
+					for (CurSmpl = 0x00; CurSmpl < SampleLen; CurSmpl ++)
+						MaskBase[CurSmpl] |= 0x01;
 				}
-				printf(" is playing!\n");
 			}
-			chip->bank_offs = TempLng;
+			printf(" is playing!\n");
 		}
+		chip->bank_offs = TempLng;
+		break;
+	case 0x10:
+	case 0x11:
+	case 0x12:
+	case 0x13:
+		chip->nmk_bank[Offset & 0x03] = Data;
 		break;
 	}
 	
@@ -1456,9 +1497,9 @@ void okim6295_write(UINT8 Offset, UINT8 Data)
 static UINT32 c140_sample_addr(C140_DATA* chip, UINT8 adr_msb, UINT8 adr_lsb,
 							   UINT8 bank, UINT8 voice)
 {
+	static const INT16 asic219banks[4] = {0x07, 0x01, 0x03, 0x05};
 	UINT32 TempAddr;
 	UINT32 NewAddr;
-	const INT16 asic219banks[4] = {0x07, 0x01, 0x03, 0x05};
 	UINT8 BnkReg;
 	
 	TempAddr = (bank << 16) | (adr_msb << 8) | (adr_lsb << 0);

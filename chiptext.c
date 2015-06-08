@@ -188,6 +188,10 @@ static const int dpcm_clocks[16] = {428, 380, 340, 320, 286, 254, 226, 214,
 
 static const int okim6258_dividers[4] = {1024, 768, 512, 512};
 
+static const UINT8 okim6295_voltbl[0x10] =
+{	0x20, 0x16, 0x10, 0x0B, 0x08, 0x06, 0x04, 0x03,
+	0x02, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
+
 static const int multipcm_val2chan[] =
 {
 	 0, 1, 2, 3, 4, 5, 6, -1,
@@ -2904,7 +2908,7 @@ void okim6295_write(char* TempStr, UINT8 Port, UINT8 Data)
 				StrPos ++;
 			}
 			sprintf(WriteStr + StrPos, ", Volume: 0x%01X = %u%%",
-					Data & 0x0F, 100 * (Data & 0x0F) / 0x0F);
+					Data & 0x0F, 100 * okim6295_voltbl[Data & 0x0F] / 0x20);
 			
 			CacheOKI6295[ChpCur].Command = 0xFF;
 		}
@@ -2941,8 +2945,19 @@ void okim6295_write(char* TempStr, UINT8 Port, UINT8 Data)
 	case 0x0C:
 		sprintf(WriteStr, "Set Clock Divider to %u", Data ? 132 : 165);
 		break;
+	case 0x0E:
+		sprintf(WriteStr, "NMK112 Bank Mode: %s, banked Sample Table: %s",
+				Enable(Data & 0x01), OnOff(Data & 0x80));
+		break;
 	case 0x0F:
 		sprintf(WriteStr, "Set Bank to %06X", Data << 18);
+		break;
+	case 0x10:
+	case 0x11:
+	case 0x12:
+	case 0x13:
+		sprintf(WriteStr, "Set NMK112 Bank %u to %06X",
+				Port & 0x03, Data << 16);
 		break;
 	default:
 		sprintf(WriteStr, "Port %02X: 0x%02X", Port, Data);

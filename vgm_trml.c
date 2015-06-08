@@ -63,6 +63,7 @@ typedef struct chip_state_data
 typedef struct chip_state_memory
 {
 	UINT32 MemSize;
+	UINT32 MemMaxOfs;
 	UINT8* MemData;
 	bool HadWrt;
 	UINT32 CurAddr;
@@ -557,6 +558,7 @@ static void PrepareChipMemory(void)
 			if (! CurCSet || (VGMHead.lngHzES5503 & 0x40000000))
 			{
 				TempRC->ES5503.Regs.RegCount = 0x100;
+				TempRC->ES5503.Mem.MemSize = 0x20000;	// 128 KB
 				TempRC->ES5503.Chns.ChnCount = 0x20;
 			}
 		}
@@ -844,7 +846,6 @@ static void SetImportantCommands(void)
 				TempReg->RegMask[0x19] |= 0x80;	// envelope generator 1
 				break;
 			case 0x24:	// ES5503
-				TempReg->RegMask[0xE0] |= 0x80;
 				TempReg->RegMask[0xE1] |= 0x80;
 				break;
 			case 0x25:	// ES5506
@@ -939,24 +940,26 @@ static void InitializeVGM(UINT8** DstDataRef, UINT32* DstPosRef)
 				DstData[DstPos + 0x01] = 0x66;
 				DstData[DstPos + 0x02] = 0xC0 | TempByt;
 				
+				if (! TempMem->MemMaxOfs)
+					TempMem->MemMaxOfs = TempMem->MemSize;
 				if (! (TempByt & 0x20))
-					TempLng = TempMem->MemSize + 0x02;
+					TempLng = TempMem->MemMaxOfs + 0x02;
 				else
-					TempLng = TempMem->MemSize + 0x04;
+					TempLng = TempMem->MemMaxOfs + 0x04;
 				WriteLE32(&DstData[DstPos + 0x03], TempLng);
 				
 				TempSht = 0x0000;
 				if (! (TempByt & 0x20))
 				{
 					if (TempByt == 0x02)
-						TempSht += 0x8000;
+						TempSht |= 0x8000;
 					WriteLE16(&DstData[DstPos + 0x07], TempSht);
-					memcpy(&DstData[DstPos + 0x09], TempMem->MemData, TempMem->MemSize);
+					memcpy(&DstData[DstPos + 0x09], TempMem->MemData, TempMem->MemMaxOfs);
 				}
 				else
 				{
 					WriteLE32(&DstData[DstPos + 0x07], TempSht);
-					memcpy(&DstData[DstPos + 0x0B], TempMem->MemData, TempMem->MemSize);
+					memcpy(&DstData[DstPos + 0x0B], TempMem->MemData, TempMem->MemMaxOfs);
 				}
 				DstPos += 0x07 + TempLng;
 				
@@ -2906,7 +2909,11 @@ void TrimVGMData(const INT32 StartSmpl, const INT32 LoopSmpl, const INT32 EndSmp
 						if (DataStart + DataLen > TempMem->MemSize)
 							DataLen = TempMem->MemSize - DataStart;
 						if (DataStart < TempMem->MemSize)
+						{
 							memcpy(&TempMem->MemData[DataStart], &VGMData[VGMPos + 0x0F], DataLen);
+							if (DataStart + CmdLen > TempMem->MemMaxOfs)
+								TempMem->MemMaxOfs = DataStart + CmdLen;
+						}
 						TempMem->MemPtr = &DstData[DstPos + 0x0F];
 					}
 					break;
@@ -2943,6 +2950,8 @@ void TrimVGMData(const INT32 StartSmpl, const INT32 LoopSmpl, const INT32 EndSmp
 							if (DataStart + CmdLen > TempMem->MemSize)
 								CmdLen = TempMem->MemSize - DataStart;
 							memcpy(&TempMem->MemData[DataStart], TempData, CmdLen);
+							if (DataStart + CmdLen > TempMem->MemMaxOfs)
+								TempMem->MemMaxOfs = DataStart + CmdLen;
 							TempMem->HadWrt = true;
 						}
 						break;
@@ -2956,7 +2965,11 @@ void TrimVGMData(const INT32 StartSmpl, const INT32 LoopSmpl, const INT32 EndSmp
 								DataStart = 0x8000;
 								CmdLen -= TempSht;
 							}
-							memcpy(&TempMem->MemData[DataStart & 0x7FFF], TempData, CmdLen);
+							
+							DataStart &= 0x7FFF;
+							memcpy(&TempMem->MemData[DataStart], TempData, CmdLen);
+							if (DataStart + CmdLen > TempMem->MemMaxOfs)
+								TempMem->MemMaxOfs = DataStart + CmdLen;
 							TempMem->HadWrt = true;
 						}
 						break;
@@ -2971,6 +2984,8 @@ void TrimVGMData(const INT32 StartSmpl, const INT32 LoopSmpl, const INT32 EndSmp
 							if (DataStart + CmdLen > TempMem->MemSize)
 								CmdLen = TempMem->MemSize - DataStart;
 							memcpy(&TempMem->MemData[DataStart], TempData, CmdLen);
+							if (DataStart + CmdLen > TempMem->MemMaxOfs)
+								TempMem->MemMaxOfs = DataStart + CmdLen;
 							TempMem->HadWrt = true;
 						}
 					}
@@ -2999,6 +3014,8 @@ void TrimVGMData(const INT32 StartSmpl, const INT32 LoopSmpl, const INT32 EndSmp
 				{
 					TempSht |= (TempReg->RegData.R08[0x38] & 0x0F) << 12;
 					TempMem->MemData[TempSht] = VGMData[VGMPos + 0x03];
+					if (TempSht >= TempMem->MemMaxOfs)
+						TempMem->MemMaxOfs = TempSht + 0x01;
 					TempMem->HadWrt = true;
 				}
 				CmdLen = 0x04;
@@ -3012,6 +3029,8 @@ void TrimVGMData(const INT32 StartSmpl, const INT32 LoopSmpl, const INT32 EndSmp
 				if (TempMem->MemSize)
 				{
 					TempMem->MemData[TempSht] = VGMData[VGMPos + 0x03];
+					if (TempSht >= TempMem->MemMaxOfs)
+						TempMem->MemMaxOfs = TempSht + 0x01;
 					TempMem->HadWrt = true;
 				}
 				CmdLen = 0x04;
