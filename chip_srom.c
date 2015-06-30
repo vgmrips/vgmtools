@@ -2248,7 +2248,7 @@ void c352_write(UINT16 Offset, UINT16 val)
 	UINT32 addr, startpos, endpos, reptpos;
 	
 	UINT16 chan;
-	int i, rev, wrap;
+	int i, rev, wrap, ldir;
 	
 	chan = (address >> 4) & 0xfff;
 	
@@ -2265,14 +2265,24 @@ void c352_write(UINT16 Offset, UINT16 val)
 					if (TempChn->start_addr != TempChn->end_addr)
 					{
 						rev = TempChn->flag & C352_FLG_REVERSE;
+						ldir = TempChn->flag & C352_FLG_LDIR;
+						
+						// reverse loops are actually bidirectional, the loop direction flag decides
+						// the initial direction. If it is unset, the sample will play "forwards" first
+						// and should thus be treated as a forwards sample
+						if((TempChn->flag & C352_FLG_LOOP) && !ldir)
+							rev = 0;
+						
 						wrap = rev ? TempChn->end_addr > TempChn->start_addr
 								   : TempChn->end_addr < TempChn->start_addr;
 						
 						startpos = wrap && rev ? ((TempChn->bank-1)<<16) : (TempChn->bank<<16);
+												
 						endpos = wrap && !rev ? ((TempChn->bank+1)<<16) : (TempChn->bank<<16);
 						reptpos = (endpos & 0xFF0000) + TempChn->repeat_addr;
 						
 						startpos += rev ? TempChn->end_addr : TempChn->start_addr;
+						
 						endpos += rev ? TempChn->start_addr : TempChn->end_addr;
 						
 						if ((TempChn->flag & C352_FLG_LOOP) && reptpos<startpos)
@@ -2308,6 +2318,17 @@ void c352_write(UINT16 Offset, UINT16 val)
 		break;
 	case 0x6:	// flags
 		TempChn->flag = val;
+		if ((TempChn->flag & C352_FLG_REVERSE) && (TempChn->flag & C352_FLG_BUSY))
+		{
+			val &= 0xFF;
+			startpos = (val<<16) +TempChn->repeat_addr;
+			endpos = (val<<16) + TempChn->end_addr;
+			
+			if (endpos < startpos)
+				endpos += 0x10000;
+			for (addr = startpos; addr <= endpos; addr ++)
+				chip->ROMUsage[addr] |= 0x01;
+		}
 		break;
 	case 0x8:	// bank (bits 16-31 of address);
 		TempChn->bank = val & 0xff;
