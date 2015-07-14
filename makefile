@@ -7,7 +7,7 @@
 
 CC=gcc
 CFLAGS=
-LDFLAGS=-lm -Wl,-lz
+LDFLAGS=-lm -lz
 
 SRC=.
 OBJ=obj
@@ -67,8 +67,8 @@ vgm_vol_OBJS=vgm_vol.o
 vgmlpfnd_OBJS=vgmlpfnd.o
 vgmmerge_OBJS=vgmmerge.o
 
-$(TOOLS) $(EXTRA_TOOLS): $(addprefix $(OBJ)/,$$($$@_OBJS))
-	$(CC) $(LDFLAGS) $^ -o $@
+$(TOOLS) $(EXTRA_TOOLS): $$(addprefix $(OBJ)/,$$($$@_OBJS))
+	$(CC) $^ -o $@ $(LDFLAGS)
 
 $(OBJ)/%.o: $(SRC)/%.c
 	$(CC) $(CFLAGS) -c $< -o $@
