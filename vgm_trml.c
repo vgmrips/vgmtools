@@ -781,6 +781,7 @@ static void SetImportantCommands(void)
 				TempReg->RegData.R08[0x0C] = (VGMHead.bytOKI6258Flags >> 0) & 0x03;
 				for (CurReg = 0x0B; CurReg <= 0x0C; CurReg ++)
 					TempReg->RegMask[CurReg] |= 0x80;
+				TempReg->RegMask[0x00] |= 0x80;
 				break;
 			case 0x18:	// OKIM6295
 				TempReg->RegData.R08[0x08] = (VGMHead.lngHzOKIM6295 >>  0) & 0xFF;

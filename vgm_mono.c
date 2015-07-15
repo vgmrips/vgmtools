@@ -650,10 +650,27 @@ static void CompressVGMData(void)
 				break;
 			case 0xD0:	// YMF278B write
 				TempByt = VGMPnt[0x01];
-				/*if (TempByt <= 0x01)
-					WriteEvent = ymf262_write(TempByt, VGMPnt[0x02], VGMPnt[0x03]);
+				if (TempByt <= 0x01)
+				{
+					//WriteEvent = ymf262_write(TempByt, VGMPnt[0x02], VGMPnt[0x03]);
+				}
 				else
-					WriteEvent = true;*/
+				{
+					if (VGMPnt[0x02] >= 0x08 && VGMPnt[0x02] < 0xF8)
+					{
+						TempByt = VGMPnt[0x02] - 0x08;
+						if ((TempByt / 24) == 0x04)
+						{
+							TempByt = VGMPnt[0x03] & 0x0F;
+							if (TempByt != 0x08)	// 08 = muted - don't change
+							{
+								VGMPnt[0x03] &= ~0x0F;
+								if (TempByt > 0x00 && ! (TempByt == 0x07 || TempByt == 0x09))
+								printf("Warning: Non-Full Panning! Pos: %06X\n", VGMPos);
+							}
+						}
+					}
+				}
 				CmdLen = 0x04;
 				break;
 			case 0xD1:	// YMF271 write
