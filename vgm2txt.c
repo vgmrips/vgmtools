@@ -355,11 +355,11 @@ static void WriteVGM2Txt(const char* FileName)
 	WriteClockText(TempStr, VGMHead.lngHzAY8910, "AY8910");
 	fprintf(hFile, "AY8910 Clock:\t\t%s\n", TempStr);
 	if (VGMHead.bytAYType & ~0x13)
-		fprintf(hFile, "AY8910 Type:\t\t0x%02hX - %s\n", VGMHead.bytAYType, "???");
+		fprintf(hFile, "AY8910 Type:\t\t0x%02X - %s\n", VGMHead.bytAYType, "???");
 	else
-		fprintf(hFile, "AY8910 Type:\t\t0x%02hX - %s\n", VGMHead.bytAYType,
+		fprintf(hFile, "AY8910 Type:\t\t0x%02X - %s\n", VGMHead.bytAYType,
 				AY_NAMES[(VGMHead.bytAYType >> 2) | VGMHead.bytAYType]);
-	fprintf(hFile, "AY8910 Flags:\t\t0x%02hX\n", VGMHead.bytAYFlag);
+	fprintf(hFile, "AY8910 Flags:\t\t0x%02X\n", VGMHead.bytAYFlag);
 	
 	if (VGMHead.bytVolumeModifier <= VOLUME_MODIF_WRAP)
 		TempSSht = VGMHead.bytVolumeModifier;
@@ -368,10 +368,10 @@ static void WriteVGM2Txt(const char* FileName)
 	else
 		TempSSht = VGMHead.bytVolumeModifier - 0x100;
 	TempDbl = pow(2.0, TempSSht / (double)0x20);
-	fprintf(hFile, "Volume Modifier:\t0x%02hX (%hd) = %.3f\n", VGMHead.bytVolumeModifier,
+	fprintf(hFile, "Volume Modifier:\t0x%02X (%d) = %.3f\n", VGMHead.bytVolumeModifier,
 			TempSSht, TempDbl);
 	
-	fprintf(hFile, "Reserved (0x7D):\t0x%02hX\n", VGMHead.bytReserved2);
+	fprintf(hFile, "Reserved (0x7D):\t0x%02X\n", VGMHead.bytReserved2);
 	
 	if (VGMHead.bytLoopBase > 0)
 		TempStr[0x00] = '+';
@@ -379,11 +379,11 @@ static void WriteVGM2Txt(const char* FileName)
 		TempStr[0x00] = '-';
 	else
 		TempStr[0x00] = '±';	// 0xF1
-	fprintf(hFile, "Loop Base:\t\t0x%02hX = %c%hd\n", VGMHead.bytLoopBase, TempStr[0x00],
+	fprintf(hFile, "Loop Base:\t\t0x%02X = %c%d\n", VGMHead.bytLoopBase, TempStr[0x00],
 			VGMHead.bytLoopBase);
 	
 	TempDbl = TempSSht / 16.0;
-	fprintf(hFile, "Loop Modifier:\t\t0x%02hX (MaxLoops * %.2f)\n", VGMHead.bytLoopModifier,
+	fprintf(hFile, "Loop Modifier:\t\t0x%02X (MaxLoops * %.2f)\n", VGMHead.bytLoopModifier,
 			TempDbl);
 	
 	WriteClockText(TempStr, VGMHead.lngHzGBDMG, "GB DMG");
