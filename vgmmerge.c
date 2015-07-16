@@ -10,8 +10,8 @@ static bool OpenVGMFile(const char* FileName, const UINT8 VgmNo);
 static void WriteVGMFile(const char* FileName);
 static void MergeVGMHeader(VGM_HEADER* DstHead, VGM_HEADER* SrcHead, CHIP_MAPS* SrcChpMap);
 static void MergeVGMData(void);
-static INLINE UINT16 GetCmdLen(UINT8 Command);
-static INLINE bool IsDelayCmd(UINT8 Command);
+INLINE UINT16 GetCmdLen(UINT8 Command);
+INLINE bool IsDelayCmd(UINT8 Command);
 #ifdef WIN32
 static void PrintMinSec(const UINT32 SamplePos, char* TempStr);
 #endif
@@ -1163,7 +1163,7 @@ static void MergeVGMData(void)
 	return;
 }
 
-static INLINE UINT16 GetCmdLen(UINT8 Command)
+INLINE UINT16 GetCmdLen(UINT8 Command)
 {
 	switch(Command & 0xF0)
 	{
@@ -1224,7 +1224,7 @@ static INLINE UINT16 GetCmdLen(UINT8 Command)
 	}
 }
 
-static INLINE bool IsDelayCmd(UINT8 Command)
+INLINE bool IsDelayCmd(UINT8 Command)
 {
 	if (Command >= 0x61 && Command <= 0x63)
 		return true;
