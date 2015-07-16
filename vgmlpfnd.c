@@ -99,7 +99,7 @@ int main(int argc, char* argv[])
 		return 0;
 	
 	if (! SilentMode)
-		printf("Step Size (default: %lu):\t", STEP_SIZE);
+		printf("Step Size (default: %u):\t", STEP_SIZE);
 	if (argc < argbase + 0x02)
 	{
 		gets(InputTxt);
@@ -115,7 +115,7 @@ int main(int argc, char* argv[])
 		STEP_SIZE = TempLng;
 	
 	if (! SilentMode)
-		printf("Minimum Number of matching Commands (default: %lu):\t", MIN_EQU_SIZE);
+		printf("Minimum Number of matching Commands (default: %u):\t", MIN_EQU_SIZE);
 	if (argc < argbase + 0x02)
 	{
 		gets(InputTxt);
@@ -131,7 +131,7 @@ int main(int argc, char* argv[])
 		MIN_EQU_SIZE = TempLng;
 	
 	if (! SilentMode)
-		printf("Start Pos (default: %lu - auto):\t", START_POS);
+		printf("Start Pos (default: %u - auto):\t", START_POS);
 	if (argc < argbase + 0x04)
 	{
 		gets(InputTxt);
@@ -354,7 +354,7 @@ static void ReadVGMData(void)
 					CmdLen = 0x05;
 					break;
 				default:
-					printf("Unknown Command: %hX\n", Command);
+					printf("Unknown Command: %X\n", Command);
 					CmdLen = 0x01;
 					//StopVGM = true;
 					break;
@@ -371,7 +371,7 @@ static void ReadVGMData(void)
 		if (StopVGM)
 			break;
 	}
-	printf("  %lu\n", VGMCmdCount);
+	printf("  %u\n", VGMCmdCount);
 	
 	// this includes the EOF command (the print-function needs it)
 	VGMCommand = (VGM_CMD*)malloc((VGMCmdCount + 0x01) * sizeof(VGM_CMD));
@@ -580,7 +580,7 @@ static void ReadVGMData(void)
 					CmdLen = 0x05;
 					break;
 				default:
-					printf("Unknown Command: %hX\n", Command);
+					printf("Unknown Command: %X\n", Command);
 					Command = 0x6F;
 					CmdLen = 0x01;
 					//StopVGM = true;
@@ -716,7 +716,7 @@ static void FindEqualitiesVGM(void)
 		if (PrintTime < GetTickCount())
 		{
 			if (! SilentMode)
-				printf("%.3f %% - %lu / %lu\r",
+				printf("%.3f %% - %u / %u\r",
 						100.0 * CurCmd / VGMCmdCount, CurCmd, VGMCmdCount);
 			PrintTime = GetTickCount() + 500;
 		}
@@ -771,29 +771,29 @@ static bool EqualityCheck(UINT32 CmpCmd, UINT32 SrcCmd, UINT32 CmdCount)
 	//	     Source Block             Block Copy           Copy Information
 	//	Start   End     Smpl    Start   End     Smpl    Length  Cmds    Samples
 	
-	//	printf("%lX\t%lX\t%lu\t%lX\t%lX\t%lu\t%lX\t%lu\t%lu\n",
+	//	printf("%X\t%X\t%u\t%X\t%X\t%u\t%X\t%u\t%u\n",
 	//			CmpStart, CmpPos - 0x01, TimeSmplC, SrcStart, SrcCmd, CmpTimeB,
 	//			CmpPos - CmpStart, CmpCnt, CmpTime);
 #ifdef TECHNICAL_OUTPUT
-	printf("%lX\t%lX\t", CmdSrcS->Pos, CmdSrcE->Pos - 0x01);
+	printf("%X\t%X\t", CmdSrcS->Pos, CmdSrcE->Pos - 0x01);
 	if (BlkFlags)
 		printf("\b%c", ExtraChr[BlkFlags]);
-	printf("%lu\t%lX\t%lX\t%lu\t%lX\t%lu\t%lu\n",
+	printf("%u\t%X\t%X\t%u\t%X\t%u\t%u\n",
 			CmdSrcS->Sample, CmdCpyS->Pos, CmdCpyE->Pos - 0x01, CmdCpyS->Sample,
 			CmdSrcE->Pos - CmdSrcS->Pos, CmdCount, CmdSrcE->Sample - CmdSrcS->Sample);
 #else
 	PrintMinSec(CmdSrcS->Sample, TempStr);
-	//printf("%lX\t%s", CmdSrcS->Pos, TempStr);
-	printf("%lu\t%s", CmdSrcS->Sample, TempStr);
+	//printf("%X\t%s", CmdSrcS->Pos, TempStr);
+	printf("%u\t%s", CmdSrcS->Sample, TempStr);
 	if (BlkFlags)
 		printf("  %c", ExtraChr[BlkFlags]);
 	
 	PrintMinSec(CmdCpyS->Sample, TempStr);
-	//printf("\t%lX\t%s", CmdCpyS->Pos, TempStr);
-	printf("\t%lu\t%s", CmdCpyS->Sample, TempStr);
+	//printf("\t%X\t%s", CmdCpyS->Pos, TempStr);
+	printf("\t%u\t%s", CmdCpyS->Sample, TempStr);
 	
 	PrintMinSec(CmdSrcE->Sample - CmdSrcS->Sample, TempStr);
-	printf("\t%lu\t%s\n", CmdCount, TempStr);
+	printf("\t%u\t%s\n", CmdCount, TempStr);
 #endif
 	
 	return true;
@@ -816,7 +816,7 @@ static void PrintMinSec(const UINT32 SamplePos, char* TempStr)
 	TimeSec = (float)SamplePos / (float)44100.0;
 	TimeMin = (UINT16)TimeSec / 60;
 	TimeSec -= TimeMin * 60;
-	sprintf(TempStr, "%02hu:%05.2f", TimeMin, TimeSec);
+	sprintf(TempStr, "%02u:%05.2f", TimeMin, TimeSec);
 	
 	return;
 }

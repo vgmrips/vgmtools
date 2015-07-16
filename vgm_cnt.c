@@ -821,7 +821,7 @@ static void CountVGMData()
 				ROMSize = VGMWriteTo - VGMWriteFrom;
 			else
 				ROMSize = VGMHead.lngTotalSamples - VGMWriteFrom;
-			printf("%04.3f %% - %s / %s (%08lX / %08lX) ...\r", (float)TempLng / ROMSize * 100,
+			printf("%04.3f %% - %s / %s (%08X / %08X) ...\r", (float)TempLng / ROMSize * 100,
 					MinSecStr, TempStr, VGMPos, VGMHead.lngEOFOffset);
 			CmdTimer = GetTickCount() + 200;
 		}
@@ -1187,7 +1187,7 @@ static void PrintMinSec(const UINT32 SamplePos, char* TempStr)
 	TimeMin = (UINT16)TimeSec / 60;
 	TimeSec -= TimeMin * 60;
 	TimeSec = (UINT32)(TimeSec * 100.0f) / 100.0f;
-	sprintf(TempStr, "%02hu:%05.2f", TimeMin, TimeSec);
+	sprintf(TempStr, "%02u:%05.2f", TimeMin, TimeSec);
 	
 	return;
 }

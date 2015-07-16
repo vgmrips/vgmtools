@@ -546,7 +546,7 @@ void GetFullChipName(char* TempStr, UINT8 ChipType)
 	if (ChipCnt <= 0x01)
 		sprintf(TempStr, "%s:", ChipName);
 	else
-		sprintf(TempStr, "%s #%hu:", ChipName, CurChip);
+		sprintf(TempStr, "%s #%u:", ChipName, CurChip);
 	
 	return;
 }
@@ -620,19 +620,19 @@ void sn76496_write(char* TempStr, UINT8 Command)
 		case 0x80:
 		case 0xA0:
 		case 0xC0:
-			sprintf(TempStr, "%sLatch/Data: Tone Ch %hu -> 0x%03lX", ChipStr, CurChn, CurData);
+			sprintf(TempStr, "%sLatch/Data: Tone Ch %u -> 0x%03X", ChipStr, CurChn, CurData);
 			break;
 		case 0xE0:
 			sprintf(WriteStr, "%s, %s", SN76496_NOISE_TYPE[(Command & 0x04) >> 2],
 					SN76496_NOISE_FREQ[Command & 0x03]);
 			
-			sprintf(TempStr, "%sNoise Type: %hu - %s", ChipStr, CurData, WriteStr);
+			sprintf(TempStr, "%sNoise Type: %u - %s", ChipStr, CurData, WriteStr);
 			break;
 		case 0x90:
 		case 0xB0:
 		case 0xD0:
 		case 0xF0:
-			sprintf(TempStr, "%sLatch/Data: Volume Ch %hu -> 0x%01X = %u%%",
+			sprintf(TempStr, "%sLatch/Data: Volume Ch %u -> 0x%01X = %u%%",
 					ChipStr, CurChn, CurData, GetLogVolPercent(CurData & 0x0F, 0x03, 0x0F));
 			break;
 		}
@@ -711,7 +711,7 @@ static void opn_write(char* TempStr, UINT8 Mode, UINT8 Port, UINT8 Register,
 			if ((Data & 0x04) && (FMOPN_TYPES[Mode] & OPN_TYPE_6CH))
 				Channel += 3;
 			
-			sprintf(TempStr, "Channel %hu Key On/Off: ", Channel);
+			sprintf(TempStr, "Channel %u Key On/Off: ", Channel);
 			
 			sprintf(TempStr, "%sSlot1 %s, Slot2 %s, Slot3 %s, Slot4 %s", TempStr,
 					OnOff(Data & 0x10), OnOff(Data & 0x20), OnOff(Data & 0x40),
@@ -762,7 +762,7 @@ static void opn_write(char* TempStr, UINT8 Mode, UINT8 Port, UINT8 Register,
 		switch(Register & 0xF0)
 		{
 		case 0x30:	// DET , MUL
-			sprintf(WriteStr, "Detune: %hu", (Data & 0x70) >> 4);
+			sprintf(WriteStr, "Detune: %u", (Data & 0x70) >> 4);
 			if (Data & 0x0F)
 				TempSng = (float)(Data & 0x0F);
 			else
@@ -819,7 +819,7 @@ static void opn_write(char* TempStr, UINT8 Mode, UINT8 Port, UINT8 Register,
 				break;
 			case 0x04:	// 0xa4-0xa6 : FNUM2,BLK
 				//OPN->ST.fn_h = v&0x3f;
-				sprintf(WriteStr, "F-Num (prepare) MSB = %01X, Octave %hu", Data & 0x07,
+				sprintf(WriteStr, "F-Num (prepare) MSB = %01X, Octave %u", Data & 0x07,
 						(Data & 0x38) >> 3);
 				break;
 			case 0x08:	// 0xa8-0xaa : 3CH FNUM1
@@ -834,7 +834,7 @@ static void opn_write(char* TempStr, UINT8 Mode, UINT8 Port, UINT8 Register,
 				OPN->SL3.fc[c] = OPN->fn_table[fn*2]>>(7-blk);
 				OPN->SL3.block_fnum[c] = (blk<<11) | fn;
 				(OPN->P_CH)[2].SLOT[SLOT1].Incr=-1;*/
-				sprintf(WriteStr, "F-Num Op %hu (set) LSB = %02X", Channel, Data);
+				sprintf(WriteStr, "F-Num Op %u (set) LSB = %02X", Channel, Data);
 				Channel = 2;
 				break;
 			case 0x0C:	// 0xac-0xae : 3CH FNUM2,BLK
@@ -842,7 +842,7 @@ static void opn_write(char* TempStr, UINT8 Mode, UINT8 Port, UINT8 Register,
 					goto WriteRegData;
 				
 				//OPN->SL3.fn_h = v&0x3f;
-				sprintf(WriteStr, "F-Num Op %hu (prepare) MSB = %01X, Octave %hu", Channel,
+				sprintf(WriteStr, "F-Num Op %u (prepare) MSB = %01X, Octave %u", Channel,
 						Data & 0x07, (Data & 0x38) >> 3);
 				Channel = 2;
 				break;
@@ -855,7 +855,7 @@ static void opn_write(char* TempStr, UINT8 Mode, UINT8 Port, UINT8 Register,
 				TempByt = (Data & 0x38) >> 3;
 				if (TempByt)
 					TempByt += 6;
-				sprintf(WriteStr, "Feedback: %hu, Algorithm: %hu", TempByt, Data & 0x07);
+				sprintf(WriteStr, "Feedback: %u, Algorithm: %u", TempByt, Data & 0x07);
 				break;
 			case 0x04:	// 0xb4-0xb6 : L , R , AMS , PMS (YM2612/YM2610B/YM2610/YM2608)
 				if (! (FMOPN_TYPES[Mode] & OPN_TYPE_LFOPAN))
@@ -883,9 +883,9 @@ static void opn_write(char* TempStr, UINT8 Mode, UINT8 Port, UINT8 Register,
 		}
 		
 		if (Register < 0xA0)
-			sprintf(TempStr, "Ch %hu Slot %hu %s", Channel, Slot, WriteStr);
+			sprintf(TempStr, "Ch %u Slot %u %s", Channel, Slot, WriteStr);
 		else
-			sprintf(TempStr, "Ch %hu %s", Channel, WriteStr);
+			sprintf(TempStr, "Ch %u %s", Channel, WriteStr);
 	}
 	else if (FMOPN_TYPES[Mode] & OPN_TYPE_ADPCM)
 	{
@@ -966,7 +966,7 @@ void ym2151_write(char* TempStr, UINT8 Register, UINT8 Data)
 			sprintf(WriteStr, "Test Register, LFO %s", OnOff(Data & 0x02));
 			break;
 		case 0x08:
-			sprintf(WriteStr, "Ch %hu Key On/Off: M1 %s, M2 %s, C1 %s, C2 %s", Data & 0x07,
+			sprintf(WriteStr, "Ch %u Key On/Off: M1 %s, M2 %s, C1 %s, C2 %s", Data & 0x07,
 					OnOff(Data & 0x08), OnOff(Data & 0x20),
 					OnOff(Data & 0x10), OnOff(Data & 0x40));
 			break;
@@ -1046,7 +1046,7 @@ void ym2151_write(char* TempStr, UINT8 Register, UINT8 Data)
 				if (! Data)
 					sprintf(WriteStr, "Key Code: 0x%02X = --", Data);
 				else if (Operator != 0xFF)
-					sprintf(WriteStr, "Key Code: 0x%02X = %s%ld", Data,
+					sprintf(WriteStr, "Key Code: 0x%02X = %s%d", Data,
 							NOTE_STRS[Operator % 12], (Operator / 12) - 2);
 				else
 					sprintf(WriteStr, "Key Code: 0x%02X = ??", Data);
@@ -1180,7 +1180,7 @@ void ym2151_write(char* TempStr, UINT8 Register, UINT8 Data)
 			op->eg_sel_d1r= eg_rate_select[op->d1r + (op->kc>>op->ks) ];*/
 			break;
 		case 0xC0:		// DT2, D2R
-			sprintf(WriteStr, "Detune 2: %lu, Decay Rate 2: 0x%02X",
+			sprintf(WriteStr, "Detune 2: %u, Decay Rate 2: 0x%02X",
 					dt2_tab[Data >> 6], Data & 0x1F);
 			/*{
 				UINT32 olddt2 = op->dt2;
@@ -1203,9 +1203,9 @@ void ym2151_write(char* TempStr, UINT8 Register, UINT8 Data)
 		}
 		
 		if (Register < 0x40)
-			sprintf(TempStr, "%sCh %hu %s", ChipStr, Channel, WriteStr);
+			sprintf(TempStr, "%sCh %u %s", ChipStr, Channel, WriteStr);
 		else
-			sprintf(TempStr, "%sCh %hu Op %hu %s", ChipStr, Channel, Operator, WriteStr);
+			sprintf(TempStr, "%sCh %u Op %u %s", ChipStr, Channel, Operator, WriteStr);
 	}
 	
 	return;
@@ -1255,7 +1255,7 @@ void segapcm_mem_write(char* TempStr, UINT16 Offset, UINT8 Data)
 		break;
 	}
 	
-	sprintf(TempStr, "%sCh %hu %s", ChipStr, Channel, WriteStr);
+	sprintf(TempStr, "%sCh %u %s", ChipStr, Channel, WriteStr);
 	
 	return;
 }
@@ -1293,9 +1293,9 @@ static void rf5cxx_reg_write(char* TempStr, UINT8 Register, UINT8 Data)
 	case 0x07:	// Control Register
 		sprintf(WriteStr, "Chip %s", Enable((Data & 0x80) >> 7));
 		if (Data & 0x40)
-			sprintf(WriteStr, "%s, Select Channel %hu", WriteStr, Data & 0x07);
+			sprintf(WriteStr, "%s, Select Channel %u", WriteStr, Data & 0x07);
 		else
-			sprintf(WriteStr, "%s, Select Bank 0x%hX (Memory Base 0x%04X)",
+			sprintf(WriteStr, "%s, Select Bank 0x%X (Memory Base 0x%04X)",
 					WriteStr, Data & 0x0F, (Data & 0x0F) << 12);
 		break;
 	case 0x08:	// Sound On/Off
@@ -1387,13 +1387,13 @@ static void opl_write(char* TempStr, UINT8 Mode, UINT8 Port, UINT8 Register,
 			if (Port)
 				goto WriteRegData;
 			
-			sprintf(TempStr, "Timer 1 = %hu", (0x100 - Data) * 0x04);
+			sprintf(TempStr, "Timer 1 = %u", (0x100 - Data) * 0x04);
 			break;
 		case 0x03:	// Timer 2
 			if (Port)
 				goto WriteRegData;
 			
-			sprintf(TempStr, "Timer 2 = %hu", (0x100 - Data) * 0x10);
+			sprintf(TempStr, "Timer 2 = %u", (0x100 - Data) * 0x10);
 			break;
 		case 0x04:	// IRQ clear / mask and Timer enable
 			switch(Port)
@@ -1515,7 +1515,7 @@ static void opl_write(char* TempStr, UINT8 Mode, UINT8 Port, UINT8 Register,
 		switch(Register & 0xE0)
 		{
 		case 0x20:	// am ON, vib ON, ksr, eg_type, mul
-			sprintf(WriteStr, "AM: %s, Vibrato: %s, KSR: %s, EG Type: %hu, Freq Multipler: %hu",
+			sprintf(WriteStr, "AM: %s, Vibrato: %s, KSR: %s, EG Type: %u, Freq Multipler: %u",
 					OnOff(Data & 0x80), OnOff(Data & 0x40), OnOff(Data & 0x20),
 					(Data & 0x10) >> 4, Data & 0x0F);
 			break;
@@ -1534,7 +1534,7 @@ static void opl_write(char* TempStr, UINT8 Mode, UINT8 Port, UINT8 Register,
 		case 0xA0:
 			if (Register == 0xBD)			// am depth, vibrato depth, r,bd,sd,tom,tc,hh
 			{
-				sprintf(WriteStr, "AM Depth: %.1f, Vibrato Depth: %hu cent, Rhythm Mode %s",
+				sprintf(WriteStr, "AM Depth: %.1f, Vibrato Depth: %u cent, Rhythm Mode %s",
 						(Data & 0x80) ? 4.8 : 1.0, (Data & 0x40) ? 14 : 7, Enable(Data & 0x20));
 				
 				if (Data & 0x20)
@@ -1556,7 +1556,7 @@ static void opl_write(char* TempStr, UINT8 Mode, UINT8 Port, UINT8 Register,
 			}
 			else
 			{	// b0-b8
-				sprintf(WriteStr, "F-Num MSB = %01X, Octave %hu, Key %s", Data & 0x03,
+				sprintf(WriteStr, "F-Num MSB = %01X, Octave %u, Key %s", Data & 0x03,
 						(Data & 0x1C) >> 2, OnOff(Data & 0x20));
 			}
 			break;
@@ -1565,7 +1565,7 @@ static void opl_write(char* TempStr, UINT8 Mode, UINT8 Port, UINT8 Register,
 			if ((Register & 0x1F) > 8)
 				goto WriteRegData;
 			
-			sprintf(WriteStr, "Algorithm: %s, Feedback %hu", (Data & 0x01) ? "AM" : "FM",
+			sprintf(WriteStr, "Algorithm: %s, Feedback %u", (Data & 0x01) ? "AM" : "FM",
 					(Data & 0x0E) >> 1);
 			break;
 		case 0xE0: // waveform select
@@ -1575,7 +1575,7 @@ static void opl_write(char* TempStr, UINT8 Mode, UINT8 Port, UINT8 Register,
 			
 			if (! (FMOPL_TYPES[Mode] & OPL_TYPE_OPL3))
 				Data &= 0x03;	// only 2 wave forms on OPL2
-			sprintf(WriteStr, "Waveform Select: %hu", Data & 0x07);
+			sprintf(WriteStr, "Waveform Select: %u", Data & 0x07);
 			
 			break;
 		default:
@@ -1583,9 +1583,9 @@ static void opl_write(char* TempStr, UINT8 Mode, UINT8 Port, UINT8 Register,
 		}
 		
 		if (Register < 0xA0 || Register >= 0xE0)
-			sprintf(TempStr, "Ch %hu Op %hu %s", Channel, Operator, WriteStr);
+			sprintf(TempStr, "Ch %u Op %u %s", Channel, Operator, WriteStr);
 		else if (Register != 0xBD)
-			sprintf(TempStr, "Ch %hu %s", Register & 0x0F, WriteStr);
+			sprintf(TempStr, "Ch %u %s", Register & 0x0F, WriteStr);
 		else
 			sprintf(TempStr, "%s", WriteStr);
 	}
@@ -1637,7 +1637,7 @@ void ymf262_write(char* TempStr, UINT8 Port, UINT8 Register, UINT8 Data)
 	WriteChipID(0x0C);
 	opl_write(RedirectStr, OPL_YMF262, Port, Register, Data);
 	
-	sprintf(TempStr, "%sPort %hX %s", ChipStr, Port, RedirectStr);
+	sprintf(TempStr, "%sPort %X %s", ChipStr, Port, RedirectStr);
 	//sprintf(TempStr, "YMF262:\tReg 0x%02X Data 0x%02X", Register | (Port << 8), Data);
 	
 	return;
@@ -1668,7 +1668,7 @@ void ymz280b_write(char* TempStr, UINT8 Register, UINT8 Data)
 			sprintf(WriteStr, "Total Level %.0f %%", 100 * Data / 255.0f);
 			break;
 		case 0x03:		// pan
-			sprintf(WriteStr, "Pan 0x%02X = %ld%%", Data, 200 * (Data - 0x08) / 0x0F);
+			sprintf(WriteStr, "Pan 0x%02X = %d%%", Data, 200 * (Data - 0x08) / 0x0F);
 			break;
 		case 0x20:		// start address high
 		case 0x40:		// start address middle
@@ -1694,7 +1694,7 @@ void ymz280b_write(char* TempStr, UINT8 Register, UINT8 Data)
 			sprintf(WriteStr, "Unknown Register Write %02X = %02X", Register, Data);
 			break;
 		}
-		sprintf(TempStr, "%sCh %hu %s", ChipStr, Voice, WriteStr);
+		sprintf(TempStr, "%sCh %u %s", ChipStr, Voice, WriteStr);
 	}
 	else	// upper registers are special
 	{
@@ -1735,7 +1735,7 @@ void ymf278b_write(char* TempStr, UINT8 Port, UINT8 Register, UINT8 Data)
 	{
 		opl_write(RedirectStr, OPL_YMF278, Port, Register, Data);
 		
-		sprintf(TempStr, "%sPort %hX %s", ChipStr, Port, RedirectStr);
+		sprintf(TempStr, "%sPort %X %s", ChipStr, Port, RedirectStr);
 	}
 	else
 	{
@@ -1826,7 +1826,7 @@ static void ay8910_part_write(char* TempStr, UINT8 Register, UINT8 Data)
 	case 0x08:	// AY_AVOL
 	case 0x09:	// AY_BVOL
 	case 0x0A:	// AY_CVOL
-		sprintf(TempStr, "Chn %c Volume %u%%, Enelope Mode: %hu", 'A' + (Register & 0x03),
+		sprintf(TempStr, "Chn %c Volume %u%%, Enelope Mode: %u", 'A' + (Register & 0x03),
 				100 * (Data & 0x0F) / 0x0F, (Data & 0x10) >> 1);
 		break;
 	case 0x0B:	// AY_EFINE
@@ -2168,44 +2168,44 @@ void gb_sound_write(char* TempStr, UINT8 Register, UINT8 Data)
 	case NR10: // Sweep (R/W)
 		TempSByt = (Data & 0x08) >> 3;
 		TempSByt |= TempSByt - 1;	// 1 -> Dir 1, 0 -> Dir -1
-		sprintf(WriteStr, "Ch 1 Sweep Shift: %hu, Sweep Dir: %hd, Sweep Time: %hu",
+		sprintf(WriteStr, "Ch 1 Sweep Shift: %u, Sweep Dir: %d, Sweep Time: %u",
 				Data & 0x07, TempSByt, (Data & 0x70) >> 4);
 		break;
 	case NR11: // Sound length/Wave pattern duty (R/W)
-		sprintf(WriteStr, "Ch 1 Wave Pattern Duty: %.1f%%, Sound Length: %hu",
+		sprintf(WriteStr, "Ch 1 Wave Pattern Duty: %.1f%%, Sound Length: %u",
 				GB_WAVE_DUTY[(Data & 0xC0) >> 6], Data & 0x3F);
 		break;
 	case NR12: // Envelope (R/W)
 		TempSByt = (Data & 0x08) >> 3;
 		TempSByt |= TempSByt - 1;	// 1 -> Dir 1, 0 -> Dir -1
-		sprintf(WriteStr, "Ch 1 Envelope Value: %hu, Env. Dir: %hd, Env. Length: %hu",
+		sprintf(WriteStr, "Ch 1 Envelope Value: %u, Env. Dir: %d, Env. Length: %u",
 				(Data & 0xF0) >> 4, TempSByt, Data & 0x07);
 		break;
 	case NR13: // Frequency lo (R/W)
-		sprintf(WriteStr, "Ch 1 Frequency LSB: %02hX", Data);
+		sprintf(WriteStr, "Ch 1 Frequency LSB: %02X", Data);
 		break;
 	case NR14: // Frequency hi / Initialize (R/W)
-		sprintf(WriteStr, "Ch 1 Mode: %hu, Frequency MSB: %01hX",
+		sprintf(WriteStr, "Ch 1 Mode: %u, Frequency MSB: %01X",
 				(Data & 0x40) >> 6, Data & 0x07);
 		if (Data & 0x80)
 			sprintf(WriteStr, "%s, Key On", WriteStr);
 		break;
 	//MODE 2
 	case NR21: // Sound length/Wave pattern duty (R/W)
-		sprintf(WriteStr, "Ch 2 Wave Pattern Duty: %.1f%%, Sound Length: %hu",
+		sprintf(WriteStr, "Ch 2 Wave Pattern Duty: %.1f%%, Sound Length: %u",
 				GB_WAVE_DUTY[(Data & 0xC0) >> 6], Data & 0x3F);
 		break;
 	case NR22: // Envelope (R/W)
 		TempSByt = (Data & 0x08) >> 3;
 		TempSByt |= TempSByt - 1;	// 1 -> Dir 1, 0 -> Dir -1
-		sprintf(WriteStr, "Ch 2 Envelope Value: %hu, Env. Dir: %hd, Env. Length: %hu",
+		sprintf(WriteStr, "Ch 2 Envelope Value: %u, Env. Dir: %d, Env. Length: %u",
 				(Data & 0xF0) >> 4, TempSByt, Data & 0x07);
 		break;
 	case NR23: // Frequency lo (R/W)
-		sprintf(WriteStr, "Ch 2 Frequency LSB: %02hX", Data);
+		sprintf(WriteStr, "Ch 2 Frequency LSB: %02X", Data);
 		break;
 	case NR24: // Frequency hi / Initialize (R/W)
-		sprintf(WriteStr, "Ch 2 Mode: %hu, Frequency MSB: %01hX",
+		sprintf(WriteStr, "Ch 2 Mode: %u, Frequency MSB: %01X",
 				(Data & 0x40) >> 6, Data & 0x07);
 		if (Data & 0x80)
 			sprintf(WriteStr, "%s, Key On", WriteStr);
@@ -2215,34 +2215,34 @@ void gb_sound_write(char* TempStr, UINT8 Register, UINT8 Data)
 		sprintf(WriteStr, "Ch 3 Sound %s", OnOff(Data & 0x80));
 		break;
 	case NR31: // Sound Length (R/W)
-		sprintf(WriteStr, "Ch 3 Sound Length: %hu", Data);
+		sprintf(WriteStr, "Ch 3 Sound Length: %u", Data);
 		break;
 	case NR32: // Select Output Level
 		TempByt = (Data & 0x60) >> 5;
-		sprintf(WriteStr, "Ch 3 Output Level: %hX = %u%%", TempByt,
+		sprintf(WriteStr, "Ch 3 Output Level: %X = %u%%", TempByt,
 				100 * (0x03 - TempByt) / 0x03);
 		break;
 	case NR33: // Frequency lo (W)
-		sprintf(WriteStr, "Ch 3 Frequency LSB: %02hX", Data);
+		sprintf(WriteStr, "Ch 3 Frequency LSB: %02X", Data);
 		break;
 	case NR34: // Frequency hi / Initialize (W)
-		sprintf(WriteStr, "Ch 3 Mode: %hu, Frequency MSB: %01hX",
+		sprintf(WriteStr, "Ch 3 Mode: %u, Frequency MSB: %01X",
 				(Data & 0x40) >> 6, Data & 0x07);
 		if (Data & 0x80)
 			sprintf(WriteStr, "%s, Key On", WriteStr);
 		break;
 	//MODE 4
 	case NR41: // Sound Length (R/W)
-		sprintf(WriteStr, "Ch N Sound Length: %hu", Data & 0x3F);
+		sprintf(WriteStr, "Ch N Sound Length: %u", Data & 0x3F);
 		break;
 	case NR42: // Envelope (R/W)
 		TempSByt = (Data & 0x08) >> 3;
 		TempSByt |= TempSByt - 1;	// 1 -> Dir 1, 0 -> Dir -1
-		sprintf(WriteStr, "Ch N Envelope Value: %hu, Env. Dir: %hd, Env. Length: %hu",
+		sprintf(WriteStr, "Ch N Envelope Value: %u, Env. Dir: %d, Env. Length: %u",
 				(Data & 0xF0) >> 4, TempSByt, Data & 0x07);
 		break;
 	case NR43: // Polynomial Counter/Frequency
-		sprintf(WriteStr, "Ch N Freq. Divider: %hu, Shift Freq.: %hu, Counter Size: %hu bit",
+		sprintf(WriteStr, "Ch N Freq. Divider: %u, Shift Freq.: %u, Counter Size: %u bit",
 				Data & 0x07, (Data & 0xF0) >> 4, 0x08 + (Data & 0x08));
 		break;
 	case NR44: // Counter/Consecutive / Initialize (R/W)
@@ -2253,7 +2253,7 @@ void gb_sound_write(char* TempStr, UINT8 Register, UINT8 Data)
 		break;
 	// CONTROL
 	case NR50: // Channel Control / On/Off / Volume (R/W)
-		sprintf(WriteStr, "Master Volume L: %hu = %u%%, Volume R: %hu = %u%%",
+		sprintf(WriteStr, "Master Volume L: %u = %u%%, Volume R: %u = %u%%",
 				Data & 0x07, 100 * (Data & 0x07) / 0x07,
 				(Data & 0x70) >> 4, 100 * (Data & 0x70) / 0x70);
 		break;
@@ -2316,7 +2316,7 @@ void nes_psg_write(char* TempStr, UINT8 Register, UINT8 Data)
 		case APU_WRA0:
 		case APU_WRB0:
 			CurChn = (Register & 0x04) >> 2;
-			sprintf(WriteStr, "Square %hu: Duty Cycle: %.1f%%, Hold: %s, Envelope: %s, Volume %hX",
+			sprintf(WriteStr, "Square %u: Duty Cycle: %.1f%%, Hold: %s, Envelope: %s, Volume %X",
 					CurChn, GB_WAVE_DUTY[(Data & 0xC0) >> 6], OnOff(Data & 0x20),
 					OnOff(Data & 0x10), Data & 0x0F);
 			break;
@@ -2526,7 +2526,7 @@ void c140_write(char* TempStr, UINT8 Port, UINT8 Register, UINT8 Data)
 			break;
 		}
 		
-		sprintf(TempStr, "%sCh %hu %s", ChipStr, Channel, WriteStr);
+		sprintf(TempStr, "%sCh %u %s", ChipStr, Channel, WriteStr);
 	}
 	else
 	{
@@ -2552,7 +2552,7 @@ void c6280_write(char* TempStr, UINT8 Register, UINT8 Data)
 	switch(Register & 0x0F)
 	{
 	case 0x00: // Channel select
-		sprintf(WriteStr, "Select Channel %hu", Data & 0x07);
+		sprintf(WriteStr, "Select Channel %u", Data & 0x07);
 		break;
 	case 0x01: // Global balance
 		sprintf(WriteStr, "Global Balance: Left %u%%, Right %u%%",
@@ -2668,7 +2668,7 @@ void qsound_write(char* TempStr, UINT8 Offset, UINT16 Value)
 		sprintf(WriteStr, "Set Panorama: %d", TempByt);
 		break;
 	default:
-		sprintf(WriteStr, "Register %hu: 0x%04X", reg, Value);
+		sprintf(WriteStr, "Register %u: 0x%04X", reg, Value);
 		break;
 	}
 	sprintf(TempStr, "%sCh %u: %s", ChipStr, ch, WriteStr);
@@ -2802,7 +2802,7 @@ void pokey_write(char* TempStr, UINT8 Register, UINT8 Data)
 				OnOff(Data & 0x10), Data & 0x0F, 100 * (Data & 0x0F) / 0x0F);
 		break;
 	case AUDCTL_C:
-		sprintf(WriteStr, "Audio Control: Poly%hu, Chn HiClk: %c%c, "
+		sprintf(WriteStr, "Audio Control: Poly%u, Chn HiClk: %c%c, "
 				"Chn 1-2 joined: %s, Chn 3-4 joined: %s, Chn HiFilter: %c%c, Clock: %.2f KHz",
 				(Data & 0x80) ? 9 : 17, (Data & 0x40) ? '1' : '-', (Data & 0x20) ? '3' : '-',
 				OnOff(Data & 0x10), OnOff(Data & 0x08),
@@ -2849,19 +2849,19 @@ void k051649_write(char* TempStr, UINT8 Port, UINT8 Register, UINT8 Data)
 			sprintf(WriteStr, "Ch 3/4: Write Waveform at %02X = %02X",
 					Register & 0x1F, Data);
 		else
-			sprintf(WriteStr, "Ch %hu: Write Waveform at %02X = %02X",
+			sprintf(WriteStr, "Ch %u: Write Waveform at %02X = %02X",
 					Register >> 5, Register & 0x1F, Data);
 		break;
 	case 0x01:	// k051649_frequency_w
 		if (Register & 0x01)
-			sprintf(WriteStr, "Ch %hu: Set Frequency MSB = %01X",
+			sprintf(WriteStr, "Ch %u: Set Frequency MSB = %01X",
 					Register >> 1, Data & 0x0F);
 		else
-			sprintf(WriteStr, "Ch %hu: Set Frequency LSB = %02X",
+			sprintf(WriteStr, "Ch %u: Set Frequency LSB = %02X",
 					Register >> 1, Data);
 		break;
 	case 0x02:	// k051649_volume_w
-		sprintf(WriteStr, "Ch %hu: Set Volume: 0x%01X = %u%%",
+		sprintf(WriteStr, "Ch %u: Set Volume: 0x%01X = %u%%",
 				Register & 0x07, Data & 0x0F, 100 * (Data & 0x0F) / 0x0F);
 		break;
 	case 0x03:	// k051649_keyonoff_w
@@ -2876,7 +2876,7 @@ void k051649_write(char* TempStr, UINT8 Port, UINT8 Register, UINT8 Data)
 		WriteStr[StrPos] = 0x00;
 		break;
 	case 0x04:	// k052539_waveform_w
-		sprintf(WriteStr, "Ch %hu: Write Waveform at %02X = %02X",
+		sprintf(WriteStr, "Ch %u: Write Waveform at %02X = %02X",
 				Register >> 5, Register & 0x1F, Data);
 		break;
 	}
@@ -3314,7 +3314,7 @@ void vsu_write(char* TempStr, UINT16 Register, UINT8 Data)
 					OnOff(Data & 0x80), Enable(Data & 0x20), Data & 0x1F);
 			break;
 		case 0x01:
-			sprintf(RedirectStr, "Volume L: %hu = %u%%, Volume R: %hu = %u%%",
+			sprintf(RedirectStr, "Volume L: %u = %u%%, Volume R: %u = %u%%",
 				Data & 0x0F, 100 * (Data & 0x0F) / 0x0F,
 				(Data & 0xF0) >> 4, 100 * (Data & 0xF0) / 0xF0);
 			break;

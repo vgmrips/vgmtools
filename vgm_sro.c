@@ -621,7 +621,7 @@ static void FindUsedROMData(void)
 					CmdLen = 0x05;
 					break;
 				default:
-					printf("Unknown Command: %hX\n", Command);
+					printf("Unknown Command: %X\n", Command);
 					CmdLen = 0x01;
 					//StopVGM = true;
 					break;
@@ -641,7 +641,7 @@ static void FindUsedROMData(void)
 			PrintMinSec(VGMHead.lngTotalSamples, TempStr);
 			TempLng = VGMPos - VGMHead.lngDataOffset;
 			ROMSize = VGMHead.lngEOFOffset - VGMHead.lngDataOffset;
-			printf("%04.3f %% - %s / %s (%08lX / %08lX) ...\r", (float)TempLng / ROMSize * 100,
+			printf("%04.3f %% - %s / %s (%08X / %08X) ...\r", (float)TempLng / ROMSize * 100,
 					MinSecStr, TempStr, VGMPos, VGMHead.lngEOFOffset);
 			CmdTimer = GetTickCount() + 200;
 		}
@@ -772,7 +772,7 @@ static void EnumerateROMRegions(void)
 			{
 				if (CurPos >= ROMSize || MaskVal != ROMMask[CurPos])
 				{
-					printf("%06lX\t%06lX\t%6lX\t%s\n", PosStart, CurPos - 1, CurPos - PosStart,
+					printf("%06X\t%06X\t%6X\t%s\n", PosStart, CurPos - 1, CurPos - PosStart,
 							STATUS_TEXT[MaskVal]);
 					
 					if (MaskVal == 0x01)
@@ -1075,7 +1075,7 @@ static void OptimizeVGMSampleROM(void)
 					CmdLen = 0x05;
 					break;
 				default:
-					printf("Unknown Command: %hX\n", Command);
+					printf("Unknown Command: %X\n", Command);
 					CmdLen = 0x01;
 					//StopVGM = true;
 					break;
@@ -1104,7 +1104,7 @@ static void OptimizeVGMSampleROM(void)
 			PrintMinSec(VGMHead.lngTotalSamples, TempStr);
 			TempLng = VGMPos - VGMHead.lngDataOffset;
 			ROMSize = VGMHead.lngEOFOffset - VGMHead.lngDataOffset;
-			printf("%04.3f %% - %s / %s (%08lX / %08lX) ...\r", (float)TempLng / ROMSize * 100,
+			printf("%04.3f %% - %s / %s (%08X / %08X) ...\r", (float)TempLng / ROMSize * 100,
 					MinSecStr, TempStr, VGMPos, VGMHead.lngEOFOffset);
 			CmdTimer = GetTickCount() + 200;
 		}
@@ -1165,7 +1165,7 @@ static void PrintMinSec(const UINT32 SamplePos, char* TempStr)
 	TimeSec = (float)SamplePos / (float)44100.0;
 	TimeMin = (UINT16)TimeSec / 60;
 	TimeSec -= TimeMin * 60;
-	sprintf(TempStr, "%02hu:%05.2f", TimeMin, TimeSec);
+	sprintf(TempStr, "%02u:%05.2f", TimeMin, TimeSec);
 	
 	return;
 }

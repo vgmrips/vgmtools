@@ -262,7 +262,7 @@ static void RoundVGMData(void)
 			printf("Error! VGM Frame Rate can't be rounded to whole samples!\n");
 			return;
 		}
-		printf("Warning! Unusual VGM Frame Rate: %lu\n", VGMHead.lngRate);
+		printf("Warning! Unusual VGM Frame Rate: %u\n", VGMHead.lngRate);
 		RoundTo = (UINT16)(44100 / VGMHead.lngRate);
 		DelayCmd = 0x00;
 		break;
@@ -522,7 +522,7 @@ static void RoundVGMData(void)
 					CmdLen = 0x05;
 					break;
 				default:
-					printf("Unknown Command: %hX\n", Command);
+					printf("Unknown Command: %X\n", Command);
 					CmdLen = 0x01;
 					//StopVGM = true;
 					break;
@@ -590,7 +590,7 @@ static void RoundVGMData(void)
 			PrintMinSec(VGMHead.lngTotalSamples, TempStr);
 			TempLng = VGMPos - VGMHead.lngDataOffset;
 			CmdLen = VGMHead.lngEOFOffset - VGMHead.lngDataOffset;
-			printf("%04.3f %% - %s / %s (%08lX / %08lX) ...\r", (float)TempLng / CmdLen * 100,
+			printf("%04.3f %% - %s / %s (%08X / %08X) ...\r", (float)TempLng / CmdLen * 100,
 					MinSecStr, TempStr, VGMPos, VGMHead.lngEOFOffset);
 			CmdTimer = GetTickCount() + 200;
 		}
@@ -606,7 +606,7 @@ static void RoundVGMData(void)
 	WriteVGMFile(TempStr);*/
 	
 	printf("Maximum Rounding Difference:\n");
-	printf("\t%ld at %06lX\n\t%ld at %06lX\n\t%ld at %06lX (first frame only)\n",
+	printf("\t%d at %06X\n\t%d at %06X\n\t%d at %06X (first frame only)\n",
 			RndErrMin, RndPosMin, RndErrMax, RndPosMax, RndErrMax1, RndPosMax1);
 	
 	return;
@@ -662,7 +662,7 @@ static void PrintMinSec(const UINT32 SamplePos, char* TempStr)
 	TimeSec = (float)SamplePos / (float)44100.0;
 	TimeMin = (UINT16)TimeSec / 60;
 	TimeSec -= TimeMin * 60;
-	sprintf(TempStr, "%02hu:%05.2f", TimeMin, TimeSec);
+	sprintf(TempStr, "%02u:%05.2f", TimeMin, TimeSec);
 	
 	return;
 }

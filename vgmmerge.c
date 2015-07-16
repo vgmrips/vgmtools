@@ -140,7 +140,7 @@ int main(int argc, char* argv[])
 	
 	for (FileNo = 0x00; FileNo < MAX_VGMS; FileNo ++)
 	{
-		printf("File #%hu:\t", FileNo + 1);
+		printf("File #%u:\t", FileNo + 1);
 		if (argc <= argbase + FileNo)
 		{
 			gets(FileName);
@@ -1116,7 +1116,7 @@ static void MergeVGMData(void)
 		{
 			PrintMinSec(DstSmplPos, MinSecStr);
 			PrintMinSec(DstSmplCount, TempStr);
-			printf("%04.3f %% - %s / %s (%08lX / %08lX) ...\r", (float)DstPos / DstDataLen *
+			printf("%04.3f %% - %s / %s (%08X / %08X) ...\r", (float)DstPos / DstDataLen *
 					100, MinSecStr, TempStr, DstPos, DstDataLen);
 			CmdTimer = GetTickCount() + 200;
 		}
@@ -1235,7 +1235,7 @@ static INLINE UINT16 GetCmdLen(UINT8 Command)
 		}
 		// fall through
 	default:
-		printf("Unknown Command: %hX\n", Command);
+		printf("Unknown Command: %X\n", Command);
 		return 0x01;
 	}
 }
@@ -1259,7 +1259,7 @@ static void PrintMinSec(const UINT32 SamplePos, char* TempStr)
 	TimeSec = (float)SamplePos / (float)44100.0;
 	TimeMin = (UINT16)TimeSec / 60;
 	TimeSec -= TimeMin * 60;
-	sprintf(TempStr, "%02hu:%05.2f", TimeMin, TimeSec);
+	sprintf(TempStr, "%02u:%05.2f", TimeMin, TimeSec);
 	
 	return;
 }

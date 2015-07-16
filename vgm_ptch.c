@@ -1191,7 +1191,7 @@ static UINT8 PatchVGM(int ArgCount, char* ArgList[])
 				{
 					VGMHead.lngVersion = NewVal;
 					
-					printf("VGM Version Old: %lu.%02lX, New: %lu.%02lX\n",
+					printf("VGM Version Old: %u.%02X, New: %u.%02X\n",
 							OldVal >> 8, OldVal & 0xFF, NewVal >> 8, NewVal & 0xFF);
 					RetVal |= 0x10;
 				}
@@ -1214,7 +1214,7 @@ static UINT8 PatchVGM(int ArgCount, char* ArgList[])
 					if (OldVal != NewVal)
 					{
 						ResizeVGMHeader(NewVal);
-						printf("VGM Header Size Old: %02lX, New: %02lX\n", OldVal, NewVal);
+						printf("VGM Header Size Old: %02X, New: %02X\n", OldVal, NewVal);
 						RetVal |= 0x10;
 					}
 				}
@@ -2387,7 +2387,7 @@ static UINT8 CheckVGMFile(UINT8 Mode)
 		}
 		else if (CurPos != 0x14 + VGMHead.lngGD3Offset)	// CurPos == GD3 Offset ?
 		{
-			printf("Wrong GD3 Tag Offset! (Header: 0x%06lX  File: 0x%06lX)\n",
+			printf("Wrong GD3 Tag Offset! (Header: 0x%06X  File: 0x%06X)\n",
 					0x14 + VGMHead.lngGD3Offset, CurPos);
 			VGMErr |= 0x10;
 			GD3Flags |= 0x02;	// GD3 Offset - wrong
@@ -2401,7 +2401,7 @@ static UINT8 CheckVGMFile(UINT8 Mode)
 		TempLng = CalcGD3Length(CurPos + 0x0C, GD3T_ENT_V100);
 		if (TempLng != CmdLen)
 		{
-			printf("Wrong GD3 Length! (Header: 0x%06lX  File: 0x%06lX)\n", CmdLen, TempLng);
+			printf("Wrong GD3 Length! (Header: 0x%06X  File: 0x%06X)\n", CmdLen, TempLng);
 			if (GD3Ver == 0x100)
 			{
 				VGMErr |= 0x20;
@@ -2420,7 +2420,7 @@ static UINT8 CheckVGMFile(UINT8 Mode)
 		TempLng = 0x0C + CmdLen;	// calculate EOF based on current GD3 length
 		if (CurPos + TempLng != 0x04 + VGMHead.lngEOFOffset)	// Check EOF Offset
 		{
-			printf("Wrong EOF Offset! (Header: 0x%06lX  File: 0x%06lX)\n",
+			printf("Wrong EOF Offset! (Header: 0x%06X  File: 0x%06X)\n",
 					0x04 + VGMHead.lngEOFOffset, CurPos + TempLng);
 			VGMErr |= 0x20;
 		}
@@ -2429,7 +2429,7 @@ static UINT8 CheckVGMFile(UINT8 Mode)
 	{
 		if (VGMEoDPos != 0x04 + VGMHead.lngEOFOffset)	// Check EOF Offset
 		{
-			printf("Wrong EOF Offset! (Header: 0x%06lX  File: 0x%06lX)\n",
+			printf("Wrong EOF Offset! (Header: 0x%06X  File: 0x%06X)\n",
 					0x04 + VGMHead.lngEOFOffset, VGMEoDPos);
 			VGMErr |= 0x20;
 		}
@@ -2440,18 +2440,18 @@ static UINT8 CheckVGMFile(UINT8 Mode)
 		VGMVer = CheckForMinVersion();
 		if (VGMVer > VGMHead.lngVersion)
 		{
-			printf("VGM Version too low! (is %03lX, should be %03lX)\n",
+			printf("VGM Version too low! (is %03X, should be %03X)\n",
 					VGMHead.lngVersion, VGMVer);
 			VGMErr |= 0x80;
 		}
 	}
 	
 	printf("\t%9s  %9s\n", "Header", "Counted");
-	printf("Length\t%9lu  %9lu", VGMHead.lngTotalSamples, CountLen);
+	printf("Length\t%9u  %9u", VGMHead.lngTotalSamples, CountLen);
 	if (VGMHead.lngTotalSamples != CountLen)
 		printf(" !");
 	printf("\n");
-	printf("Loop\t%9lu  %9lu", VGMHead.lngLoopSamples, CountLoop);
+	printf("Loop\t%9u  %9u", VGMHead.lngLoopSamples, CountLoop);
 	if (VGMHead.lngLoopSamples != CountLoop)
 		printf(" !");
 	printf("\n");
@@ -3480,7 +3480,7 @@ static void StripVGMData(void)
 					CmdLen = 0x05;
 					break;
 				default:
-					printf("Unknown Command: %02hX\n", Command);
+					printf("Unknown Command: %02X\n", Command);
 					CmdLen = 0x01;
 					//StopVGM = true;
 					break;

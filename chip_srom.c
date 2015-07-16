@@ -680,7 +680,7 @@ static void FM_ADPCMAWrite(YM2610_DATA *F2610, UINT8 r, UINT8 v)
 					}
 					if(adpcm[c].end > F2610->AP_ROMSize)	// Check End in Range
 					{
-						printf("YM2610 Ch %hu: ADPCM-A end out of range\n", c);
+						printf("YM2610 Ch %u: ADPCM-A end out of range\n", c);
 						printf("ADPCM-A Start: %06x\tADPCM-A End: %06x\n",
 								adpcm[c].start, adpcm[c].end);
 						adpcm[c].end = F2610->AP_ROMSize;
@@ -719,7 +719,7 @@ static void FM_ADPCMAWrite(YM2610_DATA *F2610, UINT8 r, UINT8 v)
 			
 			if (adpcm[c].flag)
 			{
-				printf("ADPCM-A Ch %hu StartAddr: %06lX\n", c, adpcm[c].start);
+				printf("ADPCM-A Ch %u StartAddr: %06X\n", c, adpcm[c].start);
 			}
 			break;
 		case 0x20:	// Sample End Address
@@ -735,7 +735,7 @@ static void FM_ADPCMAWrite(YM2610_DATA *F2610, UINT8 r, UINT8 v)
 			
 			if (adpcm[c].flag)
 			{
-				printf("ADPCM-A Ch %hu EndAddr: %06lX\n", c, adpcm[c].end);
+				printf("ADPCM-A Ch %u EndAddr: %06X\n", c, adpcm[c].end);
 			}
 			break;
 		}

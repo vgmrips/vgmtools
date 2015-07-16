@@ -130,7 +130,7 @@ int main(int argc, char* argv[])
 	DstData = NULL;
 	if (VGMHead.lngVersion < 0x00000151)
 	{
-		printf("VGM Version %lX.%02hX!? Are kidding me??\n",
+		printf("VGM Version %X.%02X!? Are kidding me??\n",
 				VGMHead.lngVersion >> 8, VGMHead.lngVersion & 0xFF);
 		ErrVal = 2;
 		goto BreakProgress;
@@ -170,7 +170,7 @@ int main(int argc, char* argv[])
 		RewriteVGMData();
 		break;
 	}
-	printf("Data Compression: %lu -> %lu (%.1f %%)\n",
+	printf("Data Compression: %u -> %u (%.1f %%)\n",
 			DataSizeA, DataSizeB, 100.0f * DataSizeB / DataSizeA);
 	
 	if (DataSizeB < DataSizeA)
@@ -635,7 +635,7 @@ static void MergePCMData(void)
 #ifdef WIN32
 					CmdTimer = 0;
 #endif
-					printf("Unknown Command: %hX\n", Command);
+					printf("Unknown Command: %X\n", Command);
 					CmdLen = 0x01;
 					//StopVGM = true;
 					break;
@@ -662,7 +662,7 @@ static void MergePCMData(void)
 			PrintMinSec(VGMHead.lngTotalSamples, TempStr);
 			TempLng = VGMPos - VGMHead.lngDataOffset;
 			BlockLen = VGMHead.lngEOFOffset - VGMHead.lngDataOffset;
-			printf("%04.3f %% - %s / %s (%08lX / %08lX) ...\r", (float)TempLng / BlockLen * 100,
+			printf("%04.3f %% - %s / %s (%08X / %08X) ...\r", (float)TempLng / BlockLen * 100,
 					MinSecStr, TempStr, VGMPos, VGMHead.lngEOFOffset);
 			CmdTimer = GetTickCount() + 200;
 		}
@@ -930,7 +930,7 @@ static UINT32 ReadConsecutiveMemWrites(UINT8 RFMode)
 					CmdLen = 0x05;
 					break;
 				default:
-					//printf("Unknown Command: %hX\n", Command);
+					//printf("Unknown Command: %X\n", Command);
 					CmdLen = 0x01;
 					//StopVGM = true;
 					break;
@@ -1201,7 +1201,7 @@ static void EnumeratePCMData(void)
 					CmdLen = 0x05;
 					break;
 				default:
-					//printf("Unknown Command: %hX\n", Command);
+					//printf("Unknown Command: %X\n", Command);
 					CmdLen = 0x01;
 					//StopVGM = true;
 					break;
@@ -1221,7 +1221,7 @@ static void EnumeratePCMData(void)
 			PrintMinSec(VGMHead.lngTotalSamples, TempStr);
 			TempLng = VGMPos - VGMHead.lngDataOffset;
 			BlockLen = VGMHead.lngEOFOffset - VGMHead.lngDataOffset;
-			printf("%04.3f %% - %s / %s (%08lX / %08lX) ...\r", (float)TempLng / BlockLen * 100,
+			printf("%04.3f %% - %s / %s (%08X / %08X) ...\r", (float)TempLng / BlockLen * 100,
 					MinSecStr, TempStr, VGMPos, VGMHead.lngEOFOffset);
 			CmdTimer = GetTickCount() + 200;
 		}
@@ -1240,7 +1240,7 @@ static void EnumeratePCMData(void)
 		}
 	}
 	
-	printf("%lu Blocks created (%.2f MB, %lux used, %lux single use).\n",
+	printf("%u Blocks created (%.2f MB, %ux used, %ux single use).\n",
 			RFBlkCount, BlkSize / 1048576.0f, BlkUsage, BlkSngUse);
 	if (BlkUsage == BlkSngUse)
 	{
@@ -1515,7 +1515,7 @@ static void RewriteVGMData(void)
 					CmdLen = 0x05;
 					break;
 				default:
-					//printf("Unknown Command: %hX\n", Command);
+					//printf("Unknown Command: %X\n", Command);
 					CmdLen = 0x01;
 					//StopVGM = true;
 					break;
@@ -1637,7 +1637,7 @@ static void RewriteVGMData(void)
 			PrintMinSec(VGMHead.lngTotalSamples, TempStr);
 			TempLng = VGMPos - VGMHead.lngDataOffset;
 			DataLen = VGMHead.lngEOFOffset - VGMHead.lngDataOffset;
-			printf("%04.3f %% - %s / %s (%08lX / %08lX) ...\r", (float)TempLng / DataLen * 100,
+			printf("%04.3f %% - %s / %s (%08X / %08X) ...\r", (float)TempLng / DataLen * 100,
 					MinSecStr, TempStr, VGMPos, VGMHead.lngEOFOffset);
 			CmdTimer = GetTickCount() + 200;
 		}
@@ -1694,7 +1694,7 @@ static void PrintMinSec(const UINT32 SamplePos, char* TempStr)
 	TimeSec = (float)SamplePos / (float)44100.0;
 	TimeMin = (UINT16)TimeSec / 60;
 	TimeSec -= TimeMin * 60;
-	sprintf(TempStr, "%02hu:%05.2f", TimeMin, TimeSec);
+	sprintf(TempStr, "%02u:%05.2f", TimeMin, TimeSec);
 	
 	return;
 }

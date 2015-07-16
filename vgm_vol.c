@@ -276,7 +276,7 @@ static void PrintVolMod(UINT16 MaxLvl)
 	if (VolMod == -0x0040)
 		VolMod = -0x003F;
 	VolMod &= 0xFF;
-	printf("MaxLevel: %04hX\tFactor: %.3f\tVolMod: 0x%02hX\n", MaxLvl, Factor, VolMod);
+	printf("MaxLevel: %04X\tFactor: %.3f\tVolMod: 0x%02X\n", MaxLvl, Factor, VolMod);
 	
 	return;
 }

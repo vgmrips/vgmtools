@@ -433,7 +433,7 @@ static void CompressVGMDataBlocks(void)
 						CmdLen = 0x05;
 						break;
 					default:
-						printf("Unknown Command: %hX\n", Command);
+						printf("Unknown Command: %X\n", Command);
 						CmdLen = 0x01;
 						//StopVGM = true;
 						break;
@@ -463,7 +463,7 @@ static void CompressVGMDataBlocks(void)
 				PrintMinSec(VGMHead.lngTotalSamples, TempStr);
 				TempLng = VGMPos - VGMHead.lngDataOffset;
 				DataLen = VGMHead.lngEOFOffset - VGMHead.lngDataOffset;
-				printf("Pass #1: %04.3f %% - %s / %s (%08lX / %08lX) ...\r", (float)TempLng / DataLen * 100,
+				printf("Pass #1: %04.3f %% - %s / %s (%08X / %08X) ...\r", (float)TempLng / DataLen * 100,
 						MinSecStr, TempStr, VGMPos, VGMHead.lngEOFOffset);
 				CmdTimer = GetTickCount() + 200;
 			}
@@ -508,7 +508,7 @@ static void PrintMinSec(const UINT32 SamplePos, char* TempStr)
 	TimeSec = (float)SamplePos / (float)44100.0;
 	TimeMin = (UINT16)TimeSec / 60;
 	TimeSec -= TimeMin * 60;
-	sprintf(TempStr, "%02hu:%05.2f", TimeMin, TimeSec);
+	sprintf(TempStr, "%02u:%05.2f", TimeMin, TimeSec);
 	
 	return;
 }

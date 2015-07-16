@@ -302,7 +302,7 @@ static void ConvertDRO2VGM(void)
 	VGMDataLen = DRODataLen * 0x04; // this should be 200% safe
 	VGMData = (UINT8*)malloc(VGMDataLen);
 	
-	printf("DRO File Version: %hu.%02hu\n", DROHead.iVersionMajor, DROHead.iVersionMinor);
+	printf("DRO File Version: %u.%02u\n", DROHead.iVersionMajor, DROHead.iVersionMinor);
 	DROPos = DRODataStart;
 	VGMPos = VGMHead.lngDataOffset;
 	VGMDataLen = DROPos + VGMDataLen;
@@ -433,7 +433,7 @@ static void ConvertDRO2VGM(void)
 	if (VGMSmplL != VGMHead.lngTotalSamples)
 	{
 		printf("Warning! There was an error during delay calculations!\n");
-		printf("DRO ms Header: %lu, counted: %lu\n", DROInf.iLengthMS, CurMS);
+		printf("DRO ms Header: %u, counted: %u\n", DROInf.iLengthMS, CurMS);
 		printf("Please relog the file with DosBox 0.73 or higher.\n");
 	}
 	

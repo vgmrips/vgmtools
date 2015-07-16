@@ -221,7 +221,7 @@ static void ConvertIMF2VGM(void)
 	VGMDataLen = sizeof(VGM_HEADER) + IMFDataLen * 0x02;
 	VGMData = (UINT8*)malloc(VGMDataLen);
 	
-	printf("IMF Type: %hu, IMF Playback Rate: %hu Hz\n", IMFType, IMFRate);
+	printf("IMF Type: %u, IMF Playback Rate: %u Hz\n", IMFType, IMFRate);
 	
 	memcpy(&CurDelay, &IMFData[0x00], 0x02);
 	if (IMFType == 0x00)

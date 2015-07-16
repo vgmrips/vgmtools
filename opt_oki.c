@@ -166,7 +166,7 @@ int main(int argc, char* argv[])
 	free(VGMCtrlCmd);	VGMCtrlCmd = NULL;
 	CtrlCmdAlloc = 0x00;
 	CtrlCmdCount = 0x00;
-	printf("Data Compression: %u -> %lu (%.1f %%)\n",
+	printf("Data Compression: %u -> %u (%.1f %%)\n",
 			DataSizeA, DataSizeB, 100.0 * DataSizeB / (float)DataSizeA);
 	
 	if (DataSizeB < DataSizeA)
@@ -472,7 +472,7 @@ static void EnumerateOkiWrite(void)
 					CmdLen = 0x05;
 					break;
 				default:
-					printf("Unknown Command: %hX\n", Command);
+					printf("Unknown Command: %X\n", Command);
 					CmdLen = 0x01;
 					//StopVGM = true;
 					break;
@@ -492,7 +492,7 @@ static void EnumerateOkiWrite(void)
 			PrintMinSec(VGMHead.lngTotalSamples, TempStr);
 			TempLng = VGMPos - VGMHead.lngDataOffset;
 			CmdLen = VGMHead.lngEOFOffset - VGMHead.lngDataOffset;
-			printf("%04.3f %% - %s / %s (%08lX / %08lX) ...\r", (float)TempLng / CmdLen * 100,
+			printf("%04.3f %% - %s / %s (%08X / %08X) ...\r", (float)TempLng / CmdLen * 100,
 					MinSecStr, TempStr, VGMPos, VGMHead.lngEOFOffset);
 			CmdTimer = GetTickCount() + 200;
 		}
@@ -500,7 +500,7 @@ static void EnumerateOkiWrite(void)
 	}
 	printf("\t\t\t\t\t\t\t\t\r");
 	
-	printf("%lu OKI writes found.\n", WriteCount[0]);
+	printf("%u OKI writes found.\n", WriteCount[0]);
 	
 	return;
 }
@@ -1279,7 +1279,7 @@ static void RewriteVGMData(void)
 					CmdLen = 0x05;
 					break;
 				default:
-					printf("Unknown Command: %hX\n", Command);
+					printf("Unknown Command: %X\n", Command);
 					CmdLen = 0x01;
 					//StopVGM = true;
 					break;
@@ -1421,7 +1421,7 @@ static void RewriteVGMData(void)
 			PrintMinSec(VGMHead.lngTotalSamples, TempStr);
 			TempLng = VGMPos - VGMHead.lngDataOffset;
 			CmdLen = VGMHead.lngEOFOffset - VGMHead.lngDataOffset;
-			printf("%04.3f %% - %s / %s (%08lX / %08lX) ...\r", (float)TempLng / CmdLen * 100,
+			printf("%04.3f %% - %s / %s (%08X / %08X) ...\r", (float)TempLng / CmdLen * 100,
 					MinSecStr, TempStr, VGMPos, VGMHead.lngEOFOffset);
 			CmdTimer = GetTickCount() + 200;
 		}
@@ -1488,7 +1488,7 @@ static void PrintMinSec(const UINT32 SamplePos, char* TempStr)
 	TimeSec = (float)SamplePos / (float)44100.0;
 	TimeMin = (UINT16)TimeSec / 60;
 	TimeSec -= TimeMin * 60;
-	sprintf(TempStr, "%02hu:%05.2f", TimeMin, TimeSec);
+	sprintf(TempStr, "%02u:%05.2f", TimeMin, TimeSec);
 	
 	return;
 }

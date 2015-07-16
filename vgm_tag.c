@@ -1252,7 +1252,7 @@ char* ConvertWStr2ASCII_NCR(const wchar_t* WideStr)
 		}
 		else
 		{
-			sprintf(DstStr, "&#x%04hX;", UnicodeChr);
+			sprintf(DstStr, "&#x%04X;", UnicodeChr);
 			while(*DstStr)
 				DstStr ++;
 		}

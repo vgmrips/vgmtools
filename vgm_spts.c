@@ -224,7 +224,7 @@ static void SplitVGMData(int argc, char* argv[])
 	CurArg = 0x02;
 	while(! StopVGM)
 	{
-		printf("Current Sample: %lu - Split Sample:\t", VGMSmplPos);
+		printf("Current Sample: %u - Split Sample:\t", VGMSmplPos);
 		if (CurArg < argc)
 		{
 			strcpy(SplitTxt, argv[CurArg]);
@@ -531,7 +531,7 @@ static void SplitVGMData(int argc, char* argv[])
 						CmdLen = 0x05;
 						break;
 					default:
-						printf("Unknown Command: %hX\n", Command);
+						printf("Unknown Command: %X\n", Command);
 						CmdLen = 0x01;
 						//StopVGM = true;
 						break;
@@ -568,7 +568,7 @@ static void SplitVGMData(int argc, char* argv[])
 					TrimVGMData(VGMSmplStart, 0x00, TempLng, false, true);
 					
 					SplitFile ++;
-					sprintf(TempStr, "%s_%02hu.vgm", FileBase, SplitFile);
+					sprintf(TempStr, "%s_%02u.vgm", FileBase, SplitFile);
 					WriteVGMFile(TempStr);
 					
 					VGMSmplStart = VGMSmplPos;
@@ -585,7 +585,7 @@ static void SplitVGMData(int argc, char* argv[])
 				PrintMinSec(VGMHead.lngTotalSamples, TempStr);
 				TempLng = VGMPos - VGMHead.lngDataOffset;
 				CmdLen = VGMHead.lngEOFOffset - VGMHead.lngDataOffset;
-				printf("%04.3f %% - %s / %s (%08lX / %08lX) ...\r", (float)TempLng / CmdLen *
+				printf("%04.3f %% - %s / %s (%08X / %08X) ...\r", (float)TempLng / CmdLen *
 						100, MinSecStr, TempStr, VGMPos, VGMHead.lngEOFOffset);
 				CmdTimer = GetTickCount() + 200;
 			}
@@ -607,7 +607,7 @@ static void PrintMinSec(const UINT32 SamplePos, char* TempStr)
 	TimeSec = (float)SamplePos / (float)44100.0;
 	TimeMin = (UINT16)TimeSec / 60;
 	TimeSec -= TimeMin * 60;
-	sprintf(TempStr, "%02hu:%05.2f", TimeMin, TimeSec);
+	sprintf(TempStr, "%02u:%05.2f", TimeMin, TimeSec);
 	
 	return;
 }
