@@ -433,7 +433,7 @@ static void WriteVGM2Txt(const char* FileName)
 	fprintf(hFile, "SCSP Clock:\t\t%s\n", TempStr);
 	
 	WriteClockText(TempStr, VGMHead.lngHzWSwan, "WSwan");
-	fprintf(hFile, "WonderSwan Clock:\t\t%s\n", TempStr);
+	fprintf(hFile, "WonderSwan Clock:\t%s\n", TempStr);
 	
 	WriteClockText(TempStr, VGMHead.lngHzVSU, "VSU");
 	fprintf(hFile, "VSU Clock:\t\t%s\n", TempStr);

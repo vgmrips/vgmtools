@@ -844,9 +844,9 @@ INLINE bool IgnoredCmd(const UINT8* VGMPnt)
 //		return true;	// YM2612 Stereo
 	if (Command == 0x58 && (RegData >= 0x19 && RegData <= 0x1B))
 		return true;	// YM2610 DELTA-T: Delta-N
-	if (Command == 0x59 && (RegData >= 0x00 && RegData <= 0x2F))
-		return true;	// YM2610 ADPCM
-	if (Command == 0x58 && (RegData >= 0x00 && RegData <= 0x1F))
+	//if (Command == 0x59 && (RegData >= 0x00 && RegData <= 0x2F))
+	//	return true;	// YM2610 ADPCM
+	if (Command == 0x58 && (RegData >= 0x00 && RegData <= 0x05))
 		return true;	// YM2610 SSG Freq
 	if (Command == 0x58 && (RegData >= 0x08 && RegData <= 0x0A))
 		return true;	// YM2610 SSG Vol

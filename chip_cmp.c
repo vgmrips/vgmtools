@@ -350,6 +350,7 @@ ALL_CHIPS* ChipData = NULL;
 ALL_CHIPS* ChDat;
 
 extern bool JustTimerCmds;
+extern bool DoOKI6258;
 
 extern UINT16 NxtCmdReg;
 extern UINT8 NxtCmdVal;
@@ -1873,7 +1874,7 @@ bool nes_psg_write(UINT8 Register, UINT8 Data)
 	UINT8 CurChn;
 	bool ChnIsOn;
 	
-	if (Register >= 0x20)
+	if (Register >= 0x40)
 		return true;	// invalid registers
 	//if (Register >= 0x10 && Register <= 0x13)
 	//	return false;	// remove all DPCM writes
@@ -1913,6 +1914,12 @@ bool nes_psg_write(UINT8 Register, UINT8 Data)
 			//return true;
 			chip->RegFirst[Register] = 0x01;
 		}
+	}
+	else if (Register == 0x15)
+	{
+		// Channel Enable
+		if (Data & 0x10)	 // DPCM Enable?
+			chip->RegFirst[Register] = 0x01;	// *always* have to rewrite this
 	}
 	else if (Register >= 0x20 && Register < 0x40)
 	{
@@ -2541,7 +2548,7 @@ bool okim6258_write(UINT8 Port, UINT8 Data)
 	case 0x01:	// Data
 		return true;
 	case 0x02:	// Pan
-		if (1)	// if (pre opt_oki)
+		if (! DoOKI6258)	// if (pre opt_oki)
 			return true;
 		if (! chip->RegFirst[Port] && Data == chip->RegData[Port])
 			return false;

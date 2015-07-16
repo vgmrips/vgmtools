@@ -70,6 +70,7 @@ UINT16 NxtCmdReg;
 UINT8 NxtCmdVal;
 
 bool JustTimerCmds;
+bool DoOKI6258;
 
 int main(int argc, char* argv[])
 {
@@ -83,13 +84,24 @@ int main(int argc, char* argv[])
 	
 	ErrVal = 0;
 	JustTimerCmds = false;
+	DoOKI6258 = false;
+	
 	argbase = 0x01;
-	if (argc >= argbase + 0x01)
+	while(argc >= argbase + 1 && argv[argbase][0] == '-')
 	{
-		if (! strcmp(argv[argbase + 0x00], "-justtmr"))
+		if (! _stricmp(argv[argbase], "-justtmr"))
 		{
 			JustTimerCmds = true;
 			argbase ++;
+		}
+		else if (! _stricmp(argv[argbase], "-do6258"))
+		{
+			DoOKI6258 = true;
+			argbase ++;
+		}
+		else
+		{
+			break;
 		}
 	}
 	
