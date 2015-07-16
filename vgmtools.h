@@ -9,6 +9,7 @@
 #include <conio.h>
 #include <windows.h>	// for GetTickCount
 #else
+#define MAX_PATH PATH_MAX
 #include <ctype.h>
 #endif
 
@@ -20,5 +21,3 @@
 #ifndef INLINE
 #define INLINE __inline
 #endif
-
-#define MAX_PATH PATH_MAX

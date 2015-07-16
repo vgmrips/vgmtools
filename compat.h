@@ -33,7 +33,9 @@ typedef unsigned __int64 uint64_t;
 char *gets_s(char *str, size_t n);
 #endif
 
-#ifndef WIN32
+#ifdef WIN32
+#else
+#define wcsicmp wcscasecmp
 int _getch();
 #endif
 
@@ -42,5 +44,4 @@ int _getch();
 #else
 #define _getch getchar
 #define _stricmp strcasecmp
-#define wcsicmp wcscasecmp
 #endif
