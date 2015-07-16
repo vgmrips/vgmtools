@@ -18,26 +18,26 @@ TOOLS=\
 	optvgm32 \
 	optvgmrf \
 	vgm2txt \
-	vgm_cmp \
 	vgm_cnt \
 	vgm_dbc \
 	vgm_facc \
 	vgm_mono \
 	vgm_ndlz \
-	vgm_ptch \
 	vgm_smp1 \
 	vgm_sptd \
 	vgm_spts \
 	vgm_sro \
-	vgm_tag \
-	vgm_trim \
 	vgm_vol \
 	vgmlpfnd \
+	vgm_ptch \
+	vgm_tag \
+	vgm_trim \
+	vgm_cmp \
+	opt_oki \
 	vgmmerge
 
 # extra tools not compiled by default
 EXTRA_TOOLS=\
-	opt_oki \
 	vgm_stat
 
 all: $(OBJ) $(TOOLS)
@@ -67,7 +67,7 @@ vgm_vol_OBJS=vgm_vol.o
 vgmlpfnd_OBJS=vgmlpfnd.o
 vgmmerge_OBJS=vgmmerge.o
 
-$(TOOLS) $(EXTRA_TOOLS): $$(addprefix $(OBJ)/,$$($$@_OBJS))
+$(TOOLS) $(EXTRA_TOOLS): $$(addprefix $(OBJ)/,$$($$@_OBJS)) compat.o
 	$(CC) $^ -o $@ $(LDFLAGS)
 
 $(OBJ)/%.o: $(SRC)/%.c
