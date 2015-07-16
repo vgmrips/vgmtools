@@ -6,21 +6,7 @@
 //	- optimize output (smaller blocks, expand block writes)
 
 
-#include <stdio.h>
-#include <stdlib.h>
-#include "stdbool.h"
-#include <string.h>
-
-#ifdef WIN32
-#include <conio.h>
-#include <windows.h>	// for GetTickCount
-#endif
-
-#include "zlib.h"
-
-#include "stdtype.h"
-#include "VGMFile.h"
-
+#include "vgmtools.h"
 
 static bool OpenVGMFile(const char* FileName);
 static void WriteVGMFile(const char* FileName);
@@ -109,7 +95,7 @@ int main(int argc, char* argv[])
 	printf("File Name:\t");
 	if (argc <= 0x01)
 	{
-		gets(FileName);
+		gets_s(FileName, sizeof(FileName));
 	}
 	else
 	{

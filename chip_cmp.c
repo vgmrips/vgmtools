@@ -1,3 +1,4 @@
+#include "compat.h"
 #include <malloc.h>
 #include <memory.h>
 #include <stdio.h>

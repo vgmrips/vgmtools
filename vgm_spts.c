@@ -1,6 +1,7 @@
 // vgm_spts.c - VGM Splitter (Sample Edition)
 //
 
+#include "compat.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include "stdbool.h"
@@ -51,7 +52,7 @@ int main(int argc, char* argv[])
 	printf("File Name:\t");
 	if (argc <= 0x01)
 	{
-		gets(FileName);
+		gets_s(FileName, sizeof(FileName));
 	}
 	else
 	{
@@ -233,7 +234,7 @@ static void SplitVGMData(int argc, char* argv[])
 		}
 		else
 		{
-			gets(SplitTxt);
+			gets_s(SplitTxt, sizeof(SplitTxt));
 		}
 		SplitSmpl = strtol(SplitTxt, NULL, 0);
 		if (! SplitSmpl)

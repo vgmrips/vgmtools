@@ -1,6 +1,7 @@
 // vgm_facc.c - Round VGM to Frames (Make VGM Frame Accurate)
 //
 
+#include "compat.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include "stdbool.h"
@@ -60,7 +61,7 @@ int main(int argc, char* argv[])
 	printf("File Name:\t");
 	if (argc <= argbase)
 	{
-		gets(FileName);
+		gets_s(FileName, sizeof(FileName));
 	}
 	else
 	{

@@ -3,6 +3,7 @@
 //TODO: Change "Start Pos" to "Start Sample"
 // more TODO: 0:59.999 becomes 0:60.00
 
+#include "compat.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include "stdbool.h"
@@ -88,7 +89,7 @@ int main(int argc, char* argv[])
 	printf("File Name:\t");
 	if (argc < argbase + 0x01)
 	{
-		gets(FileName);
+		gets_s(FileName, sizeof(FileName));
 	}
 	else
 	{
@@ -102,7 +103,7 @@ int main(int argc, char* argv[])
 		printf("Step Size (default: %u):\t", STEP_SIZE);
 	if (argc < argbase + 0x02)
 	{
-		gets(InputTxt);
+		gets_s(InputTxt, sizeof(InputTxt));
 	}
 	else
 	{
@@ -118,7 +119,7 @@ int main(int argc, char* argv[])
 		printf("Minimum Number of matching Commands (default: %u):\t", MIN_EQU_SIZE);
 	if (argc < argbase + 0x02)
 	{
-		gets(InputTxt);
+		gets_s(InputTxt, sizeof(InputTxt));
 	}
 	else
 	{
@@ -134,7 +135,7 @@ int main(int argc, char* argv[])
 		printf("Start Pos (default: %u - auto):\t", START_POS);
 	if (argc < argbase + 0x04)
 	{
-		gets(InputTxt);
+		gets_s(InputTxt, sizeof(InputTxt));
 	}
 	else
 	{

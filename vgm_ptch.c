@@ -1,24 +1,8 @@
 // vgm_ptch.c - VGM Patcher
 //
 
-#include <stdio.h>
-#include <stdlib.h>
-#include "stdbool.h"
-#include <string.h>
-#include <ctype.h>	// for toupper()
-#include <math.h>	// for log(x) in GetVolModVal
-
-#ifdef WIN32
-#include <conio.h>
-#include <windows.h>
-#endif
-
-#include "zlib.h"
-
-#include "stdtype.h"
-#include "VGMFile.h"
+#include "vgmtools.h"
 #include "chip_strp.h"
-
 
 // GD3 Tag Entry Count
 #define GD3T_ENT_V100	11
@@ -676,7 +660,7 @@ static UINT8 ParseStripCommand(const char* StripCmd)
 		return 0x00;	// Passing no argument is valid
 	
 	// Format: "ChipA:Chn1,Chn2,Chn3;ChipB-#;ChipC"
-	StripTmp = _strdup(StripCmd);
+	StripTmp = strdup(StripCmd);
 	ChipPos = StripTmp;
 	while(ChipPos != NULL && *ChipPos != '\0')
 	{

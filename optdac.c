@@ -1,6 +1,7 @@
 // optdac.c - VGM DAC Optimizer
 //
 
+#include "compat.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include "stdbool.h"
@@ -59,7 +60,7 @@ int main(int argc, char* argv[])
 	printf("File Name:\t");
 	if (argc <= argbase + 0x00)
 	{
-		gets(FileName);
+		gets_s(FileName, sizeof(FileName));
 	}
 	else
 	{

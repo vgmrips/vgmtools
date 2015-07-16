@@ -2,6 +2,7 @@
 //
 // TODO: 2xChip support (especially for data blocks)
 
+#include "compat.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include "stdbool.h"
@@ -81,7 +82,7 @@ int main(int argc, char* argv[])
 	printf("File Name:\t");
 	if (argc <= 0x01)
 	{
-		gets(FileName);
+		gets_s(FileName, sizeof(FileName));
 	}
 	else
 	{

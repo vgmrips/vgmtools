@@ -2,23 +2,7 @@
 //
 // TODO: remove redundand blocks when merging 2xDAC
 
-#include <stdio.h>
-#include <stdlib.h>
-#include "stdbool.h"
-#include <string.h>
-
-#ifdef WIN32
-#include <conio.h>
-#include <windows.h>	// for GetTickCount
-#endif
-
-#include "zlib.h"
-
-#include "stdtype.h"
-#include "VGMFile.h"
-
-
-#define INLINE	__inline
+#include "vgmtools.h"
 
 typedef struct chip_mappings CHIP_MAPS;
 
@@ -143,7 +127,7 @@ int main(int argc, char* argv[])
 		printf("File #%u:\t", FileNo + 1);
 		if (argc <= argbase + FileNo)
 		{
-			gets(FileName);
+			gets_s(FileName, sizeof(FileName));
 		}
 		else
 		{

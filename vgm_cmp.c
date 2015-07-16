@@ -1,20 +1,7 @@
 // vgm_cmp.c - VGM Compressor
 //
 
-#include <stdio.h>
-#include <stdlib.h>
-#include "stdbool.h"
-#include <string.h>
-
-#ifdef WIN32
-#include <conio.h>
-#include <windows.h>	// for GetTickCount
-#endif
-
-#include "zlib.h"
-
-#include "stdtype.h"
-#include "VGMFile.h"
+#include "vgmtools.h"
 #include "vgm_lib.h"
 
 
@@ -109,7 +96,7 @@ int main(int argc, char* argv[])
 	printf("File Name:\t");
 	if (argc <= argbase + 0x00)
 	{
-		gets(FileName);
+		gets_s(FileName, sizeof(FileName));
 	}
 	else
 	{

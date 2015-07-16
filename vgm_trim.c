@@ -1,20 +1,7 @@
 // vgm_trim.c - VGM Trimmer
 //
 
-#include <stdio.h>
-#include <stdlib.h>
-#include "stdbool.h"
-#include <string.h>
-
-#ifdef WIN32
-#include <conio.h>
-#endif
-
-#include "zlib.h"
-
-#include "stdtype.h"
-#include "VGMFile.h"
-
+#include "vgmtools.h"
 
 static bool OpenVGMFile(const char* FileName);
 static void WriteVGMFile(const char* FileName);
@@ -87,7 +74,7 @@ int main(int argc, char* argv[])
 	printf("File Name:\t");
 	if (argc <= argbase + 0x00)
 	{
-		gets(FileName);
+		gets_s(FileName, sizeof(FileName));
 	}
 	else
 	{
@@ -100,7 +87,7 @@ int main(int argc, char* argv[])
 	printf("Start Sample (in Samples):\t");
 	if (argc <= argbase + 0x01)
 	{
-		gets(InputTxt);
+		gets_s(InputTxt, sizeof(InputTxt));
 	}
 	else
 	{
@@ -114,7 +101,7 @@ int main(int argc, char* argv[])
 	printf("Loop Sample (in Samples):\t");
 	if (argc <= argbase + 0x02)
 	{
-		gets(InputTxt);
+		gets_s(InputTxt, sizeof(InputTxt));
 	}
 	else
 	{
@@ -126,7 +113,7 @@ int main(int argc, char* argv[])
 	printf("End Sample (in Samples):\t");
 	if (argc <= argbase + 0x03)
 	{
-		gets(InputTxt);
+		gets_s(InputTxt, sizeof(InputTxt));
 	}
 	else
 	{

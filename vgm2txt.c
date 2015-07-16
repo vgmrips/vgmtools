@@ -1,6 +1,7 @@
 // vgm2txt.c - VGM Text Writer
 //
 
+#include "compat.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include "stdbool.h"
@@ -91,7 +92,7 @@ int main(int argc, char* argv[])
 	printf("File Name:\t");
 	if (argc <= 0x01)
 	{
-		gets(FileName);
+		gets_s(FileName, sizeof(FileName));
 	}
 	else
 	{
@@ -112,7 +113,7 @@ int main(int argc, char* argv[])
 	TimeMin = TimeSec = TimeMS = 0;
 	printf("Start Time:\t");
 	if (argc <= 0x02)
-		gets(FileName);
+		gets_s(FileName, sizeof(FileName));
 	else
 		strcpy(FileName, argv[0x02]);
 	sscanf(FileName, "%02u:%02u.%02u", &TimeMin, &TimeSec, &TimeMS);
@@ -121,7 +122,7 @@ int main(int argc, char* argv[])
 	TimeMin = TimeSec = TimeMS = 0;
 	printf("End Time:\t");
 	if (argc <= 0x03)
-		gets(FileName);
+		gets_s(FileName, sizeof(FileName));
 	else
 		strcpy(FileName, argv[0x03]);
 	sscanf(FileName, "%02u:%02u.%02u", &TimeMin, &TimeSec, &TimeMS);

@@ -1,23 +1,9 @@
 // vgm_tag.c - VGM Tagger
 //
 
-#include <stdio.h>
-#include <stdlib.h>
-#include "stdbool.h"
-#include <string.h>
-#include <ctype.h>	// for toupper()
+#include "vgmtools.h"
 #include <wchar.h>
-#include <limits.h>	// for MB_LEN_MAX
-
-#ifdef WIN32
-#include <conio.h>
-#endif
-
-#include "zlib.h"
-
-#include "stdtype.h"
-#include "VGMFile.h"
-
+#include <wctype.h>
 
 typedef struct system_name_shorts SYSTEM_SHORT;
 

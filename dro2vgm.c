@@ -16,6 +16,7 @@
 
 #include "stdtype.h"
 #include "VGMFile.h"
+#include "compat.h"
 
 
 static bool OpenDROFile(const char* FileName);
@@ -74,7 +75,7 @@ int main(int argc, char* argv[])
 	printf("File Name:\t");
 	if (argc <= 0x01)
 	{
-		gets(FileName);
+		gets_s(FileName, sizeof(FileName));
 	}
 	else
 	{
@@ -389,7 +390,7 @@ static void ConvertDRO2VGM(void)
 				}
 				VGMSmplL = VGMSmplC;
 			}
-			
+
 			switch(DROHead.iVersionMajor)
 			{
 			case 0x00:

@@ -1,6 +1,7 @@
 // vgm_sptd.c - VGM Splitter (Delay Edition)
 //
 
+#include "compat.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include "stdbool.h"
@@ -80,7 +81,7 @@ int main(int argc, char* argv[])
 	printf("File Name:\t");
 	if (argc < argbase + 0x01)
 	{
-		gets(FileName);
+		gets_s(FileName, sizeof(FileName));
 	}
 	else
 	{
@@ -93,7 +94,7 @@ int main(int argc, char* argv[])
 	printf("Split Delay (in Samples):\t");
 	if (argc <= argbase + 0x02)
 	{
-		gets(SplitTxt);
+		gets_s(SplitTxt, sizeof(SplitTxt));
 	}
 	else
 	{

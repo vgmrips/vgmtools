@@ -1,21 +1,7 @@
 // opt_oki.c - VGM OKIM6258 Optimizer
 //
 
-#include <stdio.h>
-#include <stdlib.h>
-#include "stdbool.h"
-#include <string.h>
-
-#ifdef WIN32
-#include <conio.h>
-#include <windows.h>	// for GetTickCount
-#endif
-
-#include <zlib.h>
-
-#include "stdtype.h"
-#include "VGMFile.h"
-
+#include "vgmtools.h"
 
 // Structures
 typedef struct vgm_data_write
@@ -131,7 +117,7 @@ int main(int argc, char* argv[])
 	printf("File Name:\t");
 	if (argc <= argbase + 0x00)
 	{
-		gets(FileName);
+		gets_s(FileName, sizeof(FileName));
 	}
 	else
 	{

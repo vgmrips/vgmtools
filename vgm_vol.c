@@ -1,6 +1,7 @@
 // vgm_vol.c - VGM Volume Detector
 //
 
+#include "compat.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include "stdbool.h"
@@ -71,7 +72,7 @@ int main(int argc, char* argv[])
 #endif
 	if (argc <= 0x01)
 	{
-		gets(FileName);
+		gets_s(FileName, sizeof(FileName));
 	}
 	else
 	{
@@ -84,7 +85,7 @@ int main(int argc, char* argv[])
 	printf("Volume Setting (default 1.0):\t");
 	if (argc <= 0x02)
 	{
-		gets(InputStr);
+		gets_s(InputStr, sizeof(InputStr));
 	}
 	else
 	{
