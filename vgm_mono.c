@@ -1,6 +1,7 @@
 // vgm_mono.c - VGM Compressor
 //
 
+#include "compat.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include "stdbool.h"
@@ -87,7 +88,7 @@ int main(int argc, char* argv[])
 	printf("File Name:\t");
 	if (argc <= argbase + 0x00)
 	{
-		gets(FileName);
+		gets_s(FileName, sizeof(FileName));
 	}
 	else
 	{
@@ -108,11 +109,11 @@ int main(int argc, char* argv[])
 	/*PassNo = 0x00;
 	do
 	{
-		printf("Pass #%hu ...\n", PassNo + 1);*/
+		printf("Pass #%u ...\n", PassNo + 1);*/
 		CompressVGMData();
 	/*	if (! PassNo)
 			SrcDataSize = DataSizeA;
-		printf("    Data Compression: %lu -> %lu (%.1f %%)\n",
+		printf("    Data Compression: %u -> %u (%.1f %%)\n",
 				DataSizeA, DataSizeB, 100.0 * DataSizeB / (float)DataSizeA);
 		if (DataSizeB < DataSizeA)
 		{
@@ -124,7 +125,7 @@ int main(int argc, char* argv[])
 		}
 		PassNo ++;
 	} while(DataSizeB < DataSizeA);
-	printf("Data Compression Total: %lu -> %lu (%.1f %%)\n",
+	printf("Data Compression Total: %u -> %u (%.1f %%)\n",
 			SrcDataSize, DataSizeB, 100.0 * DataSizeB / (float)SrcDataSize);
 	
 	if (DataSizeB < SrcDataSize)*/
@@ -278,6 +279,7 @@ static void CompressVGMData(void)
 	UINT8 MPCMAddr;
 	UINT8 MPCMSlot;
 	UINT16 MPCMBank;
+	UINT32 LastMBnkWrtOfs;
 	
 	//DstData = (UINT8*)malloc(VGMDataLen + 0x100);
 	VGMPos = VGMHead.lngDataOffset;
@@ -311,6 +313,7 @@ static void CompressVGMData(void)
 	}*/
 	
 	memset(ChnBoth, 0x00, sizeof(UINT32) * 0x20);
+	LastMBnkWrtOfs = 0x00;
 	MPCMBank = MPCMAddr = MPCMSlot = 0x00;
 	
 	StopVGM = false;
@@ -648,10 +651,27 @@ static void CompressVGMData(void)
 				break;
 			case 0xD0:	// YMF278B write
 				TempByt = VGMPnt[0x01];
-				/*if (TempByt <= 0x01)
-					WriteEvent = ymf262_write(TempByt, VGMPnt[0x02], VGMPnt[0x03]);
+				if (TempByt <= 0x01)
+				{
+					//WriteEvent = ymf262_write(TempByt, VGMPnt[0x02], VGMPnt[0x03]);
+				}
 				else
-					WriteEvent = true;*/
+				{
+					if (VGMPnt[0x02] >= 0x08 && VGMPnt[0x02] < 0xF8)
+					{
+						TempByt = VGMPnt[0x02] - 0x08;
+						if ((TempByt / 24) == 0x04)
+						{
+							TempByt = VGMPnt[0x03] & 0x0F;
+							if (TempByt != 0x08)	// 08 = muted - don't change
+							{
+								VGMPnt[0x03] &= ~0x0F;
+								if (TempByt > 0x00 && ! (TempByt == 0x07 || TempByt == 0x09))
+								printf("Warning: Non-Full Panning! Pos: %06X\n", VGMPos);
+							}
+						}
+					}
+				}
 				CmdLen = 0x04;
 				break;
 			case 0xD1:	// YMF271 write
@@ -709,8 +729,8 @@ static void CompressVGMData(void)
 					{
 						if ((VGMPnt[0x02] & 0xF0) != 0x80)
 						{
-							if ((VGMPnt[0x02] & 0xF0) < 0x80)
-								printf("MultiPCM: Right Channel used!\n");
+							//if ((VGMPnt[0x02] & 0xF0) < 0x80)
+							//	printf("MultiPCM: Right Channel used!\n");
 							VGMPnt[0x02] &= ~0xF0;
 						}
 					}
@@ -737,7 +757,14 @@ static void CompressVGMData(void)
 				else
 				{
 					MPCMBank = TempSht;
+					/*if (LastMBnkWrtOfs)
+					{
+						VGMPnt = &VGMData[LastMBnkWrtOfs];
+						if (VGMPnt[0x01] == 0x01)
+							memcpy(&VGMPnt[0x02], &MPCMBank, 0x02);
+					}*/
 				}
+				LastMBnkWrtOfs = VGMPos;
 				CmdLen = 0x04;
 				break;
 			case 0xB6:	// UPD7759 write (is mono?)
@@ -809,7 +836,7 @@ static void CompressVGMData(void)
 					CmdLen = 0x05;
 					break;
 				default:
-					printf("Unknown Command: %hX\n", Command);
+					printf("Unknown Command: %X\n", Command);
 					CmdLen = 0x01;
 					//StopVGM = true;
 					break;
@@ -829,7 +856,7 @@ static void CompressVGMData(void)
 			PrintMinSec(VGMHead.lngTotalSamples, TempStr);
 			TempLng = VGMPos - VGMHead.lngDataOffset;
 			ROMSize = VGMHead.lngEOFOffset - VGMHead.lngDataOffset;
-			printf("%04.3f %% - %s / %s (%08lX / %08lX) ...\r", (float)TempLng / ROMSize * 100,
+			printf("%04.3f %% - %s / %s (%08X / %08X) ...\r", (float)TempLng / ROMSize * 100,
 					MinSecStr, TempStr, VGMPos, VGMHead.lngEOFOffset);
 			CmdTimer = GetTickCount() + 200;
 		}
@@ -849,7 +876,7 @@ static void PrintMinSec(const UINT32 SamplePos, char* TempStr)
 	TimeSec = (float)SamplePos / (float)44100.0;
 	TimeMin = (UINT16)TimeSec / 60;
 	TimeSec -= TimeMin * 60;
-	sprintf(TempStr, "%02hu:%05.2f", TimeMin, TimeSec);
+	sprintf(TempStr, "%02u:%05.2f", TimeMin, TimeSec);
 	
 	return;
 }

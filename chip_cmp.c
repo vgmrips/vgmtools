@@ -1,3 +1,4 @@
+#include "compat.h"
 #include <malloc.h>
 #include <memory.h>
 #include <stdio.h>
@@ -108,16 +109,23 @@ typedef struct ymf262_data
 	UINT8 RegData[0x200];
 	UINT8 RegFirst[0x200];
 } YMF262_DATA;
+typedef struct ymf278b_data
+{
+	UINT8 RegData[0x300];
+	UINT8 RegFirst[0x300];
+} YMF278B_DATA;
 typedef struct ymf271_slot
 {
 	UINT8 RegData[0x10];
 	UINT8 RegFirst[0x10];
 	
-	UINT8 startaddr[3];
+	UINT8 PCMRegFirst[0x10];
+	UINT8 PCMRegData[0x10];
+	/*UINT8 startaddr[3];
 	UINT8 loopaddr[3];
 	UINT8 endaddr[3];
 	UINT8 slotnote;
-	UINT8 sltnfirst;
+	UINT8 sltnfirst;*/
 } YMF271_SLOT;
 typedef struct ymf271_group
 {
@@ -130,14 +138,14 @@ typedef struct ymf271_chip
 	YMF271_SLOT slots[48];
 	YMF271_GROUP groups[12];
 	
-	UINT8 ext_address[2];
+	UINT8 ext_address[3];
 	UINT8 ext_read;
 } YMF271_DATA;
-typedef struct ymf278b_data
+/*typedef struct ymf278b_data
 {
 	UINT8 RegData[0x300];
 	UINT8 RegFirst[0x300];
-} YMF278B_DATA;
+} YMF278B_DATA;*/
 typedef struct ymz280b_data
 {
 	UINT8 RegData[0x100];
@@ -156,14 +164,13 @@ typedef struct gameboy_dmg_data
 } GBDMG_DATA;
 typedef struct nes_apu_data
 {
-	UINT8 RegData[0x20];
-	UINT8 RegFirst[0x20];
+	UINT8 RegData[0x80];
+	UINT8 RegFirst[0x80];
 } NESAPU_DATA;
 enum
 {
 	C140_TYPE_SYSTEM2,
-	C140_TYPE_SYSTEM21_A,
-	C140_TYPE_SYSTEM21_B,
+	C140_TYPE_SYSTEM21,
 	C140_TYPE_ASIC219
 };
 typedef struct c140_data
@@ -211,7 +218,7 @@ typedef struct k054539_data
 	
 //	UINT8 k054539_flags;
 } K054539_DATA;
-typedef struct K051649_data
+typedef struct k051649_data
 {
 	UINT8 WaveData[0x20 * 5];
 	UINT8 WaveFirst[0x20 * 5];
@@ -222,6 +229,33 @@ typedef struct K051649_data
 	UINT8 KeyOn;
 	UINT8 KeyFirst;
 } K051649_DATA;
+typedef struct okim6295_data
+{
+	UINT8 RegData[0x14];
+	UINT8 RegFirst[0x14];
+} OKIM6295_DATA;
+typedef struct okim6295_data OKIM6258_DATA;
+typedef struct upd7759_data
+{
+	UINT8 RegData[0x04];
+	UINT8 RegFirst[0x04];
+} UPD7759_DATA;
+#define C352_FLG_LINKLOOP	0x0022
+typedef struct c352_data
+{
+	UINT16 RegData[0x208];
+	UINT8 RegFirst[0x208];
+} C352_DATA;
+typedef struct x1_010_data
+{
+	UINT8 RegData[0x2000];
+	UINT8 RegFirst[0x2000];
+} X1_010_DATA;
+typedef struct es5503_data
+{
+	UINT8 RegData[0xE2];
+	UINT8 RegFirst[0xE2];
+} ES5503_DATA;
 
 typedef struct all_chips
 {
@@ -239,19 +273,27 @@ typedef struct all_chips
 	YM3526_DATA YM3526;
 	Y8950_DATA Y8950;
 	YMF262_DATA YMF262;
-	YMF271_DATA YMF271;
 	YMF278B_DATA YMF278B;
+	YMF271_DATA YMF271;
+	//YMF278B_DATA YMF278B;
 	YMZ280B_DATA YMZ280B;
 	RF5C68_DATA RF5C164;
 	AY8910_DATA AY8910;
 	GBDMG_DATA GBDMG;
 	NESAPU_DATA NES;
+	UPD7759_DATA UPD7759;
+	OKIM6258_DATA OKIM6258;
+	OKIM6295_DATA OKIM6295;
 	K051649_DATA K051649;
 	K054539_DATA K054539;
 	C6280_DATA C6280;
 	C140_DATA C140;
 	POKEY_DATA Pokey;
 	QSOUND_DATA QSound;
+	//SCSP_DATA SCSP;
+	ES5503_DATA ES5503;
+	C352_DATA C352;
+	X1_010_DATA X1_010;
 } ALL_CHIPS;
 
 
@@ -274,11 +316,12 @@ bool ym3812_write(UINT8 Register, UINT8 Data);
 bool ym3526_write(UINT8 Register, UINT8 Data);
 bool y8950_write(UINT8 Register, UINT8 Data);
 bool ymf262_write(UINT8 Port, UINT8 Register, UINT8 Data);
+bool ymf278b_write(UINT8 Port, UINT8 Register, UINT8 Data);
 bool ymz280b_write(UINT8 Register, UINT8 Data);
 bool rf5c164_reg_write(UINT8 Register, UINT8 Data);
 static bool ay8910_part_write(UINT8* RegData, UINT8* RegFirst, UINT8 Register, UINT8 Data);
 bool ay8910_write_reg(UINT8 Register, UINT8 Data);
-static bool ymf271_write_fm_reg(YMF271_SLOT* slot, UINT8 Register, UINT8 Data);
+static bool ymf271_write_fm_reg(YMF271_DATA* chip, UINT8 SlotNum, UINT8 Register, UINT8 Data);
 static bool ymf271_write_fm(YMF271_DATA* chip, UINT8 Port, UINT8 Register, UINT8 Data);
 bool ymf271_write(UINT8 Port, UINT8 Register, UINT8 Data);
 bool gameboy_write_reg(UINT8 Register, UINT8 Data);
@@ -289,7 +332,14 @@ bool qsound_write(UINT8 Offset, UINT16 Value);
 bool pokey_write(UINT8 Register, UINT8 Data);
 static bool fmadpcm_write(UINT8 Register, UINT8 Data, UINT8* RegData, UINT8* RegFirst);
 bool k054539_write(UINT8 Port, UINT8 Register, UINT8 Data);
-bool k051649_write(UINT8 Port, UINT8 Register, UINT8 data);
+bool k051649_write(UINT8 Port, UINT8 Register, UINT8 Data);
+bool scsp_write(UINT8 Port, UINT8 Register, UINT8 Data);
+bool okim6295_write(UINT8 Port, UINT8 Data);
+bool upd7759_write(UINT8 Port, UINT8 Data);
+bool okim6258_write(UINT8 Port, UINT8 Data);
+bool c352_write(UINT16 Offset, UINT16 Value);
+bool x1_010_write(UINT16 Offset, UINT8 Value);
+bool es5503_write(UINT8 Register, UINT8 Data);
 
 // Function Prototypes from vgm_cmp.c
 bool GetNextChipCommand(void);
@@ -300,6 +350,7 @@ ALL_CHIPS* ChipData = NULL;
 ALL_CHIPS* ChDat;
 
 extern bool JustTimerCmds;
+extern bool DoOKI6258;
 
 extern UINT16 NxtCmdReg;
 extern UINT8 NxtCmdVal;
@@ -325,6 +376,8 @@ void InitAllChips(void)
 		memset(TempChp->YMZ280B.KeyOn, 0x00, sizeof(UINT8) * 0x08);
 		TempChp->C140.banking_type = 0x00;
 		memset(TempChp->QSound.KeyOn, 0x00, sizeof(UINT8) * 0x10);
+		
+		memset(&TempChp->OKIM6258.RegFirst[0x08], 0x00, 0x0D-0x08);
 	}
 	VGM_Loops = false;
 	
@@ -337,7 +390,8 @@ void ResetAllChips(void)
 {
 	UINT8 CurChip;
 	ALL_CHIPS* TempChp;
-	UINT8 RegBak[0x03];
+	UINT8 RegBak[0x05];
+	UINT8 ClkBak[0x05];
 	
 	for (CurChip = 0x00; CurChip < ChipCount; CurChip ++)
 	{
@@ -345,15 +399,17 @@ void ResetAllChips(void)
 		RegBak[0x00] = TempChp->RF5C68.RegData[RF_CBANK];
 		RegBak[0x01] = TempChp->RF5C164.RegData[RF_CBANK];
 		RegBak[0x02] = TempChp->C6280.RegData[C6280_CHN_SEL];
+		RegBak[0x03] = TempChp->C140.banking_type;
 		//RegBak[0x03] = TempChp->YM2608.RegData[0x010];
 		//RegBak[0x04] = TempChp->YM2610.RegData[0x100];
+		memcpy(ClkBak, &TempChp->OKIM6258.RegData[0x08], 0x05);
 		
 		memset(TempChp, 0xFF, sizeof(ALL_CHIPS));
 		
 		TempChp->GGSt = 0x00;
 		memset(TempChp->SegaPCM.ChnPrg, 0x00, sizeof(UINT8) * 0x10);
 		memset(TempChp->YMZ280B.KeyOn, 0x00, sizeof(UINT8) * 0x08);
-		TempChp->C140.banking_type = 0x00;
+		TempChp->C140.banking_type = RegBak[0x03];
 		memset(TempChp->QSound.KeyOn, 0x00, sizeof(UINT8) * 0x10);
 		
 		TempChp->RF5C68.RegData[RF_CBANK] = RegBak[0x00];
@@ -364,6 +420,7 @@ void ResetAllChips(void)
 		TempChp->C6280.RegData[C6280_CHN_LOOP] = RegBak[0x02];
 		//TempChp->YM2608.RegData[0x010] = RegBak[0x03];
 		//TempChp->YM2610.RegData[0x100] = RegBak[0x04];
+		memcpy(&TempChp->OKIM6258.RegData[0x08], ClkBak, 0x05);
 	}
 	
 	VGM_Loops = true;
@@ -509,23 +566,24 @@ bool sn76496_write(UINT8 Command/*, UINT8 NextCmd*/)
 
 bool ym2413_write(UINT8 Register, UINT8 Data)
 {
+	YM2413_DATA* chip = &ChDat->YM2413;
+	
 	Register &= 0x3F;
 	
-	if (! ChDat->YM2413.RegFirst[Register] && Data == ChDat->YM2413.RegData[Register])
+	if (! chip->RegFirst[Register] && Data == chip->RegData[Register])
 		return false;
 	
-	ChDat->YM2413.RegFirst[Register] = JustTimerCmds;
-	ChDat->YM2413.RegData[Register] = Data;
+	chip->RegFirst[Register] = JustTimerCmds;
+	chip->RegData[Register] = Data;
 	return true;
 }
 
 bool ym2612_write(UINT8 Port, UINT8 Register, UINT8 Data)
 {
-	YM2612_DATA* chip;
+	YM2612_DATA* chip = &ChDat->YM2612;
 	UINT16 RegVal;
 	UINT8 Channel;
 	
-	chip = &ChDat->YM2612;
 	RegVal = (Port << 8) | Register;
 	switch(RegVal)
 	{
@@ -636,10 +694,9 @@ bool ym2612_write(UINT8 Port, UINT8 Register, UINT8 Data)
 
 bool ym2151_write(UINT8 Register, UINT8 Data)
 {
-	YM2151_DATA* chip;
+	YM2151_DATA* chip = &ChDat->YM2151;
 	UINT8 Channel;
 	
-	chip = &ChDat->YM2151;
 	switch(Register)
 	{
 	case 0x08:
@@ -686,11 +743,10 @@ bool ym2151_write(UINT8 Register, UINT8 Data)
 
 bool segapcm_mem_write(UINT16 Offset, UINT8 Data)
 {
-	SEGAPCM_DATA* chip;
+	SEGAPCM_DATA* chip = &ChDat->SegaPCM;
 	UINT8 Channel;
 	UINT16 RelOffset;
 	
-	chip = &ChDat->SegaPCM;
 	Offset &= 0x07FF;	// it has 2 KB of RAM, but only 256 Byte are used
 	Channel = (Offset >> 3) & 0xF;
 	RelOffset = Offset & ~0x78;
@@ -868,14 +924,13 @@ bool rf5c68_reg_write(UINT8 Register, UINT8 Data)
 
 bool ym2203_write(UINT8 Register, UINT8 Data)
 {
-	YM2203_DATA* chip;
+	YM2203_DATA* chip = &ChDat->YM2203;
 	UINT8 Channel;
 	
 	/*if ((Register & 0x1F0) == 0x000)
 		return ! (Register >= 0x0E && Register <= 0x0F);
 	else
 		return false;*/
-	chip = &ChDat->YM2203;
 	switch(Register)
 	{
 	case 0x24:	// Timer Registers
@@ -979,11 +1034,10 @@ bool ym2203_write(UINT8 Register, UINT8 Data)
 
 bool ym2608_write(UINT8 Port, UINT8 Register, UINT8 Data)
 {
-	YM2608_DATA* chip;
+	YM2608_DATA* chip = &ChDat->YM2608;
 	UINT16 RegVal;
 	UINT8 Channel;
 	
-	chip = &ChDat->YM2608;
 	RegVal = (Port << 8) | Register;
 	switch(RegVal)
 	{
@@ -1111,11 +1165,10 @@ bool ym2608_write(UINT8 Port, UINT8 Register, UINT8 Data)
 
 bool ym2610_write(UINT8 Port, UINT8 Register, UINT8 Data)
 {
-	YM2610_DATA* chip;
+	YM2610_DATA* chip = &ChDat->YM2610;
 	UINT16 RegVal;
 	UINT8 Channel;
 	
-	chip = &ChDat->YM2610;
 	RegVal = (Port << 8) | Register;
 	switch(RegVal)
 	{
@@ -1338,19 +1391,60 @@ bool ymf262_write(UINT8 Port, UINT8 Register, UINT8 Data)
 		/*if (Data & 0x80)
 			Data &= 0x80;
 		
-		if (! ChDat->YMF262.RegFirst[RegVal] && Data == ChDat->YMF262.RegData[RegVal])
+		if (! chip->RegFirst[RegVal] && Data == chip->RegData[RegVal])
 			return false;
 		
-		ChDat->YMF262.RegFirst[RegVal] = 0x00;
-		ChDat->YMF262.RegData[RegVal] = Data;
+		chip->RegFirst[RegVal] = 0x00;
+		chip->RegData[RegVal] = Data;
 		break;*/
 	default:
-		if (! ChDat->YMF262.RegFirst[RegVal] && Data == ChDat->YMF262.RegData[RegVal])
+		if (! chip->RegFirst[RegVal] && Data == chip->RegData[RegVal])
 			return false;
 		
-		ChDat->YMF262.RegFirst[RegVal] = JustTimerCmds;
-		ChDat->YMF262.RegData[RegVal] = Data;
+		chip->RegFirst[RegVal] = JustTimerCmds;
+		chip->RegData[RegVal] = Data;
 		break;
+	}
+	
+	return true;
+}
+
+bool ymf278b_write(UINT8 Port, UINT8 Register, UINT8 Data)
+{
+	YMF278B_DATA* chip = &ChDat->YMF278B;
+	UINT16 RegVal;
+	
+	if (Port < 0x02)
+	{
+		RegVal = (Port << 8) | Register;
+		switch(RegVal)
+		{
+		case 0x002:	// IRQ and Timer Registers
+		case 0x003:
+			return false;
+		case 0x004:
+			return false;
+			/*if (Data & 0x80)
+				Data &= 0x80;
+			
+			if (! chip->RegFirst[RegVal] && Data == chip->RegData[RegVal])
+				return false;
+			
+			chip->RegFirst[RegVal] = 0x00;
+			chip->RegData[RegVal] = Data;
+			break;*/
+		default:
+			if (! chip->RegFirst[RegVal] && Data == chip->RegData[RegVal])
+				return false;
+			
+			chip->RegFirst[RegVal] = JustTimerCmds;
+			chip->RegData[RegVal] = Data;
+			break;
+		}
+	}
+	else
+	{
+		return true;
 	}
 	
 	return true;
@@ -1360,9 +1454,9 @@ bool ymz280b_write(UINT8 Register, UINT8 Data)
 {
 	YMZ280B_DATA* chip = &ChDat->YMZ280B;
 	
-	// the KeyOn-Register can be sent 2x to stop a sound instantly
-	if ((Register & 0xE3) == 0x01)
-		return true;
+//	// the KeyOn-Register can be sent 2x to stop a sound instantly
+//	if ((Register & 0xE3) == 0x01)
+//		return true;
 	
 	if (! chip->RegFirst[Register] && Data == chip->RegData[Register])
 		return false;
@@ -1409,8 +1503,60 @@ bool ay8910_write_reg(UINT8 Register, UINT8 Data)
 	return ay8910_part_write(ChDat->AY8910.RegData, ChDat->AY8910.RegFirst, Register, Data);
 }
 
-static bool ymf271_write_fm_reg(YMF271_SLOT* slot, UINT8 Register, UINT8 Data)
+static bool ymf271_write_fm_reg(YMF271_DATA* chip, UINT8 SlotNum, UINT8 Register, UINT8 Data)
 {
+	YMF271_SLOT* slot = &chip->slots[SlotNum];
+	
+	if (Register == 0x0A)	// Frequency MSB Latch (confirmed/flushed by Register 09)
+	{
+		// Note: Based on the code for A0/A4 on OPN chips.
+		UINT16 RegBase;
+		
+		RegBase =   (SlotNum % 3) << 0;
+		RegBase |= ((SlotNum / 3) & 0x03) << 2;
+		RegBase |=  (SlotNum / 12) << 8;
+		while(GetNextChipCommand())
+		{
+			if ((NxtCmdReg & 0xF0F) != RegBase)
+				continue;	// ignore other channels
+			
+			if ((NxtCmdReg & 0x0F0) == 0x0A0)
+			{
+				return false;	// this will be ignored, because the 09 (flushing Freq LSB) write is missing
+			}
+			else if ((NxtCmdReg & 0x0F0) == 0x090)
+			{
+				if (slot->RegFirst[0x0A])
+				{
+					slot->RegFirst[0x0A] = JustTimerCmds;
+					slot->RegData[0x0A] = Data;
+					slot->RegFirst[0x09] = 0x01;
+					return true;
+				}
+				else if (slot->RegData[0x0A] == Data &&
+						slot->RegData[0x09] == NxtCmdVal)
+				{
+					slot->RegFirst[0x0A] = JustTimerCmds;
+					slot->RegData[0x0A] = Data;
+					slot->RegFirst[0x09] = JustTimerCmds;
+					return false;
+				}
+				else
+				{
+					slot->RegFirst[0x0A] = JustTimerCmds;
+					slot->RegData[0x0A] = Data;
+					slot->RegFirst[0x09] = 0x01;
+					return true;
+				}
+			}
+		}
+		slot->RegData[0x0A] = Data;
+		return true;
+	}
+	
+	if (Register == 0x00 && (Data & 0x01))
+		slot->RegFirst[Register] = 0x01;	// a Key On triggers always
+	
 	if (! slot->RegFirst[Register] && slot->RegData[Register] == Data)
 		return false;
 	
@@ -1438,7 +1584,6 @@ static bool ymf271_write_fm(YMF271_DATA* chip, UINT8 Port, UINT8 Register, UINT8
 		printf("Error");
 	
 	// check if the register is a synchronized register
-	SyncReg = 0;
 	switch(SlotReg)
 	{
 	case  0:
@@ -1450,6 +1595,7 @@ static bool ymf271_write_fm(YMF271_DATA* chip, UINT8 Port, UINT8 Register, UINT8
 		SyncReg = 1;
 		break;
 	default:
+		SyncReg = 0;
 		break;
 	}
 	
@@ -1475,40 +1621,47 @@ static bool ymf271_write_fm(YMF271_DATA* chip, UINT8 Port, UINT8 Register, UINT8
 	
 	if (SyncMode && SyncReg)		// key-on slot & synced register
 	{
-		RetVal = false;
+		//RetVal = false;
 		switch(chip->groups[SlotNum].sync)
 		{
 		case 0:		// 4 slot mode
-			RetVal |= ymf271_write_fm_reg(&chip->slots[(12 * 0) + SlotNum], SlotReg, Data);
-			RetVal |= ymf271_write_fm_reg(&chip->slots[(12 * 1) + SlotNum], SlotReg, Data);
-			RetVal |= ymf271_write_fm_reg(&chip->slots[(12 * 2) + SlotNum], SlotReg, Data);
-			RetVal |= ymf271_write_fm_reg(&chip->slots[(12 * 3) + SlotNum], SlotReg, Data);
+		//	RetVal |= ymf271_write_fm_reg(&chip->slots[(12 * 0) + SlotNum], SlotReg, Data);
+		//	RetVal |= ymf271_write_fm_reg(&chip->slots[(12 * 1) + SlotNum], SlotReg, Data);
+		//	RetVal |= ymf271_write_fm_reg(&chip->slots[(12 * 2) + SlotNum], SlotReg, Data);
+		//	RetVal |= ymf271_write_fm_reg(&chip->slots[(12 * 3) + SlotNum], SlotReg, Data);
+			chip->slots[(12 * 1) + SlotNum].RegFirst[SlotReg] = 0x02;
+			chip->slots[(12 * 2) + SlotNum].RegFirst[SlotReg] = 0x02;
+			chip->slots[(12 * 3) + SlotNum].RegFirst[SlotReg] = 0x02;
 			break;
 		case 1:		// 2x 2 slot mode
 			if (Port == 0)		// Slot 1 - Slot 3
 			{
-				RetVal |= ymf271_write_fm_reg(&chip->slots[(12 * 0) + SlotNum], SlotReg, Data);
-				RetVal |= ymf271_write_fm_reg(&chip->slots[(12 * 2) + SlotNum], SlotReg, Data);
+		//		RetVal |= ymf271_write_fm_reg(&chip->slots[(12 * 0) + SlotNum], SlotReg, Data);
+		//		RetVal |= ymf271_write_fm_reg(&chip->slots[(12 * 2) + SlotNum], SlotReg, Data);
+				chip->slots[(12 * 2) + SlotNum].RegFirst[SlotReg] = 0x02;
 			}
 			else				// Slot 2 - Slot 4
 			{
-				RetVal |= ymf271_write_fm_reg(&chip->slots[(12 * 1) + SlotNum], SlotReg, Data);
-				RetVal |= ymf271_write_fm_reg(&chip->slots[(12 * 3) + SlotNum], SlotReg, Data);
+		//		RetVal |= ymf271_write_fm_reg(&chip->slots[(12 * 1) + SlotNum], SlotReg, Data);
+		//		RetVal |= ymf271_write_fm_reg(&chip->slots[(12 * 3) + SlotNum], SlotReg, Data);
+				chip->slots[(12 * 3) + SlotNum].RegFirst[SlotReg] = 0x02;
 			}
 			break;
 		case 2:		// 3 slot + 1 slot mode
 			// 1 slot is handled normally
-			RetVal |= ymf271_write_fm_reg(&chip->slots[(12 * 0) + SlotNum], SlotReg, Data);
-			RetVal |= ymf271_write_fm_reg(&chip->slots[(12 * 1) + SlotNum], SlotReg, Data);
-			RetVal |= ymf271_write_fm_reg(&chip->slots[(12 * 2) + SlotNum], SlotReg, Data);
+		//	RetVal |= ymf271_write_fm_reg(&chip->slots[(12 * 0) + SlotNum], SlotReg, Data);
+		//	RetVal |= ymf271_write_fm_reg(&chip->slots[(12 * 1) + SlotNum], SlotReg, Data);
+		//	RetVal |= ymf271_write_fm_reg(&chip->slots[(12 * 2) + SlotNum], SlotReg, Data);
+			chip->slots[(12 * 1) + SlotNum].RegFirst[SlotReg] = 0x02;
+			chip->slots[(12 * 2) + SlotNum].RegFirst[SlotReg] = 0x02;
 			break;
 		default:
 			break;
 		}
 	}
-	else		// write register normally
+	/*else*/		// write register normally
 	{
-		RetVal = ymf271_write_fm_reg(&chip->slots[(12 * Port) + SlotNum], SlotReg, Data);
+		RetVal = ymf271_write_fm_reg(chip, 12 * Port + SlotNum, SlotReg, Data);
 	}
 	
 	return RetVal;
@@ -1519,6 +1672,7 @@ bool ymf271_write(UINT8 Port, UINT8 Register, UINT8 Data)
 	YMF271_DATA* chip = &ChDat->YMF271;
 	YMF271_SLOT* slot;
 	YMF271_GROUP* group;
+	UINT8 GrpNum;
 	UINT8 SlotNum;
 	UINT8 Addr;
 	
@@ -1537,7 +1691,14 @@ bool ymf271_write(UINT8 Port, UINT8 Register, UINT8 Data)
 		Addr = (Register >> 4) % 3;
 		slot = &chip->slots[SlotNum * 4];
 		
-		switch((Register >> 4) & 0x0F)
+		Register = (Register >> 4) & 0x0F;
+		if (! slot->PCMRegFirst[Register] && slot->PCMRegData[Register] == Data)
+			return false;
+		
+		slot->PCMRegFirst[Register] = JustTimerCmds;
+		slot->PCMRegData[Register] = Data;
+		
+		/*switch((Register >> 4) & 0x0F)
 		{
 		case 0:
 		case 1:
@@ -1560,7 +1721,7 @@ bool ymf271_write(UINT8 Port, UINT8 Register, UINT8 Data)
 			slot->sltnfirst = JustTimerCmds;
 			slot->slotnote = Data;
 			break;
-		}
+		}*/
 		break;
 	case 0x06:
 		if (! (Register & 0xF0))
@@ -1568,14 +1729,23 @@ bool ymf271_write(UINT8 Port, UINT8 Register, UINT8 Data)
 			if ((Register & 0x03) == 0x03)
 				return true;
 			
-			SlotNum = ((Register & 0x0F) / 0x04 * 0x03) + (Register & 0x03);
-			group = &chip->groups[SlotNum];
+			GrpNum = ((Register & 0x0F) / 0x04 * 0x03) + (Register & 0x03);
+			group = &chip->groups[GrpNum];
 			
 			if (! group->First && group->Data == Data)
 				return false;
 			group->First = JustTimerCmds;
 			group->Data = Data;
-			group->sync = Data & 0x03;
+			if (group->sync != (Data & 0x03))
+			{
+				group->sync = Data & 0x03;
+				// TODO: enforce rewrite of all registers
+				for (SlotNum = 0; SlotNum < 48; SlotNum += 12)
+				{
+					slot = &chip->slots[SlotNum + GrpNum];
+					memset(slot->RegFirst, 0x80, 0x10);
+				}
+			}
 		}
 		else
 		{
@@ -1611,24 +1781,40 @@ bool ymf271_write(UINT8 Port, UINT8 Register, UINT8 Data)
 
 bool gameboy_write_reg(UINT8 Register, UINT8 Data)
 {
+	GBDMG_DATA* chip = &ChDat->GBDMG;
+	
 	if (Register >= 0x30)
 		return true;	// invalid registers
 	
-	if (! ChDat->GBDMG.RegFirst[Register] && Data == ChDat->GBDMG.RegData[Register])
+	if (! chip->RegFirst[Register] && Data == chip->RegData[Register])
 		return false;
+	
+	if (Register == 0x16)
+	{
+		if (! (Data & 0x80))
+		{
+			UINT8 CurReg;
+			
+			for (CurReg = 0x00; CurReg < 0x16; CurReg ++)
+				chip->RegFirst[CurReg] = 0x01;
+		}
+		return true;
+	}
+	if (Register < 0x20 && ! (chip->RegData[0x16] & 0x80))
+		return false;	// when the chip is off, writes have no effect (except Wave RAM)
 	
 	// uncomment these lines for sample-accurateness
 	// (otherwise the squares may change one sample too late)
 	// the less accurate way has the advantage of slightly cleaner squares
 	/*if ((Register == 0x02) || (Register >= 0x07 && Register <= 0x08))
-		ChDat->GBDMG.RegFirst[Register] = 0x01;	// Channel Initialize
+		chip->RegFirst[Register] = 0x01;	// Channel Initialize
 	else*/
 	if ((Register == 0x04 || Register == 0x09 || Register == 0x0E || Register == 0x13) &&
-																				(Data & 0x80))
-		ChDat->GBDMG.RegFirst[Register] = 0x01;	// Channel Initialize
+																			(Data & 0x80))
+		chip->RegFirst[Register] = 0x01;	// Channel Initialize
 	else
-		ChDat->GBDMG.RegFirst[Register] = JustTimerCmds;
-	ChDat->GBDMG.RegData[Register] = Data;
+		chip->RegFirst[Register] = JustTimerCmds;
+	chip->RegData[Register] = Data;
 	
 	return true;
 }
@@ -1667,10 +1853,10 @@ static bool ymdeltat_write(UINT8 Register, UINT8 Data, UINT8* RegData, UINT8* Re
 		RegFirst[Register] = 0x01;
 		break;*/
 	case 0x09:	// DELTA-N L (ADPCM Playback Prescaler)
-	case 0x0a:	// DELTA-N H
-	case 0x0b:	// Output level control (volume, linear)
-	case 0x0c:	// Limit Address L
-	case 0x0d:	// Limit Address H
+	case 0x0A:	// DELTA-N H
+	case 0x0B:	// Output level control (volume, linear)
+	case 0x0C:	// Limit Address L
+	case 0x0D:	// Limit Address H
 		if (! RegFirst[Register] && Data == RegData[Register])
 			return false;
 		
@@ -1684,10 +1870,11 @@ static bool ymdeltat_write(UINT8 Register, UINT8 Data, UINT8* RegData, UINT8* Re
 
 bool nes_psg_write(UINT8 Register, UINT8 Data)
 {
+	NESAPU_DATA* chip = &ChDat->NES;
 	UINT8 CurChn;
 	bool ChnIsOn;
 	
-	if (Register >= 0x20)
+	if (Register >= 0x40)
 		return true;	// invalid registers
 	//if (Register >= 0x10 && Register <= 0x13)
 	//	return false;	// remove all DPCM writes
@@ -1723,31 +1910,52 @@ bool nes_psg_write(UINT8 Register, UINT8 Data)
 		
 		if (ChnIsOn)
 		{
-			//ChnIsOn = (ChDat->NES.RegData[0x15] >> CurChn) & 0x01;
+			//ChnIsOn = (chip->RegData[0x15] >> CurChn) & 0x01;
 			//return true;
-			ChDat->NES.RegFirst[Register] = 0x01;
+			chip->RegFirst[Register] = 0x01;
+		}
+	}
+	else if (Register == 0x15)
+	{
+		// Channel Enable
+		if (Data & 0x10)	 // DPCM Enable?
+			chip->RegFirst[Register] = 0x01;	// *always* have to rewrite this
+	}
+	else if (Register >= 0x20 && Register < 0x40)
+	{
+		switch(0x60 + Register)
+		{
+		case 0x80:	// Volume Envelope (resets Envelope Timer)
+		case 0x83:	// Frequency High/Enable (resets Timers)
+		case 0x84:	// Modulation Envelope (resets Envelope Timer)
+		case 0x85:	// Modulation Position
+		case 0x87:	// Modulation Frequency High/Enable (resets Phase)
+		case 0x88:	// Modulation Table Write (TODO: can be optimized?)
+		case 0x8A:	// Envelope Speed (resets Envelope Timer)
+			return true;
 		}
 	}
 	
-	if (! ChDat->NES.RegFirst[Register] && Data == ChDat->NES.RegData[Register])
+	if (! chip->RegFirst[Register] && Data == chip->RegData[Register])
 		return false;
 	
 	//if (ChnIsOn)
-	//	ChDat->NES.RegFirst[Register] = 0x01;	// Channel Initialize
+	//	chip->RegFirst[Register] = 0x01;	// Channel Initialize
 	//else
-	ChDat->NES.RegFirst[Register] = JustTimerCmds;
-	ChDat->NES.RegData[Register] = Data;
+	chip->RegFirst[Register] = JustTimerCmds;
+	chip->RegData[Register] = Data;
 	
 	return true;
 }
 
 bool c140_write(UINT8 Port, UINT8 Register, UINT8 Data)
 {
+	C140_DATA* chip = &ChDat->C140;
 	UINT16 RegVal;
 	
 	if (Port == 0xFF)
 	{
-		ChDat->C140.banking_type = Data;
+		chip->banking_type = Data;
 		return true;
 	}
 	
@@ -1755,17 +1963,17 @@ bool c140_write(UINT8 Port, UINT8 Register, UINT8 Data)
 	RegVal &= 0x1FF;
 
 	// mirror the bank registers on the 219, fixes bkrtmaq
-	if ((RegVal >= 0x1F8) && (ChDat->C140.banking_type == C140_TYPE_ASIC219))
+	if ((RegVal >= 0x1F8) && (chip->banking_type == C140_TYPE_ASIC219))
 		RegVal -= 0x008;
 	
-	if (! ChDat->C140.RegFirst[RegVal] && Data == ChDat->C140.RegData[RegVal])
+	if (! chip->RegFirst[RegVal] && Data == chip->RegData[RegVal])
 		return false;
 	
 	if (RegVal < 0x180 && (RegVal & 0x0F) == 0x05 && (Data & 0x80))
-		ChDat->C140.RegFirst[RegVal] = 0x01;
+		chip->RegFirst[RegVal] = 0x01;
 	else
-		ChDat->C140.RegFirst[RegVal] = JustTimerCmds;
-	ChDat->C140.RegData[RegVal] = Data;
+		chip->RegFirst[RegVal] = JustTimerCmds;
+	chip->RegData[RegVal] = Data;
 	
 	return true;
 }
@@ -1804,23 +2012,31 @@ bool qsound_write(UINT8 Offset, UINT16 Value)
 			chip->RegFirst[Offset] = 0x01;
 			return true;
 		}
-		if (! chip->RegFirst[Offset] && Value == chip->RegData[Offset])
-			return false;
 		break;
-	case 0x02:	// Pitch
+		// with the latest MAME update, this code isn't required anymore
+	/*case 0x02:	// Pitch
 		// setting the Pitch to 0 causes a Key Off
 		// but setting the Pitch to nonzero does NOT cause a Key On
 		if (! Value)
 		{
 			if (chip->KeyOn[Chn])
 			{
-				chip->KeyOn[Chn] = 0x00;
+				//chip->KeyOn[Chn] = 0x00;
 				chip->RegFirst[Offset] = 0x01;
 				chip->RegFirst[(Chn << 3) | 0x01] = 0x01;	// CurAddr Reg changed
 			}
 		}
+		break;*/
+	case 0x03:	// Key On
+		chip->KeyOn[Chn] = (Value & 0x8000) >> 15;
+		if (chip->KeyOn[Chn])
+		{
+			chip->RegFirst[Offset] = 0x01;	// make sure to always keep the KeyOn
+			chip->RegFirst[(Chn << 3) | 0x01] = 0x01;	// CurAddr Reg changed
+		}
 		break;
-	case 0x06:	// Volume
+		// with the latest MAME update, this code isn't required anymore
+	/*case 0x06:	// Volume
 		// setting the Volume to 0 causes a Key Off
 		// setting the Volume to nonzero causes a Key On
 		if (! Value)
@@ -1841,7 +2057,7 @@ bool qsound_write(UINT8 Offset, UINT16 Value)
 			}
 			chip->RegFirst[(Chn << 3) | 0x01] = 0x01;	// CurAddr Reg will change
 		}
-		break;
+		break;*/
 	}
 	
 	if (! chip->RegFirst[Offset] && Value == chip->RegData[Offset])
@@ -2210,74 +2426,249 @@ bool k051649_write(UINT8 Port, UINT8 Register, UINT8 Data)
 	return true;
 }
 
-/*void okim6295_write(char* TempStr, UINT8 Port, UINT8 Data)
+bool okim6295_write(UINT8 Port, UINT8 Data)
 {
-	UINT8 CurChn;
-	char ChnChar;
-	UINT32 StrPos;
-	UINT8 ChnEn;
+	OKIM6295_DATA* chip = &ChDat->OKIM6295;
+	//UINT8 CurChn;
 	
-	WriteChipID(0x18);
+	if (Port & 0x80)
+	{
+		chip->RegData[Port & 0x7F] = Data;
+		chip->RegFirst[Port & 0x7F] = 0x00;
+		return true;
+	}
 	
 	switch(Port)
 	{
 	case 0x00:	// okim6295_write_command
-		if (CacheOKI6295[ChpCur].Command != 0xFF)
+		return true;
+		// possible TODO: remove redundant STOP commands
+		/*if (CacheOKI6295[ChpCur].Command != 0xFF)
 		{
-			sprintf(WriteStr, "Start Channel: ");
-			StrPos = strlen(WriteStr);
+			// start channel
 			for (CurChn = 0x00; CurChn < 0x04; CurChn ++)
 			{
-				ChnEn = Data & (0x10 << CurChn);
-				ChnChar = '0' + CurChn;
-				WriteStr[StrPos] = ChnEn ? ChnChar : '-';
-				StrPos ++;
+				if (Data & (0x10 << CurChn))
+					ChnEnable[CurChn] = 0x01;
 			}
-			sprintf(WriteStr + StrPos, ", Volume: 0x%01X = %u%%",
-					Data & 0x0F, 100 * (Data & 0x0F) / 0x0F);
 			
 			CacheOKI6295[ChpCur].Command = 0xFF;
 		}
 		else if (Data & 0x80)
 		{
-			sprintf(WriteStr, "Play Sample 0x%02X on Channels", Data & 0x7F);
+			// play sample on channels
 			CacheOKI6295[ChpCur].Command = Data & 0x7F;
 		}
 		else
 		{
-			sprintf(WriteStr, "Stop Channel: ");
-			StrPos = strlen(WriteStr);
+			// stop channel
 			for (CurChn = 0x00; CurChn < 0x04; CurChn ++)
 			{
-				ChnEn = Data & (0x08 << CurChn);
-				ChnChar = '0' + CurChn;
-				WriteStr[StrPos] = ChnEn ? ChnChar : '-';
-				StrPos ++;
+				if (Data & (0x08 << CurChn))
+					ChnEn[CurChn] = 0x00;
 			}
-			WriteStr[StrPos] = 0x00;
 		}
+		break;*/
+	case 0x08:	// Master Clock 000000dd
+	case 0x09:	// Master Clock 0000dd00
+	case 0x0A:	// Master Clock 00dd0000
+		if (! chip->RegFirst[Port] && Data == chip->RegData[Port])
+			return false;
+		
+		chip->RegData[Port] = Data;
+		chip->RegFirst[Port] = JustTimerCmds;
+		chip->RegFirst[0x0B] = 0x01;	// force Clock rewrite
 		break;
-	case 0x08:
-		sprintf(WriteStr, "Set Master Clock: xxxxxx%02X", Data);
-		break;
-	case 0x09:
-		sprintf(WriteStr, "Set Master Clock: xxxx%02Xxx", Data);
-		break;
-	case 0x0A:
-		sprintf(WriteStr, "Set Master Clock: xx%02Xxxxx", Data);
-		break;
-	case 0x0B:
-		sprintf(WriteStr, "Set Master Clock: %02Xxxxxxx", Data);
-		break;
-	case 0x0C:
-		sprintf(WriteStr, "Set Clock Divider to %u", Data ? 132 : 165);
-		break;
-	case 0x0F:
-		sprintf(WriteStr, "Set Bank to %06X", Data << 18);
+	case 0x0B:	// Master Clock dd000000
+		Data &= 0x7F;	// fix a bug in MAME VGM logs
+	case 0x0C:	// Clock Divider
+	case 0x0E:	// NMK112 Bank Enable
+	case 0x0F:	// Set Bank
+	case 0x10:	// Set NMK Bank 0
+	case 0x11:	// Set NMK Bank 1
+	case 0x12:	// Set NMK Bank 2
+	case 0x13:	// Set NMK Bank 3
 		break;
 	}
 	
-	sprintf(TempStr, "%s%s", ChipStr, WriteStr);
+	if (Port >= 0x14)
+		return true;
 	
-	return;
-}*/
+	if (! chip->RegFirst[Port] && Data == chip->RegData[Port])
+		return false;
+	
+	chip->RegData[Port] = Data;
+	chip->RegFirst[Port] = JustTimerCmds;
+	
+	return true;
+}
+
+bool scsp_write(UINT8 Port, UINT8 Register, UINT8 Data)
+{
+	//SCSP_DATA* chip = &ChDat->SCSP;
+	
+	if (Port == 0x04 && (Register >= 0x1A && Register <= 0x29))
+		return false;
+	
+	return true;
+}
+
+bool upd7759_write(UINT8 Port, UINT8 Data)
+{
+	UPD7759_DATA* chip = &ChDat->UPD7759;
+	
+	if (Port == 0x02)
+		return true;	// write FIFO
+	else if (Port >= 0x04)
+		return true;	// unknown write
+	
+	if (! chip->RegFirst[Port] && Data == chip->RegData[Port])
+		return false;
+	
+	chip->RegData[Port] = Data;
+	chip->RegFirst[Port] = JustTimerCmds;
+	return true;
+}
+
+bool okim6258_write(UINT8 Port, UINT8 Data)
+{
+	OKIM6258_DATA* chip = &ChDat->OKIM6258;
+	bool RetVal;
+	
+	if (Port & 0x80)
+	{
+		chip->RegData[Port & 0x0F] = Data;
+		chip->RegFirst[Port & 0x0F] = 0x00;
+		return true;
+	}
+	
+	switch(Port)
+	{
+	case 0x00:	// Start/Stop
+	case 0x01:	// Data
+		return true;
+	case 0x02:	// Pan
+		if (! DoOKI6258)	// if (pre opt_oki)
+			return true;
+		if (! chip->RegFirst[Port] && Data == chip->RegData[Port])
+			return false;
+		
+		chip->RegData[Port] = Data;
+		chip->RegFirst[Port] = JustTimerCmds;
+		break;
+	case 0x08:	// Master Clock 000000dd
+	case 0x09:	// Master Clock 0000dd00
+	case 0x0A:	// Master Clock 00dd0000
+		if (/*! chip->RegFirst[Port] &&*/ Data == chip->RegData[Port])
+			return false;
+		
+		chip->RegData[Port] = Data;
+		chip->RegFirst[Port] = 0x00;
+		chip->RegFirst[0x0B] = 0x01;	// force Clock rewrite
+		break;
+	case 0x0B:	// Master Clock dd000000
+		if (! chip->RegFirst[Port] && Data == chip->RegData[Port])
+			return false;
+		
+		chip->RegData[Port] = Data;
+		chip->RegFirst[Port] = 0x00;
+		printf("Master Clock Change!\n");
+		_getch();
+		break;
+	case 0x0C:	// Clock Divider
+		if (! chip->RegFirst[Port] && Data == chip->RegData[Port])
+			return false;
+		
+		if (Port == 0x0C && Data == chip->RegData[Port])
+		{
+			do
+			{
+				RetVal = GetNextChipCommand();
+			} while(RetVal && NxtCmdReg != 0x0C);
+			if (! RetVal)
+				return false;	// It's the only Clock Divider change til EOF and it's the same as pre-loop.
+		}
+		chip->RegData[Port] = Data;
+		chip->RegFirst[Port] = 0x00;
+		//printf("Clock Divider Change!\n");
+		//_getch();
+		break;
+	}
+	
+	return true;
+}
+
+bool c352_write(UINT16 offset, UINT16 val)
+{
+	C352_DATA *chip = &ChDat->C352;
+	UINT16 ChnBase;
+
+	if (offset >= 0x208)
+		return true;
+	
+	ChnBase = offset & 0x0F8;
+	if (offset < 0x100 && (chip->RegData[ChnBase | 3] & C352_FLG_LINKLOOP) == C352_FLG_LINKLOOP)
+	{
+		switch (offset&7)
+		{
+		case 3:	// flags
+			if ((val&C352_FLG_LINKLOOP) != C352_FLG_LINKLOOP)
+			{
+				chip->RegFirst[ChnBase | 4] = 1;	// Force rewrites of address registers
+				chip->RegFirst[ChnBase | 5] = 1;	// after end of a linked sample.
+				chip->RegFirst[ChnBase | 6] = 1;
+				chip->RegFirst[ChnBase | 7] = 1;
+			}
+			break;
+		case 4:	// bank addr
+		case 5:	// start addr
+		//case 6:	// end addr
+		//case 7:	// loop addr
+			chip->RegFirst[offset] = 0x01;	// leave these registers alone
+			break;
+		default:
+			break;
+		}
+	}
+	
+	if (! chip->RegFirst[offset] && val == chip->RegData[offset])
+		return false;
+	
+	chip->RegData[offset] = val;
+	chip->RegFirst[offset] = JustTimerCmds;
+	if (offset < 0x100)
+		chip->RegFirst[0x202] = 0x01;	// enforce rewrite of Refresh register
+	return true;
+}
+
+bool x1_010_write(UINT16 offset, UINT8 val)
+{
+	X1_010_DATA *chip = &ChDat->X1_010;
+
+	if(offset >= 0x2000)
+		return false;
+
+	if (! chip->RegFirst[offset] && val == chip->RegData[offset])
+		return false;
+	
+	chip->RegData[offset] = val;
+	chip->RegFirst[offset] = JustTimerCmds;
+	return true;
+}
+
+bool es5503_write(UINT8 Register, UINT8 Data)
+{
+	ES5503_DATA* chip = &ChDat->ES5503;
+	
+	if (Register >= 0xE2)
+		return true;
+	if ((Register & 0xE0) == 0xA0)
+		return true;	// don't strip Control register (can be changed by sound chip itself)
+	
+	if (! chip->RegFirst[Register] && Data == chip->RegData[Register])
+		return false;
+	
+	chip->RegFirst[Register] = JustTimerCmds;
+	chip->RegData[Register] = Data;
+	return true;
+}

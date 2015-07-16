@@ -1,26 +1,13 @@
 // vgm_trim.c - VGM Trimmer
 //
 
-#include <stdio.h>
-#include <stdlib.h>
-#include "stdbool.h"
-#include <string.h>
-
-#ifdef WIN32
-#include <conio.h>
-#endif
-
-#include "zlib.h"
-
-#include "stdtype.h"
-#include "VGMFile.h"
-
+#include "vgmtools.h"
 
 static bool OpenVGMFile(const char* FileName);
 static void WriteVGMFile(const char* FileName);
 
 // Function Prototypes from vgm_trml.c
-void SetTrimOptions(bool StateSave);
+void SetTrimOptions(UINT8 TrimMode, UINT8 WarnMask);
 void TrimVGMData(const INT32 StartSmpl, const INT32 LoopSmpl, const INT32 EndSmpl,
 				 const bool HasLoop, const bool KeepESmpl);
 
@@ -45,29 +32,49 @@ int main(int argc, char* argv[])
 	bool HasLoop;
 	bool KeepLSmpl;
 	int argbase;
-	UINT8 Opts;
+	UINT8 OptsTrim;
+	UINT8 OptsWarn;
 	
 	printf("VGM Trimmer\n-----------\n\n");
 	
 	ErrVal = 0;
 	argbase = 0x01;
-	
-	Opts = 0x00;
-	if (argc > argbase && argv[argbase][0] == '-')
+	OptsTrim = 0x00;
+	OptsWarn = 0x00;
+	while(argc >= argbase + 0x01 && argv[argbase][0] == '-')
 	{
 		if (! _stricmp(argv[argbase] + 1, "state"))
 		{
-			Opts |= 0x01;
+			OptsTrim = 0x01;
 			argbase ++;
+		}
+		else if (! _stricmp(argv[argbase] + 1, "NoNoteWarn"))
+		{
+			OptsWarn |= 0x01;
+			argbase ++;
+		}
+		else if (! _stricmp(argv[argbase] + 1, "help"))
+		{
+			printf("Usage: vgm_trim [-state] [-nonotewarn] File.vgm\n");
+			printf("                StartSmpl LoopSmpl EndSmpl [OutFile.vgm]\n");
+			printf("\n");
+			printf("Options:\n");
+			printf("    -state: put a save state of the chips at the start of the VGM\n");
+			printf("    -NoNoteWarn: don't print warnings about notes playing at EOF\n");
+			return 0;
+		}
+		else
+		{
+			break;
 		}
 	}
 	
-	SetTrimOptions((Opts & 0x01) >> 0);
+	SetTrimOptions(OptsTrim, OptsWarn);
 	
 	printf("File Name:\t");
 	if (argc <= argbase + 0x00)
 	{
-		gets(FileName);
+		gets_s(FileName, sizeof(FileName));
 	}
 	else
 	{
@@ -80,7 +87,7 @@ int main(int argc, char* argv[])
 	printf("Start Sample (in Samples):\t");
 	if (argc <= argbase + 0x01)
 	{
-		gets(InputTxt);
+		gets_s(InputTxt, sizeof(InputTxt));
 	}
 	else
 	{
@@ -94,7 +101,7 @@ int main(int argc, char* argv[])
 	printf("Loop Sample (in Samples):\t");
 	if (argc <= argbase + 0x02)
 	{
-		gets(InputTxt);
+		gets_s(InputTxt, sizeof(InputTxt));
 	}
 	else
 	{
@@ -106,7 +113,7 @@ int main(int argc, char* argv[])
 	printf("End Sample (in Samples):\t");
 	if (argc <= argbase + 0x03)
 	{
-		gets(InputTxt);
+		gets_s(InputTxt, sizeof(InputTxt));
 	}
 	else
 	{
@@ -207,7 +214,7 @@ QuickExit:
 	
 EndProgram:
 #ifdef WIN32
-	if (argv[0][1] == ':')
+	if (argv[0][1] == ':' && strncmp(getenv("MSYSTEM"), "MINGW", 5))
 	{
 		// Executed by Double-Clicking (or Drap and Drop)
 		if (_kbhit())

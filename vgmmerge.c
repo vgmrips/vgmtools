@@ -1,24 +1,8 @@
 // vgmmerge.c - VGM Merger
 //
-// TODO: merge 2x the same chip -> dual chip support
+// TODO: remove redundand blocks when merging 2xDAC
 
-#include <stdio.h>
-#include <stdlib.h>
-#include "stdbool.h"
-#include <string.h>
-
-#ifdef WIN32
-#include <conio.h>
-#include <windows.h>	// for GetTickCount
-#endif
-
-#include "zlib.h"
-
-#include "stdtype.h"
-#include "VGMFile.h"
-
-
-#define INLINE	__inline
+#include "vgmtools.h"
 
 typedef struct chip_mappings CHIP_MAPS;
 
@@ -26,8 +10,8 @@ static bool OpenVGMFile(const char* FileName, const UINT8 VgmNo);
 static void WriteVGMFile(const char* FileName);
 static void MergeVGMHeader(VGM_HEADER* DstHead, VGM_HEADER* SrcHead, CHIP_MAPS* SrcChpMap);
 static void MergeVGMData(void);
-static INLINE UINT16 GetCmdLen(UINT8 Command);
-static INLINE bool IsDelayCmd(UINT8 Command);
+INLINE UINT16 GetCmdLen(UINT8 Command);
+INLINE bool IsDelayCmd(UINT8 Command);
 #ifdef WIN32
 static void PrintMinSec(const UINT32 SamplePos, char* TempStr);
 #endif
@@ -140,10 +124,10 @@ int main(int argc, char* argv[])
 	
 	for (FileNo = 0x00; FileNo < MAX_VGMS; FileNo ++)
 	{
-		printf("File #%hu:\t", FileNo + 1);
+		printf("File #%u:\t", FileNo + 1);
 		if (argc <= argbase + FileNo)
 		{
-			gets(FileName);
+			gets_s(FileName, sizeof(FileName));
 		}
 		else
 		{
@@ -521,13 +505,13 @@ static void MergeVGMHeader(VGM_HEADER* DstHead, VGM_HEADER* SrcHead, CHIP_MAPS* 
 
 static void MergeVGMData(void)
 {
-	const CMD_CHIP_MAP_5x[0x10] =
+	const UINT8 CMD_CHIP_MAP_5x[0x10] =
 	{	0x00, 0x01, 0x02, 0x02, 0x03, 0x06, 0x07, 0x07, 0x08, 0x08, 0x09, 0x0A, 0x0B, 0x0F, 0x0C, 0x0C};
-	const CMD_CHIP_MAP_Bx[0x30] =
+	const UINT8 CMD_CHIP_MAP_Bx[0x30] =
 	{	0x05, 0x10, 0x11, 0x13, 0x14, 0x15, 0x16, 0x17, 0x18, 0x1B, 0x1D, 0x1E, 0xFF, 0xFF, 0xFF, 0xFF,
-	//const CMD_CHIP_MAP_Cx[0x10] =
+	//const UINT8 CMD_CHIP_MAP_Cx[0x10] =
 		0x04, 0x05, 0x10, 0x15, 0x1F, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF,
-	//const CMD_CHIP_MAP_Dx[0x10] =
+	//const UINT8 CMD_CHIP_MAP_Dx[0x10] =
 		0x0D, 0x0E, 0x19, 0x1A, 0x1C, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF};
 	UINT8 FileID;
 	VGM_HEADER DstHead;
@@ -554,6 +538,7 @@ static void MergeVGMData(void)
 	bool IsLoopPnt;
 	UINT32 NewLoopPos;
 	bool WroteCmd80;
+	UINT8 WasDblk;
 	CHIP_MAP* TempMap;
 	UINT8 UsedStreams[0x20];
 	UINT8 PtchCmdFlags;
@@ -599,7 +584,7 @@ static void MergeVGMData(void)
 	for (FileID = 0x00; FileID < MAX_VGMS; FileID ++)
 	{
 		TempVGM = &SrcVGM[FileID];
-		if (TempVGM->Head.lngGD3Offset)
+		if (TempVGM->Head.lngGD3Offset && TempVGM->Head.lngGD3Offset + 0x0B < TempVGM->Head.lngEOFOffset)
 		{
 			NxtSmplPos = TempVGM->Head.lngGD3Offset;
 			memcpy(&TempLng, &TempVGM->Data[NxtSmplPos + 0x00], 0x04);
@@ -635,6 +620,7 @@ static void MergeVGMData(void)
 			WriteEvent = false;
 		}
 		
+		WasDblk = 0x00;
 		for (FileID = 0x00; FileID < MAX_VGMS; FileID ++)
 		{
 			TempVGM = &SrcVGM[FileID];
@@ -643,6 +629,22 @@ static void MergeVGMData(void)
 				CmdDelay = 0;
 				PtchCmdFlags = 0x00;
 				Command = TempVGM->Data[TempVGM->Pos];
+				
+				// Make the VGMs looks nicer ;)
+				// (write data blocks of all VGMs first, other commands later)
+				if (! WasDblk)
+				{
+					if (Command == 0x67)
+						WasDblk = 0x01;
+					else
+						WasDblk = 0x02;
+				}
+				else
+				{
+					if (WasDblk == 0x01 && Command != 0x67)
+						break;
+				}
+				
 				CmdLen = GetCmdLen(Command);
 				WriteEvent = true;
 				if (TempVGM->Pos == TempVGM->Head.lngLoopOffset && ! NewLoopPos)
@@ -796,8 +798,8 @@ static void MergeVGMData(void)
 						
 						if (TempMap != NULL && TempMap->MapToDual)
 						{
-							PtchCmdFlags = 1 << 0x07;
-							PtchCmdData[0x07] = 0x80 | TempVGM->Data[TempVGM->Pos + 0x07];
+							PtchCmdFlags = 1 << 0x06;
+							PtchCmdData[0x06] = 0x80 | TempVGM->Data[TempVGM->Pos + 0x06];
 						}
 						memcpy(&TempLng, &TempVGM->Data[TempVGM->Pos + 0x03], 0x04);
 						TempLng &= 0x7FFFFFFF;
@@ -1098,7 +1100,7 @@ static void MergeVGMData(void)
 		{
 			PrintMinSec(DstSmplPos, MinSecStr);
 			PrintMinSec(DstSmplCount, TempStr);
-			printf("%04.3f %% - %s / %s (%08lX / %08lX) ...\r", (float)DstPos / DstDataLen *
+			printf("%04.3f %% - %s / %s (%08X / %08X) ...\r", (float)DstPos / DstDataLen *
 					100, MinSecStr, TempStr, DstPos, DstDataLen);
 			CmdTimer = GetTickCount() + 200;
 		}
@@ -1121,7 +1123,7 @@ static void MergeVGMData(void)
 	for (FileID = 0x00; FileID < MAX_VGMS; FileID ++)
 	{
 		TempVGM = &SrcVGM[FileID];
-		if (TempVGM->Head.lngGD3Offset)
+		if (TempVGM->Head.lngGD3Offset && TempVGM->Head.lngGD3Offset + 0x0B < TempVGM->Head.lngEOFOffset)
 		{
 			NxtSmplPos = TempVGM->Head.lngGD3Offset;
 			memcpy(&TempLng, &TempVGM->Data[NxtSmplPos + 0x00], 0x04);
@@ -1161,7 +1163,7 @@ static void MergeVGMData(void)
 	return;
 }
 
-static INLINE UINT16 GetCmdLen(UINT8 Command)
+INLINE UINT16 GetCmdLen(UINT8 Command)
 {
 	switch(Command & 0xF0)
 	{
@@ -1217,12 +1219,12 @@ static INLINE UINT16 GetCmdLen(UINT8 Command)
 		}
 		// fall through
 	default:
-		printf("Unknown Command: %hX\n", Command);
+		printf("Unknown Command: %X\n", Command);
 		return 0x01;
 	}
 }
 
-static INLINE bool IsDelayCmd(UINT8 Command)
+INLINE bool IsDelayCmd(UINT8 Command)
 {
 	if (Command >= 0x61 && Command <= 0x63)
 		return true;
@@ -1241,7 +1243,7 @@ static void PrintMinSec(const UINT32 SamplePos, char* TempStr)
 	TimeSec = (float)SamplePos / (float)44100.0;
 	TimeMin = (UINT16)TimeSec / 60;
 	TimeSec -= TimeMin * 60;
-	sprintf(TempStr, "%02hu:%05.2f", TimeMin, TimeSec);
+	sprintf(TempStr, "%02u:%05.2f", TimeMin, TimeSec);
 	
 	return;
 }

@@ -6,21 +6,7 @@
 //	- optimize output (smaller blocks, expand block writes)
 
 
-#include <stdio.h>
-#include <stdlib.h>
-#include "stdbool.h"
-#include <string.h>
-
-#ifdef WIN32
-#include <conio.h>
-#include <windows.h>	// for GetTickCount
-#endif
-
-#include "zlib.h"
-
-#include "stdtype.h"
-#include "VGMFile.h"
-
+#include "vgmtools.h"
 
 static bool OpenVGMFile(const char* FileName);
 static void WriteVGMFile(const char* FileName);
@@ -37,6 +23,9 @@ static void PrintMinSec(const UINT32 SamplePos, char* TempStr);
 
 #define RF5C68_MODE		0x00
 #define RF5C164_MODE	0x01
+#define SCSP_MODE		0x02
+#define RFDATA_BLOCKS	0x03
+
 
 // sometimes the chip races with the memory writes, so I tried different methods
 #define BP_FRONT	0x00	// works best (some single samples are still incorrect)
@@ -67,9 +56,10 @@ typedef struct rfpcm_ram_data
 	UINT16 BankReg;
 	bool FirstBnkWrt;
 	UINT32 DataLen;
-	UINT16 RAMStart;
+	UINT32 RAMStart;
 	UINT32 RAMSkip;
-	UINT8 PCMRam[0x10000];
+	UINT32 RAMSize;
+	UINT8* PCMRam;
 } RF_CHIP_DATA;
 
 
@@ -86,7 +76,7 @@ UINT32 DataSizeB;
 bool CancelFlag;
 UINT8 OptMode;
 
-RF_CHIP_DATA RF_RData[0x02];
+RF_CHIP_DATA RF_RData[RFDATA_BLOCKS];
 UINT32 RFBlkAlloc;
 UINT32 RFBlkCount;
 RF_BLK_DATA* RFBlock;
@@ -105,7 +95,7 @@ int main(int argc, char* argv[])
 	printf("File Name:\t");
 	if (argc <= 0x01)
 	{
-		gets(FileName);
+		gets_s(FileName, sizeof(FileName));
 	}
 	else
 	{
@@ -126,12 +116,12 @@ int main(int argc, char* argv[])
 	DstData = NULL;
 	if (VGMHead.lngVersion < 0x00000151)
 	{
-		printf("VGM Version %lX.%02hX!? Are kidding me??\n",
+		printf("VGM Version %X.%02X!? Are kidding me??\n",
 				VGMHead.lngVersion >> 8, VGMHead.lngVersion & 0xFF);
 		ErrVal = 2;
 		goto BreakProgress;
 	}
-	if (! VGMHead.lngHzRF5C68 && ! VGMHead.lngHzRF5C164)
+	if (! VGMHead.lngHzRF5C68 && ! VGMHead.lngHzRF5C164 && ! VGMHead.lngHzSCSP)
 	{
 		printf("No RF-PCM chips used!\n");
 		ErrVal = 2;
@@ -166,7 +156,7 @@ int main(int argc, char* argv[])
 		RewriteVGMData();
 		break;
 	}
-	printf("Data Compression: %lu -> %lu (%.1f %%)\n",
+	printf("Data Compression: %u -> %u (%.1f %%)\n",
 			DataSizeA, DataSizeB, 100.0f * DataSizeB / DataSizeA);
 	
 	if (DataSizeB < DataSizeA)
@@ -287,6 +277,41 @@ static void WriteVGMFile(const char* FileName)
 	return;
 }
 
+static void WritePCMDataBlk(UINT32* DstPos, const UINT8 BlkType, const UINT32 DataLen,
+							const UINT32 DataStart)
+{
+	const UINT8 DBLK_TYPES[RFDATA_BLOCKS] = {0xC0, 0xC1, 0xE0};
+	UINT32 DBlkLen;
+	UINT8 DBlkType;
+	const UINT8* Data;
+	
+	Data = RF_RData[BlkType].PCMRam + DataStart;
+	DBlkType = DBLK_TYPES[BlkType];
+	DstData[*DstPos + 0x00] = 0x67;
+	DstData[*DstPos + 0x01] = 0x66;
+	DstData[*DstPos + 0x02] = DBlkType;
+	if (! (DBlkType & 0x20))
+	{
+		DBlkLen = DataLen + 0x02;
+		memcpy(&DstData[*DstPos + 0x03], &DBlkLen, 0x04);
+		
+		memcpy(&DstData[*DstPos + 0x07], &DataStart, 0x02);
+		memcpy(&DstData[*DstPos + 0x09], Data, DataLen);
+		*DstPos += 0x07 + DBlkLen;
+	}
+	else
+	{
+		DBlkLen = DataLen + 0x04;
+		memcpy(&DstData[*DstPos + 0x03], &DBlkLen, 0x04);
+		
+		memcpy(&DstData[*DstPos + 0x07], &DataStart, 0x04);
+		memcpy(&DstData[*DstPos + 0x0B], Data, DataLen);
+		*DstPos += 0x09 + DBlkLen;
+	}
+	
+	return;
+}
+
 static void MergePCMData(void)
 {
 	UINT32 DstPos;
@@ -309,6 +334,7 @@ static void MergePCMData(void)
 	UINT8 WarningFlags;
 	UINT32 WriteLen;
 	UINT32 BlkFound;
+	UINT8 BlkType;
 	
 	DstData = (UINT8*)malloc(VGMDataLen + 0x100);
 	VGMPos = VGMHead.lngDataOffset;
@@ -317,9 +343,15 @@ static void MergePCMData(void)
 	NewLoopS = 0x00;
 	memcpy(DstData, VGMData, VGMPos);	// Copy Header
 	
-	memset(RF_RData, 0x00, sizeof(RF_CHIP_DATA) * 0x02);
-	for (TempByt = 0x00; TempByt < 0x02; TempByt ++)
+	memset(RF_RData, 0x00, sizeof(RF_CHIP_DATA) * RFDATA_BLOCKS);
+	RF_RData[RF5C68_MODE].RAMSize	= 0x10000;	// 64 KB
+	RF_RData[RF5C164_MODE].RAMSize	= 0x10000;	// 64 KB
+	RF_RData[SCSP_MODE].RAMSize		= 0x80000;	// 512 KB
+	for (TempByt = 0x00; TempByt < RFDATA_BLOCKS; TempByt ++)
+	{
+		RF_RData[TempByt].PCMRam = (UINT8*)malloc(RF_RData[TempByt].RAMSize);
 		RF_RData[TempByt].FirstBnkWrt = true;
+	}
 	
 #ifdef WIN32
 	CmdTimer = 0;
@@ -395,23 +427,26 @@ static void MergePCMData(void)
 			case 0x67:	// PCM Data Stream
 				TempByt = VGMData[VGMPos + 0x02];
 				memcpy(&BlockLen, &VGMData[VGMPos + 0x03], 0x04);
+				BlockLen &= 0x7FFFFFFF;
 				
 				CmdLen = 0x07 + BlockLen;
 				
 				if ((TempByt & 0xC0) != 0xC0)
 					break;
-				TempByt &= ~0xC0;
 				
-				if (TempByt == RF5C68_MODE)
-					TempRFD = &RF_RData[RF5C68_MODE];
-				else if (TempByt == RF5C164_MODE)
-					TempRFD = &RF_RData[RF5C164_MODE];
+				if (TempByt == 0xC0)
+					BlkType = RF5C68_MODE;
+				else if (TempByt == 0xC1)
+					BlkType = RF5C164_MODE;
+				else if (TempByt == 0xE0)
+					BlkType = SCSP_MODE;
 				else
 					break;
 				BlkFound ++;
+				TempRFD = &RF_RData[BlkType];
 				if (! TempRFD->RAMSkip)
 				{
-					TempRFD->DataLen = ReadConsecutiveMemWrites(TempByt);
+					TempRFD->DataLen = ReadConsecutiveMemWrites(BlkType);
 					if (TempRFD->DataLen > 0x01)
 					{
 						TempRFD->RAMSkip = TempRFD->DataLen;
@@ -428,16 +463,7 @@ static void MergePCMData(void)
 								else
 									WriteLen = TempRFD->DataLen;
 								
-								DstData[DstPos + 0x00] = 0x67;
-								DstData[DstPos + 0x01] = 0x66;
-								DstData[DstPos + 0x02] = 0xC0 | TempByt;
-								TempLng = WriteLen + 0x02;
-								memcpy(&DstData[DstPos + 0x03], &TempLng, 0x04);
-								
-								memcpy(&DstData[DstPos + 0x07], &TempSht, 0x02);
-								memcpy(&DstData[DstPos + 0x09], TempRFD->PCMRam + TempSht,
-																					WriteLen);
-								DstPos += 0x07 + TempLng;
+								WritePCMDataBlk(&DstPos, BlkType, WriteLen, TempSht);
 								TempSht += (UINT16)WriteLen;
 								TempRFD->DataLen -= WriteLen;
 							}
@@ -461,16 +487,7 @@ static void MergePCMData(void)
 							else
 								WriteLen = TempRFD->DataLen;
 							
-							DstData[DstPos + 0x00] = 0x67;
-							DstData[DstPos + 0x01] = 0x66;
-							DstData[DstPos + 0x02] = 0xC0 | TempByt;
-							TempLng = WriteLen + 0x02;
-							memcpy(&DstData[DstPos + 0x03], &TempLng, 0x04);
-							
-							memcpy(&DstData[DstPos + 0x07], &TempSht, 0x02);
-							memcpy(&DstData[DstPos + 0x09], TempRFD->PCMRam + TempSht,
-																					WriteLen);
-							DstPos += 0x07 + TempLng;
+							WritePCMDataBlk(&DstPos, BlkType, WriteLen, TempSht);
 							TempSht += (UINT16)WriteLen;
 							TempRFD->DataLen -= WriteLen;
 						}
@@ -521,43 +538,29 @@ static void MergePCMData(void)
 				CmdLen = 0x04;
 				
 				if (Command == 0xC1)
-				{
-					TempByt = RF5C68_MODE;
-					TempRFD = &RF_RData[RF5C68_MODE];
-				}
+					BlkType = RF5C68_MODE;
 				else if (Command == 0xC2)
+					BlkType = RF5C164_MODE;
+				/*else
 				{
-					TempByt = RF5C164_MODE;
-					TempRFD = &RF_RData[RF5C164_MODE];
-				}
-				else
-				{
-					TempByt = 0x00;
+					BlkType = 0xFF;
 					TempRFD = NULL;
-				}
+				}*/
+				TempRFD = &RF_RData[BlkType];
 				BlkFound ++;
 				if (! TempRFD->RAMSkip)
 				{
-					TempRFD->DataLen = ReadConsecutiveMemWrites(TempByt);
+					TempRFD->DataLen = ReadConsecutiveMemWrites(BlkType);
 					if (TempRFD->DataLen > 0x01)
 					{
 						TempRFD->RAMSkip = TempRFD->DataLen;
 						memcpy(&TempSht, &VGMData[VGMPos + 0x01], 0x02);
-						TempSht += TempRFD->BankReg;
-						TempRFD->RAMStart = TempSht;
+						TempRFD->RAMStart = TempRFD->BankReg + TempSht;
 						
 						if (BLOCK_POS == BP_FRONT)
 						{
-							DstData[DstPos + 0x00] = 0x67;
-							DstData[DstPos + 0x01] = 0x66;
-							DstData[DstPos + 0x02] = 0xC0 | TempByt;
-							TempLng = TempRFD->DataLen + 0x02;
-							memcpy(&DstData[DstPos + 0x03], &TempLng, 0x04);
-							
-							memcpy(&DstData[DstPos + 0x07], &TempSht, 0x02);
-							memcpy(&DstData[DstPos + 0x09], TempRFD->PCMRam + TempSht,
-																			TempRFD->DataLen);
-							DstPos += 0x07 + TempLng;
+							WritePCMDataBlk(&DstPos, BlkType, TempRFD->DataLen,
+											TempRFD->RAMStart);
 						}
 					}
 					else if (! (WarningFlags & 0x01))
@@ -575,17 +578,8 @@ static void MergePCMData(void)
 					if ((BLOCK_POS == BP_BACK && ! TempRFD->RAMSkip) ||
 						(BLOCK_POS == BP_MIDDLE && TempRFD->RAMSkip * 2 == TempRFD->DataLen))
 					{
-						TempSht = TempRFD->RAMStart;
-						DstData[DstPos + 0x00] = 0x67;
-						DstData[DstPos + 0x01] = 0x66;
-						DstData[DstPos + 0x02] = 0xC0 | TempByt;
-						TempLng = TempRFD->DataLen + 0x02;
-						memcpy(&DstData[DstPos + 0x03], &TempLng, 0x04);
-						
-						memcpy(&DstData[DstPos + 0x07], &TempSht, 0x02);
-						memcpy(&DstData[DstPos + 0x09], TempRFD->PCMRam + TempSht,
-																			TempRFD->DataLen);
-						DstPos += 0x07 + TempLng;
+						WritePCMDataBlk(&DstPos, BlkType, TempRFD->DataLen,
+										TempRFD->RAMStart);
 					}
 					
 					WriteEvent = false;
@@ -627,7 +621,7 @@ static void MergePCMData(void)
 #ifdef WIN32
 					CmdTimer = 0;
 #endif
-					printf("Unknown Command: %hX\n", Command);
+					printf("Unknown Command: %X\n", Command);
 					CmdLen = 0x01;
 					//StopVGM = true;
 					break;
@@ -654,7 +648,7 @@ static void MergePCMData(void)
 			PrintMinSec(VGMHead.lngTotalSamples, TempStr);
 			TempLng = VGMPos - VGMHead.lngDataOffset;
 			BlockLen = VGMHead.lngEOFOffset - VGMHead.lngDataOffset;
-			printf("%04.3f %% - %s / %s (%08lX / %08lX) ...\r", (float)TempLng / BlockLen * 100,
+			printf("%04.3f %% - %s / %s (%08X / %08X) ...\r", (float)TempLng / BlockLen * 100,
 					MinSecStr, TempStr, VGMPos, VGMHead.lngEOFOffset);
 			CmdTimer = GetTickCount() + 200;
 		}
@@ -695,6 +689,12 @@ static void MergePCMData(void)
 	
 	OptMode = (BlkFound == 0x01) ? 0x00 : 0x01;
 	
+	for (TempByt = 0x00; TempByt < RFDATA_BLOCKS; TempByt ++)
+	{
+		free(RF_RData[TempByt].PCMRam);
+		RF_RData[TempByt].PCMRam = NULL;
+	}
+	
 	return;
 }
 
@@ -708,9 +708,11 @@ static UINT32 ReadConsecutiveMemWrites(UINT8 RFMode)
 	UINT8 TempByt;
 	UINT16 TempSht;
 	UINT32 TempLng;
+	UINT32 BlkLen;
 	UINT32 CmdLen;
 	bool StopVGM;
 	UINT16 BankReg;	// this function mustn't change the global one
+	UINT8 BlkType;
 	
 	TempRFD = &RF_RData[RFMode];
 	TmpPos = VGMPos;
@@ -766,33 +768,53 @@ static UINT32 ReadConsecutiveMemWrites(UINT8 RFMode)
 				break;
 			case 0x67:	// PCM Data Stream
 				TempByt = VGMData[TmpPos + 0x02];
-				memcpy(&TempLng, &VGMData[TmpPos + 0x03], 0x04);
+				memcpy(&BlkLen, &VGMData[TmpPos + 0x03], 0x04);
+				BlkLen &= 0x7FFFFFFF;
 				
-				CmdLen = 0x07 + TempLng;
+				CmdLen = 0x07 + BlkLen;
 				
 				if ((TempByt & 0xC0) != 0xC0)
 					break;
-				TempByt &= ~0xC0;
 				
-				if (TempByt != RFMode)
+				if (TempByt == 0xC0)
+					BlkType = RF5C68_MODE;
+				else if (TempByt == 0xC1)
+					BlkType = RF5C164_MODE;
+				else if (TempByt == 0xE0)
+					BlkType = SCSP_MODE;
+				else
+					break;
+				if (BlkType != RFMode)
 					break;
 				
-				memcpy(&TempSht, &VGMData[TmpPos + 0x07], 0x02);
-				TempSht += BankReg;
+				if (! (TempByt & 0x20))
+				{
+					memcpy(&TempSht, &VGMData[TmpPos + 0x07], 0x02);
+					TempSht += BankReg;
+					TempLng = TempSht;
+					BlkLen -= 0x02;
+				}
+				else
+				{
+					memcpy(&TempLng, &VGMData[TmpPos + 0x07], 0x04);
+					BlkLen -= 0x04;
+				}
 				if (PCMPos == 0xFFFFFFFF)
 					PCMPos = TempSht;
-				if (TempSht != PCMPos)
+				if (TempLng != PCMPos)
 				{
 					StopVGM = true;
 					break;
 				}
 				
-				TempLng -= 0x02;
-				if (TempLng > 0x10000)
-					TempLng = 0x10000;
-				memcpy(&TempRFD->PCMRam[PCMPos], &VGMData[TmpPos + 0x09], TempLng);
-				PCMPos += TempLng;
-				DataLen += TempLng;
+				if (BlkLen > TempRFD->RAMSize)
+					BlkLen = TempRFD->RAMSize;
+				if (! (TempByt & 0x20))
+					memcpy(&TempRFD->PCMRam[PCMPos], &VGMData[TmpPos + 0x09], BlkLen);
+				else
+					memcpy(&TempRFD->PCMRam[PCMPos], &VGMData[TmpPos + 0x0B], BlkLen);
+				PCMPos += BlkLen;
+				DataLen += BlkLen;
 				break;
 			case 0xE0:	// Seek to PCM Data Bank Pos
 				CmdLen = 0x05;
@@ -894,7 +916,7 @@ static UINT32 ReadConsecutiveMemWrites(UINT8 RFMode)
 					CmdLen = 0x05;
 					break;
 				default:
-					//printf("Unknown Command: %hX\n", Command);
+					//printf("Unknown Command: %X\n", Command);
 					CmdLen = 0x01;
 					//StopVGM = true;
 					break;
@@ -904,7 +926,7 @@ static UINT32 ReadConsecutiveMemWrites(UINT8 RFMode)
 		}
 		
 		TmpPos += CmdLen;
-		if (StopVGM || PCMPos >= 0x10000)
+		if (StopVGM || PCMPos >= TempRFD->RAMSize)
 			break;
 	}
 	
@@ -933,6 +955,9 @@ static void EnumeratePCMData(void)
 	UINT32 BlkUsage;
 	UINT32 BlkSize;
 	UINT32 BlkSngUse;
+	UINT8 BlkType;
+	UINT32 BlkStart;
+	const UINT8* BlkData;
 	
 	RFBlkAlloc = 0x40;	// usually there are only few blocks ...
 	RFBlock = (RF_BLK_DATA*)malloc(RFBlkAlloc * sizeof(RF_BLK_DATA));
@@ -1022,28 +1047,44 @@ static void EnumeratePCMData(void)
 				
 				if ((TempByt & 0xC0) != 0xC0)
 					break;
-				TempByt &= ~0xC0;
 				
-				if (TempByt != RF5C68_MODE && TempByt != RF5C164_MODE)
+				if (TempByt == 0xC0)
+					BlkType = RF5C68_MODE;
+				else if (TempByt == 0xC1)
+					BlkType = RF5C164_MODE;
+				else if (TempByt == 0xE0)
+					BlkType = SCSP_MODE;
+				else
 					break;
 				
-				memcpy(&TempSht, &VGMData[VGMPos + 0x07], 0x02);
-				DataLen = BlockLen - 0x02;
+				if (! (TempByt & 0x20))
+				{
+					memcpy(&TempSht, &VGMData[VGMPos + 0x07], 0x02);
+					BlkStart = TempSht;
+					BlkData = &VGMData[VGMPos + 0x09];
+					DataLen = BlockLen - 0x02;
+				}
+				else
+				{
+					memcpy(&BlkStart, &VGMData[VGMPos + 0x07], 0x04);
+					BlkData = &VGMData[VGMPos + 0x0B];
+					DataLen = BlockLen - 0x04;
+				}
 				FoundBlk = false;
 				for (CurBlk = 0x00; CurBlk < RFBlkCount; CurBlk ++)
 				{
 					TempBlk = &RFBlock[CurBlk];
-					if (TempBlk->Mode != TempByt)
+					if (TempBlk->Mode != BlkType)
 						continue;
 					
-					//if (TempBlk->DataStart != TempSht)
+					//if (TempBlk->DataStart != BlkStart)
 					//	break;
 					if (TempBlk->DataSize < DataLen)
 						TempLng = TempBlk->DataSize;
 					else
 						TempLng = DataLen;
 					
-					if (CompareData(TempLng, &VGMData[VGMPos + 0x09], TempBlk->Data))
+					if (CompareData(TempLng, BlkData, TempBlk->Data))
 					{
 						if (TempBlk->DataSize < DataLen)
 						{
@@ -1051,7 +1092,7 @@ static void EnumeratePCMData(void)
 							BlkSize -= TempBlk->DataSize;
 							TempBlk->DataSize = DataLen;
 							TempBlk->Data = (UINT8*)realloc(TempBlk->Data, DataLen);
-							memcpy(TempBlk->Data, &VGMData[VGMPos + 0x09], DataLen);
+							memcpy(TempBlk->Data, BlkData, DataLen);
 							BlkSize += DataLen;
 						}
 						
@@ -1064,7 +1105,7 @@ static void EnumeratePCMData(void)
 						TempLst = &InFileList[InFileCount];
 						TempLst->BlockID = CurBlk;
 						TempLst->FilePos = VGMPos;
-						TempLst->StartAddr = TempSht;
+						TempLst->StartAddr = BlkStart;
 						TempLst->DataSize = DataLen;
 						TempBlk->UsageCounter ++;
 						InFileCount ++;
@@ -1085,10 +1126,10 @@ static void EnumeratePCMData(void)
 					TempBlk = &RFBlock[RFBlkCount];
 					RFBlkCount ++;
 					
-					TempBlk->Mode = TempByt;
+					TempBlk->Mode = BlkType;
 					TempBlk->DataSize = DataLen;
 					TempBlk->Data = (UINT8*)malloc(DataLen);
-					memcpy(TempBlk->Data, &VGMData[VGMPos + 0x09], DataLen);
+					memcpy(TempBlk->Data, BlkData, DataLen);
 					TempBlk->UsageCounter = 0x00;
 					BlkSize += DataLen;
 					
@@ -1100,7 +1141,7 @@ static void EnumeratePCMData(void)
 					TempLst = &InFileList[InFileCount];
 					TempLst->BlockID = CurBlk;
 					TempLst->FilePos = VGMPos;
-					TempLst->StartAddr = TempSht;
+					TempLst->StartAddr = BlkStart;
 					TempLst->DataSize = DataLen;
 					TempBlk->UsageCounter ++;
 					InFileCount ++;
@@ -1146,7 +1187,7 @@ static void EnumeratePCMData(void)
 					CmdLen = 0x05;
 					break;
 				default:
-					//printf("Unknown Command: %hX\n", Command);
+					//printf("Unknown Command: %X\n", Command);
 					CmdLen = 0x01;
 					//StopVGM = true;
 					break;
@@ -1166,7 +1207,7 @@ static void EnumeratePCMData(void)
 			PrintMinSec(VGMHead.lngTotalSamples, TempStr);
 			TempLng = VGMPos - VGMHead.lngDataOffset;
 			BlockLen = VGMHead.lngEOFOffset - VGMHead.lngDataOffset;
-			printf("%04.3f %% - %s / %s (%08lX / %08lX) ...\r", (float)TempLng / BlockLen * 100,
+			printf("%04.3f %% - %s / %s (%08X / %08X) ...\r", (float)TempLng / BlockLen * 100,
 					MinSecStr, TempStr, VGMPos, VGMHead.lngEOFOffset);
 			CmdTimer = GetTickCount() + 200;
 		}
@@ -1185,7 +1226,7 @@ static void EnumeratePCMData(void)
 		}
 	}
 	
-	printf("%lu Blocks created (%.2f MB, %lux used, %lux single use).\n",
+	printf("%u Blocks created (%.2f MB, %ux used, %ux single use).\n",
 			RFBlkCount, BlkSize / 1048576.0f, BlkUsage, BlkSngUse);
 	if (BlkUsage == BlkSngUse)
 	{
@@ -1216,6 +1257,7 @@ static bool CompareData(UINT32 DataLen, const UINT8* DataA,
 
 static void RewriteVGMData(void)
 {
+	const UINT8 DBBLK_TYPES[RFDATA_BLOCKS] = {0x01, 0x02, 0x06};
 	UINT32 DstPos;
 	UINT32 CurType;
 	UINT32 CurBlk;
@@ -1249,28 +1291,15 @@ static void RewriteVGMData(void)
 	memcpy(DstData, VGMData, VGMPos);	// Copy Header
 	
 	// Write Blocks for PCM Data
-	for (CurType = 0x00; CurType < 0x02; CurType ++)
+	for (CurType = 0x00; CurType < RFDATA_BLOCKS; CurType ++)
 	{
-		switch(CurType)
-		{
-		case 0x00:
-			TempByt = RF5C68_MODE;
-			break;
-		case 0x01:
-			TempByt = RF5C164_MODE;
-			break;
-		default:
-			TempByt = 0xFF;
-			break;
-		}
-		if (TempByt == 0xFF)
-			break;
+		TempByt = DBBLK_TYPES[CurType];
 		
 		DataLen = 0x00;
 		for (CurBlk = 0x00; CurBlk < RFBlkCount; CurBlk ++)
 		{
 			TempBlk = &RFBlock[CurBlk];
-			if (TempBlk->Mode != TempByt)
+			if (TempBlk->Mode != CurType)
 				continue;
 			
 			TempBlk->DBPos = DataLen;
@@ -1280,14 +1309,14 @@ static void RewriteVGMData(void)
 		{
 			DstData[DstPos + 0x00] = 0x67;
 			DstData[DstPos + 0x01] = 0x66;
-			DstData[DstPos + 0x02] = 0x01 + TempByt;
+			DstData[DstPos + 0x02] = TempByt;
 			memcpy(&DstData[DstPos + 0x03], &DataLen, 0x04);
 			DstPos += 0x07;
 			
 			for (CurBlk = 0x00; CurBlk < RFBlkCount; CurBlk ++)
 			{
 				TempBlk = &RFBlock[CurBlk];
-				if (TempBlk->Mode != TempByt)
+				if (TempBlk->Mode != CurType)
 					continue;
 				
 				memcpy(&DstData[DstPos + 0x00], TempBlk->Data, TempBlk->DataSize);
@@ -1380,6 +1409,7 @@ static void RewriteVGMData(void)
 			case 0x67:	// PCM Data Stream
 				TempByt = VGMData[VGMPos + 0x02];
 				memcpy(&TempLng, &VGMData[VGMPos + 0x03], 0x04);
+				TempLng &= 0x7FFFFFFF;
 				
 				switch(TempByt & 0xC0)
 				{
@@ -1402,6 +1432,7 @@ static void RewriteVGMData(void)
 					{
 					case 0xC0:
 					case 0xC1:
+					case 0xE0:
 						while(CurEntry < InFileCount)
 						{
 							TempLst = &InFileList[CurEntry];
@@ -1470,7 +1501,7 @@ static void RewriteVGMData(void)
 					CmdLen = 0x05;
 					break;
 				default:
-					//printf("Unknown Command: %hX\n", Command);
+					//printf("Unknown Command: %X\n", Command);
 					CmdLen = 0x01;
 					//StopVGM = true;
 					break;
@@ -1576,7 +1607,7 @@ static void RewriteVGMData(void)
 			WriteCmd68 = false;
 			DstData[DstPos + 0x00] = 0x68;
 			DstData[DstPos + 0x01] = 0x66;
-			DstData[DstPos + 0x02] = 0x01 + TempBlk->Mode;
+			DstData[DstPos + 0x02] = DBBLK_TYPES[TempBlk->Mode];
 			memcpy(&DstData[DstPos + 0x03], &TempBlk->DBPos,		0x03);
 			memcpy(&DstData[DstPos + 0x06], &TempLst->StartAddr,	0x03);
 			memcpy(&DstData[DstPos + 0x09], &TempLst->DataSize,		0x03);
@@ -1592,7 +1623,7 @@ static void RewriteVGMData(void)
 			PrintMinSec(VGMHead.lngTotalSamples, TempStr);
 			TempLng = VGMPos - VGMHead.lngDataOffset;
 			DataLen = VGMHead.lngEOFOffset - VGMHead.lngDataOffset;
-			printf("%04.3f %% - %s / %s (%08lX / %08lX) ...\r", (float)TempLng / DataLen * 100,
+			printf("%04.3f %% - %s / %s (%08X / %08X) ...\r", (float)TempLng / DataLen * 100,
 					MinSecStr, TempStr, VGMPos, VGMHead.lngEOFOffset);
 			CmdTimer = GetTickCount() + 200;
 		}
@@ -1649,7 +1680,7 @@ static void PrintMinSec(const UINT32 SamplePos, char* TempStr)
 	TimeSec = (float)SamplePos / (float)44100.0;
 	TimeMin = (UINT16)TimeSec / 60;
 	TimeSec -= TimeMin * 60;
-	sprintf(TempStr, "%02hu:%05.2f", TimeMin, TimeSec);
+	sprintf(TempStr, "%02u:%05.2f", TimeMin, TimeSec);
 	
 	return;
 }

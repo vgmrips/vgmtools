@@ -2,6 +2,7 @@
 //
 // TODO: 2xChip support (especially for data blocks)
 
+#include "compat.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include "stdbool.h"
@@ -81,7 +82,7 @@ int main(int argc, char* argv[])
 	printf("File Name:\t");
 	if (argc <= 0x01)
 	{
-		gets(FileName);
+		gets_s(FileName, sizeof(FileName));
 	}
 	else
 	{
@@ -433,7 +434,7 @@ static void CompressVGMDataBlocks(void)
 						CmdLen = 0x05;
 						break;
 					default:
-						printf("Unknown Command: %hX\n", Command);
+						printf("Unknown Command: %X\n", Command);
 						CmdLen = 0x01;
 						//StopVGM = true;
 						break;
@@ -463,7 +464,7 @@ static void CompressVGMDataBlocks(void)
 				PrintMinSec(VGMHead.lngTotalSamples, TempStr);
 				TempLng = VGMPos - VGMHead.lngDataOffset;
 				DataLen = VGMHead.lngEOFOffset - VGMHead.lngDataOffset;
-				printf("Pass #1: %04.3f %% - %s / %s (%08lX / %08lX) ...\r", (float)TempLng / DataLen * 100,
+				printf("Pass #1: %04.3f %% - %s / %s (%08X / %08X) ...\r", (float)TempLng / DataLen * 100,
 						MinSecStr, TempStr, VGMPos, VGMHead.lngEOFOffset);
 				CmdTimer = GetTickCount() + 200;
 			}
@@ -477,7 +478,7 @@ static void CompressVGMDataBlocks(void)
 	}
 	printf("\t\t\t\t\t\t\t\t\t\r");
 	
-	if (VGMHead.lngGD3Offset)
+	if (VGMHead.lngGD3Offset && VGMHead.lngGD3Offset + 0x0B < VGMHead.lngEOFOffset)
 	{
 		VGMPos = VGMHead.lngGD3Offset;
 		memcpy(&TempLng, &VGMData[VGMPos + 0x00], 0x04);
@@ -508,7 +509,7 @@ static void PrintMinSec(const UINT32 SamplePos, char* TempStr)
 	TimeSec = (float)SamplePos / (float)44100.0;
 	TimeMin = (UINT16)TimeSec / 60;
 	TimeSec -= TimeMin * 60;
-	sprintf(TempStr, "%02hu:%05.2f", TimeMin, TimeSec);
+	sprintf(TempStr, "%02u:%05.2f", TimeMin, TimeSec);
 	
 	return;
 }

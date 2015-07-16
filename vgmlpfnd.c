@@ -1,7 +1,9 @@
 // vgmlpfnd.c - VGM Loop Finder
 //
 //TODO: Change "Start Pos" to "Start Sample"
+// more TODO: 0:59.999 becomes 0:60.00
 
+#include "compat.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include "stdbool.h"
@@ -10,6 +12,8 @@
 #ifdef WIN32
 #include <conio.h>
 #include <windows.h>	// for GetTickCount
+#else
+#define _stricmp	strcasecmp
 #endif
 
 #include "zlib.h"
@@ -18,7 +22,6 @@
 #include "VGMFile.h"
 
 
-#define INLINE	__inline
 //#define TECHNICAL_OUTPUT
 
 
@@ -36,10 +39,10 @@ static bool OpenVGMFile(const char* FileName);
 static void ReadVGMData(void);
 static void FindEqualitiesVGM(void);
 static bool EqualityCheck(UINT32 CmpCmd, UINT32 SrcCmd, UINT32 CmdCount);
-static INLINE bool CompareVGMCommand(VGM_CMD* CmdA, VGM_CMD* CmdB);
+INLINE bool CompareVGMCommand(VGM_CMD* CmdA, VGM_CMD* CmdB);
 static void PrintMinSec(const UINT32 SamplePos, char* TempStr);
-//static INLINE bool IgnoredCmd(UINT8 Command, UINT8 RegData);
-static INLINE bool IgnoredCmd(const UINT8* VGMPnt);
+//INLINE bool IgnoredCmd(UINT8 Command, UINT8 RegData);
+INLINE bool IgnoredCmd(const UINT8* VGMPnt);
 
 
 // semi-constants
@@ -94,7 +97,7 @@ int main(int argc, char* argv[])
 	fprintf(stderr, "File Name:\t");
 	if (argc < argbase + 0x01)
 	{
-		gets(FileName);
+		gets_s(FileName, sizeof(FileName));
 	}
 	else
 	{
@@ -105,10 +108,10 @@ int main(int argc, char* argv[])
 		return 0;
 
 	if (! SilentMode)
-		fprintf(stderr, "Step Size (default: %lu):\t", STEP_SIZE);
+		fprintf(stderr, "Step Size (default: %u):\t", STEP_SIZE);
 	if (argc < argbase + 0x02)
 	{
-		gets(InputTxt);
+		gets_s(InputTxt, sizeof(InputTxt));
 	}
 	else
 	{
@@ -121,10 +124,10 @@ int main(int argc, char* argv[])
 		STEP_SIZE = TempLng;
 
 	if (! SilentMode)
-		fprintf(stderr, "Minimum Number of matching Commands (default: %lu):\t", MIN_EQU_SIZE);
+		fprintf(stderr, "Minimum Number of matching Commands (default: %u):\t", MIN_EQU_SIZE);
 	if (argc < argbase + 0x02)
 	{
-		gets(InputTxt);
+		gets_s(InputTxt, sizeof(InputTxt));
 	}
 	else
 	{
@@ -137,10 +140,10 @@ int main(int argc, char* argv[])
 		MIN_EQU_SIZE = TempLng;
 
 	if (! SilentMode)
-		fprintf(stderr, "Start Pos (default: %lu - auto):\t", START_POS);
+		fprintf(stderr, "Start Pos (default: %u - auto):\t", START_POS);
 	if (argc < argbase + 0x04)
 	{
-		gets(InputTxt);
+		gets_s(InputTxt, sizeof(InputTxt));
 	}
 	else
 	{
@@ -360,7 +363,7 @@ static void ReadVGMData(void)
 					CmdLen = 0x05;
 					break;
 				default:
-					printf("Unknown Command: %hX\n", Command);
+					printf("Unknown Command: %X\n", Command);
 					CmdLen = 0x01;
 					//StopVGM = true;
 					break;
@@ -377,8 +380,7 @@ static void ReadVGMData(void)
 		if (StopVGM)
 			break;
 	}
-	fprintf(stderr, "  %lu\n", VGMCmdCount);
-
+	fprintf(stderr, "  %u\n", VGMCmdCount);
 	// this includes the EOF command (the print-function needs it)
 	VGMCommand = (VGM_CMD*)malloc((VGMCmdCount + 0x01) * sizeof(VGM_CMD));
 
@@ -586,7 +588,7 @@ static void ReadVGMData(void)
 					CmdLen = 0x05;
 					break;
 				default:
-					fprintf(stderr, "Unknown Command: %hX\n", Command);
+					fprintf(stderr, "Unknown Command: %X\n", Command);
 					Command = 0x6F;
 					CmdLen = 0x01;
 					//StopVGM = true;
@@ -628,7 +630,7 @@ static void FindEqualitiesVGM(void)
 	UINT32 CmpCmd;
 
 	UINT32 CurCmd;
-	UINT8 CmpMode;
+	//UINT8 CmpMode;
 	//UINT16 TempSht;
 	//UINT32 TempLng;
 	bool CmpResult;
@@ -660,7 +662,9 @@ static void FindEqualitiesVGM(void)
 	while(CurCmd < VGMCmdCount)
 	{
 		CmpStart = CurCmd;
-		CmpMode = 0x00;
+		// Old routine
+		// Works (and is faster), but doesn't find all loops (or finds them always at the first possible spot)
+		/*CmpMode = 0x00;
 		for (SrcCmd = CurCmd + 0x01; SrcCmd < VGMCmdCount; SrcCmd ++)
 		{
 			switch(CmpMode)
@@ -695,13 +699,34 @@ static void FindEqualitiesVGM(void)
 			EqualityCheck(CmpStart, SrcStart, CmpCmd - CmpStart);
 			//CmpCmd = 0x00;
 			//CmpMode = 0x00;
+		}*/
+
+		// New routine.
+		// now with complexity O(n^3)
+		for (SrcStart = CurCmd + 0x01; SrcStart < VGMCmdCount; SrcStart ++)
+		{
+			CmpResult = CompareVGMCommand(VGMCommand + SrcStart, VGMCommand + CmpStart);
+			if (CmpResult)
+			{
+				SrcCmd = SrcStart + 0x01;
+				CmpCmd = CmpStart + 0x01;
+				for (; SrcCmd < VGMCmdCount; SrcCmd ++, CmpCmd ++)
+				{
+					CmpResult = CompareVGMCommand(VGMCommand + CmpCmd, VGMCommand + SrcCmd);
+					if (! CmpResult)
+					{
+						EqualityCheck(CmpStart, SrcStart, CmpCmd - CmpStart);
+						break;
+					}
+				}
+			}
 		}
 
 #ifdef WIN32
 		if (PrintTime < GetTickCount())
 		{
 			if (! SilentMode)
-				fprintf(stderr, "%.3f %% - %lu / %lu\r",
+				fprintf(stderr, "%.3f %% - %u / %u\r",
 						100.0 * CurCmd / VGMCmdCount, CurCmd, VGMCmdCount);
 			PrintTime = GetTickCount() + 500;
 		}
@@ -755,15 +780,14 @@ static bool EqualityCheck(UINT32 CmpCmd, UINT32 SrcCmd, UINT32 CmdCount)
 
 	//	     Source Block             Block Copy           Copy Information
 	//	Start   End     Smpl    Start   End     Smpl    Length  Cmds    Samples
-
-	//	printf("%lX\t%lX\t%lu\t%lX\t%lX\t%lu\t%lX\t%lu\t%lu\n",
+	//	printf("%X\t%X\t%u\t%X\t%X\t%u\t%X\t%u\t%u\n",
 	//			CmpStart, CmpPos - 0x01, TimeSmplC, SrcStart, SrcCmd, CmpTimeB,
 	//			CmpPos - CmpStart, CmpCnt, CmpTime);
 #ifdef TECHNICAL_OUTPUT
-	printf("%lX\t%lX\t", CmdSrcS->Pos, CmdSrcE->Pos - 0x01);
+	printf("%X\t%X\t", CmdSrcS->Pos, CmdSrcE->Pos - 0x01);
 	if (BlkFlags)
 		printf("\b%c", ExtraChr[BlkFlags]);
-	printf("%lu\t%lX\t%lX\t%lu\t%lX\t%lu\t%lu\n",
+	printf("%u\t%X\t%X\t%u\t%X\t%u\t%u\n",
 			CmdSrcS->Sample, CmdCpyS->Pos, CmdCpyE->Pos - 0x01, CmdCpyS->Sample,
 			CmdSrcE->Pos - CmdSrcS->Pos, CmdCount, CmdSrcE->Sample - CmdSrcS->Sample);
 #else
@@ -772,24 +796,24 @@ static bool EqualityCheck(UINT32 CmpCmd, UINT32 SrcCmd, UINT32 CmdCount)
 		printf("%g\t%g\tLoop %d (%d cmds)\n", (double)CmdSrcS->Sample / 44100.0, (double)CmdCpyS->Sample / 44100.0, NumLoops, CmdCount);
 	} else {
 		PrintMinSec(CmdSrcS->Sample, TempStr);
-		//printf("%lX\t%s", CmdSrcS->Pos, TempStr);
-		printf("%lu\t%s", CmdSrcS->Sample, TempStr);
+		//printf("%X\t%s", CmdSrcS->Pos, TempStr);
+		printf("%u\t%s", CmdSrcS->Sample, TempStr);
 		if (BlkFlags)
 			printf("  %c", ExtraChr[BlkFlags]);
 
 		PrintMinSec(CmdCpyS->Sample, TempStr);
-		//printf("\t%lX\t%s", CmdCpyS->Pos, TempStr);
-		printf("\t%lu\t%s", CmdCpyS->Sample, TempStr);
+		//printf("\t%X\t%s", CmdCpyS->Pos, TempStr);
+		printf("\t%u\t%s", CmdCpyS->Sample, TempStr);
 
 		PrintMinSec(CmdSrcE->Sample - CmdSrcS->Sample, TempStr);
-		printf("\t%lu\t%s\n", CmdCount, TempStr);
+		printf("\t%u\t%s\n", CmdCount, TempStr);
 	}
 #endif
 
 	return true;
 }
 
-static INLINE bool CompareVGMCommand(VGM_CMD* CmdA, VGM_CMD* CmdB)
+INLINE bool CompareVGMCommand(VGM_CMD* CmdA, VGM_CMD* CmdB)
 {
 	if (CmdA->Command != CmdB->Command)
 		return false;
@@ -806,13 +830,13 @@ static void PrintMinSec(const UINT32 SamplePos, char* TempStr)
 	TimeSec = (float)SamplePos / (float)44100.0;
 	TimeMin = (UINT16)TimeSec / 60;
 	TimeSec -= TimeMin * 60;
-	sprintf(TempStr, "%02hu:%05.2f", TimeMin, TimeSec);
+	sprintf(TempStr, "%02u:%05.2f", TimeMin, TimeSec);
 
 	return;
 }
 
-//static INLINE bool IgnoredCmd(UINT8 Command, UINT8 RegData)
-static INLINE bool IgnoredCmd(const UINT8* VGMPnt)
+//INLINE bool IgnoredCmd(UINT8 Command, UINT8 RegData)
+INLINE bool IgnoredCmd(const UINT8* VGMPnt)
 {
 #define Command	VGMPnt[0x00]
 #define RegData	VGMPnt[0x01]
@@ -821,7 +845,7 @@ static INLINE bool IgnoredCmd(const UINT8* VGMPnt)
 		return true;	// Delays, Data Block etc.
 	if (Command >= 0x70 && Command <= 0x8F)
 		return true;	// 1-16 Sample Delay and YM2612 DAC Write + 0-15 Sample Delay
-	if ((Command == 0x52 || Command == 0x55 || Command == 0x56 || Command == 0x58) &&
+	if ((Command == 0x52 || Command == 0x53 || Command == 0x55 || Command == 0x56 || Command == 0x58) &&
 		(RegData == 0x2A || (RegData >= 0x24 && RegData <= 0x27) || (RegData & 0xBC) == 0xB4 ||
 		(RegData >= 0x0E && RegData <= 0x0F)))
 		return true;	// YM2612 DAC or OPN Timer or SSG Port Write
@@ -833,16 +857,16 @@ static INLINE bool IgnoredCmd(const UINT8* VGMPnt)
 //		return true;	// YM2612 Stereo
 	if (Command == 0x58 && (RegData >= 0x19 && RegData <= 0x1B))
 		return true;	// YM2610 DELTA-T: Delta-N
-	if (Command == 0x59 && (RegData >= 0x00 && RegData <= 0x2F))
-		return true;	// YM2610 ADPCM
-	if (Command == 0x58 && (RegData >= 0x00 && RegData <= 0x1F))
+	//if (Command == 0x59 && (RegData >= 0x00 && RegData <= 0x2F))
+	//	return true;	// YM2610 ADPCM
+	if (Command == 0x58 && (RegData >= 0x00 && RegData <= 0x05))
 		return true;	// YM2610 SSG Freq
 	if (Command == 0x58 && (RegData >= 0x08 && RegData <= 0x0A))
 		return true;	// YM2610 SSG Vol
 
 	if (Command == 0x54 && (RegData >= 0x10 && RegData <= 0x14))
 		return true;	// YM2151 Timer
-	if ((Command >= 0x5A && Command <= 0x5C || Command == 0x5E) &&
+	if (((Command >= 0x5A && Command <= 0x5C) || Command == 0x5E) &&
 		(RegData >= 0x02 && RegData <= 0x04))
 		return true;	// OPL Timer Registers
 	if (Command == 0x5D && (RegData & 0xE3) == 0x03)
@@ -861,7 +885,8 @@ static INLINE bool IgnoredCmd(const UINT8* VGMPnt)
 		return true;	// C140 Bank Writes and unknown Regs (Timer?)
 	if (Command == 0xB7 && RegData == 0x01)
 		return true;	// OKIM6258 ADPCM Data
-
+	if (Command == 0xB5 && RegData >= 0x01)
+		return true;	// MultiPCM "Set Slot"
 	/*if (Command == 0xBA)
 	{
 		if ((RegData & 0x07) == 0x07 || RegData == 0x2A)

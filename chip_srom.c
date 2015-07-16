@@ -118,6 +118,7 @@ typedef struct ymf271_slot
 	UINT32 endaddr;
 	
 	UINT8 active;
+	UINT8 bits;
 	UINT8 IsPCM;
 } YMF271_SLOT;
 typedef struct ymf271_group
@@ -139,6 +140,7 @@ typedef struct rf5c_pcm_channel
 	UINT8 enable;
 	UINT16 start;
 	UINT16 loopst;
+	UINT16 step;
 } RF5C_CHANNEL;
 typedef struct rf5c_data
 {
@@ -161,8 +163,9 @@ typedef struct okim6295_data
 {
 	OKIM_VOICE	voice[OKIM6295_VOICES];
 	UINT8		command;
-	bool		bank_installed;
+	UINT8		nmk_mode;
 	UINT32		bank_offs;
+	UINT8		nmk_bank[4];
 	
 	UINT32 ROMSize;
 	UINT8* ROMData;
@@ -262,22 +265,6 @@ typedef struct k053260_data
 	K053260_CHANNEL	channels[4];
 } K053260_DATA;
 
-/*enum
-{
-	STATE_IDLE,
-	STATE_DROP_DRQ,
-	STATE_START,
-	STATE_FIRST_REQ,
-	STATE_LAST_SAMPLE,
-	STATE_DUMMY1,
-	STATE_ADDR_MSB,
-	STATE_ADDR_LSB,
-	STATE_DUMMY2,
-	STATE_BLOCK_HEADER,
-	STATE_NIBBLE_COUNT,
-	STATE_NIBBLE_MSN,
-	STATE_NIBBLE_LSN
-};*/
 typedef struct upd7759_data
 {
 	UINT8		fifo_in;		// last data written to the sound chip
@@ -292,6 +279,155 @@ typedef struct upd7759_data
 	UINT8* ROMUsage;
 } UPD7759_DATA;
 
+typedef struct nes_apu_data
+{
+	UINT32 ROMSize;
+	UINT8* ROMData;
+	UINT8* ROMUsage;
+	UINT8 RegData[0x20];
+} NES_APU_DATA;
+
+typedef struct _multipcm_slot
+{
+	UINT16 SmplID;
+	UINT8 Pan;
+	UINT8 Playing;
+} MULTIPCM_SLOT;
+typedef struct multipcm_data
+{
+	UINT32 ROMSize;
+	UINT8* ROMData;
+	UINT8* ROMUsage;
+	UINT8 SmplMask[0x200];	// Bit 7 - Sample Table, Bit 1 - BankR, Bit 0 - BankL
+	
+	UINT32 BankL;
+	UINT32 BankR;
+	
+	UINT8 CurSlot;
+	UINT8 Address;
+	MULTIPCM_SLOT slot[28];
+} MULTIPCM_DATA;
+
+#define SETA_NUM_CHANNELS 16
+
+// don't remove anything, size of this struct is used when reading channel regs
+typedef struct
+{
+	UINT8 status;
+	UINT8 volume;		//        volume / wave form no.
+	UINT8 frequency;	//     frequency / pitch lo
+	UINT8 pitch_hi;		//      reserved / pitch hi
+	UINT8 start;		// start address / envelope time
+	UINT8 end;			//   end address / envelope no.
+	UINT8 reserve[2];
+} X1_010_CHANNEL;
+
+typedef struct x1010_data
+{
+	UINT32 ROMSize;
+	INT8 *ROMData;
+	UINT8* ROMUsage;
+	
+	UINT8 m_reg[0x2000];
+} X1_010_DATA;
+
+enum {
+	C352_FLG_BUSY       = 0x8000,   // channel is busy
+	C352_FLG_KEYON      = 0x4000,   // Keyon
+	C352_FLG_KEYOFF     = 0x2000,   // Keyoff
+	C352_FLG_LOOPTRG    = 0x1000,   // Loop Trigger
+	C352_FLG_LOOPHIST   = 0x0800,   // Loop History
+	C352_FLG_FM         = 0x0400,   // Frequency Modulation
+	C352_FLG_PHASERL    = 0x0200,   // Rear Left invert phase 180 degrees
+	C352_FLG_PHASEFL    = 0x0100,   // Front Left invert phase 180 degrees
+	C352_FLG_PHASEFR    = 0x0080,   // invert phase 180 degrees (e.g. flip sign of sample)
+	C352_FLG_LDIR       = 0x0040,   // loop direction
+	C352_FLG_LINK       = 0x0020,   // "long-format" sample (can't loop, not sure what else it means)
+	C352_FLG_NOISE      = 0x0010,   // play noise instead of sample
+	C352_FLG_MULAW      = 0x0008,   // sample is mulaw instead of linear 8-bit PCM
+	C352_FLG_FILTER     = 0x0004,   // don't apply filter
+	C352_FLG_REVLOOP    = 0x0003,   // loop backwards
+	C352_FLG_LOOP       = 0x0002,   // loop forward
+	C352_FLG_REVERSE    = 0x0001,   // play sample backwards
+};
+
+typedef struct
+{
+	UINT8   bank;
+	UINT16  start_addr;
+	UINT16  end_addr;
+	UINT16  repeat_addr;
+	UINT32  flag;
+	
+	UINT16  start;
+	UINT16  repeat;
+	//UINT32  current_addr;
+	UINT32  pos;
+} C352_CHANNEL;
+typedef struct c352_data
+{
+	UINT32 ROMSize;
+	INT8 *ROMData;
+	UINT8* ROMUsage;
+	
+	C352_CHANNEL channels[32];
+} C352_DATA;
+
+typedef struct 
+{
+	UINT32 start;
+	UINT32 end;
+	//UINT8 play;
+} GA20_CHANNEL;
+typedef struct ga20_data
+{
+	UINT32 ROMSize;
+	UINT8 *ROMData;
+	UINT8* ROMUsage;
+	
+	GA20_CHANNEL channels[4];
+} GA20_DATA;
+
+static const UINT32 es5503_wavemasks[8] =
+{	0x1FF00, 0x1FE00, 0x1FC00, 0x1F800, 0x1F000, 0x1E000, 0x1C000, 0x18000};
+typedef struct
+{
+	UINT32 wavetblpointer;
+	UINT16 wtsize;
+	UINT8  control;
+	UINT8  vol;
+	UINT8  wavetblsize;
+	//UINT8  resolution;
+} ES5503_OSC;
+typedef struct es5503_data
+{
+	UINT32 ROMSize;
+	UINT8* ROMData;
+	UINT8* ROMUsage;
+	
+	ES5503_OSC oscillators[32];
+} ES5503_DATA;
+
+typedef struct _ymf278b_slot
+{
+	UINT16 SmplID;
+	UINT8 Playing;
+} YMF278B_SLOT;
+typedef struct ymf278b_data
+{
+	UINT32 ROMSize;
+	UINT8* ROMData;
+	UINT8* ROMUsage;
+	UINT32 RAMSize;
+	UINT8* RAMData;
+	UINT8* RAMUsage;
+	UINT8 SmplMask[0x200];	// Bit 7 - Sample Table, Bit 0 - Sample Data
+	
+	YMF278B_SLOT slots[24];
+	INT8 wavetblhdr;
+	INT8 memmode;
+} YMF278B_DATA;
+
 typedef struct all_chips
 {
 	SEGAPCM_DATA SegaPCM;
@@ -301,15 +437,21 @@ typedef struct all_chips
 	YMZ280B_DATA YMZ280B;
 	RF5C_DATA RF5C68;
 	RF5C_DATA RF5C164;
+	YMF278B_DATA YMF278B;
 	YMF271_DATA YMF271;
+	NES_APU_DATA NES_APU;
 	UPD7759_DATA UPD7759;
 	OKIM6295_DATA OKIM6295;
+	MULTIPCM_DATA MultiPCM;
 	K054539_DATA K054539;
 	C140_DATA C140;
 	K053260_DATA K053260;
 	QSOUND_DATA QSound;
+	ES5503_DATA ES5503;
+	X1_010_DATA X1_010;
+	C352_DATA C352;
+	GA20_DATA GA20;
 } ALL_CHIPS;
-
 
 void InitAllChips(void);
 void FreeAllChips(void);
@@ -327,12 +469,21 @@ void rf5c164_write(UINT8 Register, UINT8 Data);
 static void ymf271_write_fm_reg(YMF271_DATA* chip, UINT8 SlotNum, UINT8 Register, UINT8 Data);
 static void ymf271_write_fm(YMF271_DATA* chip, UINT8 Port, UINT8 Register, UINT8 Data);
 void ymf271_write(UINT8 Port, UINT8 Register, UINT8 Data);
+void nes_apu_write(UINT8 Register, UINT8 Data);
+void multipcm_write(UINT8 Port, UINT8 Data);
+void multipcm_bank_write(UINT8 Port, UINT16 Data);
+void upd7759_write(UINT8 Port, UINT8 Data);
 void okim6295_write(UINT8 Offset, UINT8 Data);
 static void k054539_proc_channel(K054539_DATA* chip, UINT8 Chn);
 void k054539_write(UINT8 Port, UINT8 Offset, UINT8 Data);
 void c140_write(UINT8 Port, UINT8 Offset, UINT8 Data);
 void k053260_write(UINT8 Register, UINT8 Data);
 void qsound_write(UINT8 Offset, UINT16 Value);
+void x1_010_write(UINT16 Offset, UINT8 Data);
+void c352_write(UINT16 Offset, UINT16 Value);
+void ga20_write(UINT8 Register, UINT8 Data);
+void es5503_write(UINT8 Register, UINT8 Data);
+void ymf278b_write(UINT8 Port, UINT8 Register, UINT8 Data);
 void write_rom_data(UINT8 ROMType, UINT32 ROMSize, UINT32 DataStart, UINT32 DataLength,
 					const UINT8* ROMData);
 UINT32 GetROMMask(UINT8 ROMType, UINT8** MaskData);
@@ -346,6 +497,7 @@ ALL_CHIPS* ChDat;
 void InitAllChips(void)
 {
 	UINT8 CurChip;
+	UINT8 CurChn;
 	YM_DELTAT* TempYDT;
 	
 	if (ChipData == NULL)
@@ -387,6 +539,9 @@ void InitAllChips(void)
 		ChDat->OKIM6295.command = 0xFF;
 		ChDat->K054539.flags = K054539_RESET_FLAGS;
 		ChDat->C140.banking_type = 0x00;
+		
+		for (CurChn = 0; CurChn < 28; CurChn ++)
+			ChDat->MultiPCM.slot[CurChn].SmplID = 0xFFFF;
 	}
 	
 	SetChipSet(0x00);
@@ -567,7 +722,7 @@ static void FM_ADPCMAWrite(YM2610_DATA *F2610, UINT8 r, UINT8 v)
 					}
 					if(adpcm[c].end > F2610->AP_ROMSize)	// Check End in Range
 					{
-						printf("YM2610 Ch %hu: ADPCM-A end out of range\n", c);
+						printf("YM2610 Ch %u: ADPCM-A end out of range\n", c);
 						printf("ADPCM-A Start: %06x\tADPCM-A End: %06x\n",
 								adpcm[c].start, adpcm[c].end);
 						adpcm[c].end = F2610->AP_ROMSize;
@@ -606,7 +761,7 @@ static void FM_ADPCMAWrite(YM2610_DATA *F2610, UINT8 r, UINT8 v)
 			
 			if (adpcm[c].flag)
 			{
-				printf("ADPCM-A Ch %hu StartAddr: %06lX\n", c, adpcm[c].start);
+				printf("ADPCM-A Ch %u StartAddr: %06X\n", c, adpcm[c].start);
 			}
 			break;
 		case 0x20:	// Sample End Address
@@ -622,7 +777,7 @@ static void FM_ADPCMAWrite(YM2610_DATA *F2610, UINT8 r, UINT8 v)
 			
 			if (adpcm[c].flag)
 			{
-				printf("ADPCM-A Ch %hu EndAddr: %06lX\n", c, adpcm[c].end);
+				printf("ADPCM-A Ch %u EndAddr: %06X\n", c, adpcm[c].end);
 			}
 			break;
 		}
@@ -657,7 +812,8 @@ static void YM_DELTAT_ADPCM_Write(YM_DELTAT *DELTAT, UINT8 r, UINT8 v)
 			// if yes, then let's check if ADPCM memory is mapped and big enough
 			if(DELTAT->memory == NULL)
 			{
-				printf("YM Delta-T ADPCM rom not mapped\n");
+				if (DELTAT->portstate & 0x80)	// check for START bit - the warning is rather useless else
+					printf("YM Delta-T ADPCM rom not mapped\n");
 				DELTAT->portstate = 0x00;
 				break;
 			}
@@ -776,7 +932,7 @@ void ymz280b_write(UINT8 Register, UINT8 Data)
 					printf("YMZ280B: start out of range: $%08x\n", voice->start);
 					voice->keyon = 0;
 				}
-				if (voice->stop >= chip->ROMSize)	// Check End in Range
+				if (voice->stop > chip->ROMSize)	// Check End in Range
 				{
 					printf("YMZ280B: end out of range\n");
 					printf("Start: %06x\tEnd: %06x\n", voice->start, voice->stop);
@@ -835,14 +991,53 @@ void ymz280b_write(UINT8 Register, UINT8 Data)
 	return;
 }
 
+static void rf5c_mark_sample(RF5C_DATA* chip, UINT32 Addr, UINT16 SmplStep)
+{
+	while(Addr < chip->RAMSize && ! (chip->RAMUsage[Addr] & 0x01))
+	{
+		if (chip->RAMData[Addr] == 0xFF)
+			break;
+		chip->RAMUsage[Addr] |= 0x01;
+		Addr ++;
+	}
+	if (Addr >= chip->RAMSize)
+		return;
+	
+	// The chip can skip the first terminator sample, so leave enough
+	// samples that it works with the current frequency.
+	SmplStep = (SmplStep + 0x7FF) >> 11;
+	if (! SmplStep)
+		SmplStep = 1;
+	while(SmplStep)
+	{
+		chip->RAMUsage[Addr] |= 0x01;
+		Addr ++;	SmplStep --;
+	}
+	while((Addr & 0x0F) >= 0x0C)
+	{
+		// I do some small rounding
+		chip->RAMUsage[Addr] |= 0x01;
+		Addr ++;
+	}
+	
+	return;
+}
+
 static void rf5c_write(RF5C_DATA* chip, UINT8 Register, UINT8 Data)
 {
 	RF5C_CHANNEL* chan;
 	UINT8 CurChn;
-	UINT32 Addr;
 	
 	switch(Register)
 	{
+	case 0x02:	// Sample Step Low
+		chan = &chip->Channel[chip->SelChn];
+		chan->step = (chan->step & 0xFF00) | (Data & 0x00FF);
+		break;
+	case 0x03:	// Sample Step High
+		chan = &chip->Channel[chip->SelChn];
+		chan->step = (chan->step & 0x00FF) | ((Data << 8) & 0xFF00);
+		break;
 	case 0x04:	// Loop Address Low
 		chan = &chip->Channel[chip->SelChn];
 		chan->loopst = (chan->loopst & 0xFF00) | (Data & 0x00FF);
@@ -856,14 +1051,15 @@ static void rf5c_write(RF5C_DATA* chip, UINT8 Register, UINT8 Data)
 		chan->start = Data << 8;
 		if (chan->enable)
 		{
-			Addr = chan->start;
+			rf5c_mark_sample(chip, chan->start, chan->step);
+			/*Addr = chan->start;
 			while(Addr < chip->RAMSize)
 			{
 				chip->RAMUsage[Addr] |= 0x01;
 				if (chip->RAMData[Addr] == 0xFF)
 					break;
 				Addr ++;
-			}
+			}*/
 		}
 		break;
 	case 0x07:	// Control Register
@@ -880,37 +1076,10 @@ static void rf5c_write(RF5C_DATA* chip, UINT8 Register, UINT8 Data)
 			chan->enable = ! (Data & (0x01 << CurChn));
 			if (chan->enable)
 			{
-				Addr = chan->start;
-				while(Addr < chip->RAMSize && ! (chip->RAMUsage[Addr] & 0x01))
-				{
-					chip->RAMUsage[Addr] |= 0x01;
-					if (chip->RAMData[Addr] == 0xFF)
-						break;
-					Addr ++;
-				}
-				while((Addr & 0x0F) >= 0x0C)
-				{
-					// I do some small rounding
-					chip->RAMUsage[Addr] |= 0x01;
-					Addr ++;
-				}
-				
+				rf5c_mark_sample(chip, chan->start, chan->step);
 				// the Loop Start can be at a completely other place,
 				// like Popful Mail showed me
-				Addr = chan->loopst;
-				while(Addr < chip->RAMSize && ! (chip->RAMUsage[Addr] & 0x01))
-				{
-					chip->RAMUsage[Addr] |= 0x01;
-					if (chip->RAMData[Addr] == 0xFF)
-						break;
-					Addr ++;
-				}
-				while((Addr & 0x0F) >= 0x0C)
-				{
-					// I do some small rounding
-					chip->RAMUsage[Addr] |= 0x01;
-					Addr ++;
-				}
+				rf5c_mark_sample(chip, chan->loopst, chan->step);
 			}
 		}
 		break;
@@ -940,13 +1109,13 @@ static void ymf271_write_fm_reg(YMF271_DATA* chip, UINT8 SlotNum, UINT8 Register
 	
 	switch(Register)
 	{
-	case 0:
+	case 0x00:
 		if (Data & 1)
 		{
 			// key on
 			slot->active = 1;
-			if (! slot->IsPCM)
-				break;
+			//if (! slot->IsPCM)
+			//	break;
 			if (slot->waveform != 0x07)
 				break;
 			if (SlotNum & 0x03)
@@ -956,6 +1125,8 @@ static void ymf271_write_fm_reg(YMF271_DATA* chip, UINT8 SlotNum, UINT8 Register
 			}
 			
 			DataLen = slot->endaddr + 1;
+			if (slot->bits != 8)
+			DataLen = (DataLen * slot->bits + 7) / 8;	// scale up for 12-bit samples
 			Addr = slot->startaddr;
 			for (CurByt = 0x00; CurByt < DataLen; CurByt ++, Addr ++)
 				chip->ROMUsage[Addr] |= 0x01;
@@ -965,7 +1136,7 @@ static void ymf271_write_fm_reg(YMF271_DATA* chip, UINT8 SlotNum, UINT8 Register
 			slot->active = 0;
 		}
 		break;
-	case 11:
+	case 0x0B:
 		slot->waveform = Data & 0x07;
 		break;
 	}
@@ -1029,7 +1200,7 @@ static void ymf271_write_fm(YMF271_DATA* chip, UINT8 Port, UINT8 Register, UINT8
 		break;
 	}
 
-	if (SyncMode && SyncReg)		// key-on slot & synced register
+	/*if (SyncMode && SyncReg)		// key-on slot & synced register
 	{
 		switch(chip->groups[SlotNum].sync)
 		{
@@ -1061,7 +1232,7 @@ static void ymf271_write_fm(YMF271_DATA* chip, UINT8 Port, UINT8 Register, UINT8
 			break;
 		}
 	}
-	else		// write register normally
+	else*/		// write register normally
 	{
 		ymf271_write_fm_reg(chip, (12 * Port) + SlotNum, SlotReg, Data);
 	}
@@ -1105,7 +1276,7 @@ void ymf271_write(UINT8 Port, UINT8 Register, UINT8 Data)
 			break;
 		case 2:
 			slot->startaddr &= ~0xFF0000;
-			slot->startaddr |= Data << 16;
+			slot->startaddr |= (Data & 0x7F) << 16;
 			break;
 		case 3:
 			slot->endaddr &= ~0x0000FF;
@@ -1117,7 +1288,7 @@ void ymf271_write(UINT8 Port, UINT8 Register, UINT8 Data)
 			break;
 		case 5:
 			slot->endaddr &= ~0xFF0000;
-			slot->endaddr |= Data << 16;
+			slot->endaddr |= (Data & 0x7F) << 16;
 			break;
 		case 6:
 			slot->loopaddr &= ~0x0000FF;
@@ -1129,9 +1300,10 @@ void ymf271_write(UINT8 Port, UINT8 Register, UINT8 Data)
 			break;
 		case 8:
 			slot->loopaddr &= ~0xFF0000;
-			slot->loopaddr |= Data << 16;
+			slot->loopaddr |= (Data & 0x7F) << 16;
 			break;
 		case 9:
+			slot->bits = (Data & 0x04) ? 12 : 8;
 			break;
 		}
 		break;
@@ -1196,6 +1368,7 @@ static void okim6295_command_write(OKIM6295_DATA* chip, UINT8 Command)
 	UINT32 SampleLen;
 	UINT32 CurSmpl;
 	UINT8* MaskBase;
+	UINT8 BankID;
 	
 	// if a command is pending, process the second half
 	if (chip->command != 0xFF)
@@ -1217,7 +1390,19 @@ static void okim6295_command_write(OKIM6295_DATA* chip, UINT8 Command)
 			voice = &chip->voice[voicenum];
 			
 			// determine the start/stop positions
-			base = chip->bank_offs | chip->command * 8;
+			base = chip->command * 8;
+			if (! chip->nmk_mode)
+			{
+				base |= chip->bank_offs;
+			}
+			else
+			{
+				if (chip->nmk_mode & 0x80)
+					BankID = base >> 8;
+				else
+					BankID = 0x00;
+				base |= (chip->nmk_bank[BankID & 0x03] << 16);
+			}
 			
 			voice->start  = chip->ROMData[base + 0] << 16;
 			voice->start |= chip->ROMData[base + 1] <<  8;
@@ -1229,8 +1414,26 @@ static void okim6295_command_write(OKIM6295_DATA* chip, UINT8 Command)
 			voice->stop |= chip->ROMData[base + 5] <<  0;
 			voice->stop &= 0x3FFFF;
 			
+			if (! chip->nmk_mode)
+			{
+				voice->start |= chip->bank_offs;
+				voice->stop |= chip->bank_offs;
+			}
+			else
+			{
+				BankID = voice->start >> 16;
+				voice->start &= 0xFFFF;
+				voice->start |= (chip->nmk_bank[BankID & 0x03] << 16);
+				BankID = voice->stop >> 16;
+				voice->stop &= 0xFFFF;
+				voice->stop |= (chip->nmk_bank[BankID & 0x03] << 16);
+				if ((voice->start & ~0xFFFF) != (voice->stop & ~0xFFFF))
+					printf("Warning: NMK112 Start Bank != Stop Bank!\n");
+			}
+			
 			SampleLen = 0x80 * 8;	// header memory
-			MaskBase = &chip->ROMUsage[chip->bank_offs | 0x00];
+			base &= ~0x3FF;			// enforce storing the full table
+			MaskBase = &chip->ROMUsage[base];
 			for (CurSmpl = 0x00; CurSmpl < SampleLen; CurSmpl ++)
 				MaskBase[CurSmpl] |= 0x01;
 			
@@ -1240,7 +1443,7 @@ static void okim6295_command_write(OKIM6295_DATA* chip, UINT8 Command)
 				voice->playing = true;
 				
 				SampleLen = voice->stop - voice->start + 1;
-				MaskBase = &chip->ROMUsage[chip->bank_offs | voice->start];
+				MaskBase = &chip->ROMUsage[voice->start];
 				for (CurSmpl = 0x00; CurSmpl < SampleLen; CurSmpl ++)
 					MaskBase[CurSmpl] |= 0x01;
 			}
@@ -1277,14 +1480,56 @@ static void okim6295_command_write(OKIM6295_DATA* chip, UINT8 Command)
 void okim6295_write(UINT8 Offset, UINT8 Data)
 {
 	OKIM6295_DATA* chip = &ChDat->OKIM6295;
+	UINT32 TempLng;
+	UINT8 CurChn;
+	UINT8 ChnMask;
 	
 	switch(Offset)
 	{
 	case 0x00:
 		okim6295_command_write(chip, Data);
 		break;
+	case 0x0E:	// NMK112 bank switch enable
+		chip->nmk_mode = Data;
+		break;
 	case 0x0F:
-		chip->bank_offs = Data << 18;
+		TempLng = Data << 18;
+		if (chip->bank_offs == TempLng)
+			return;
+		
+		ChnMask = 0x00;
+		for (CurChn = 0; CurChn < OKIM6295_VOICES; CurChn ++)
+			ChnMask |= chip->voice[CurChn].playing << CurChn;
+		
+		if (ChnMask)
+		{
+			UINT32 SampleLen;
+			UINT32 CurSmpl;
+			UINT8* MaskBase;
+			
+			printf("Warning! OKIM6295 Bank change (%X -> %X) while channel ",
+					chip->bank_offs, TempLng);
+			for (CurChn = 0; CurChn < OKIM6295_VOICES; CurChn ++)
+			{
+				if (ChnMask & (1 << CurChn))
+				{
+					printf("%c", '0' + CurChn);
+					
+					SampleLen = chip->voice[CurChn].stop - chip->voice[CurChn].start + 1;
+					MaskBase = &chip->ROMUsage[TempLng | chip->voice[CurChn].start];
+					for (CurSmpl = 0x00; CurSmpl < SampleLen; CurSmpl ++)
+						MaskBase[CurSmpl] |= 0x01;
+				}
+			}
+			printf(" is playing!\n");
+		}
+		chip->bank_offs = TempLng;
+		break;
+	case 0x10:
+	case 0x11:
+	case 0x12:
+	case 0x13:
+		chip->nmk_bank[Offset & 0x03] = Data;
 		break;
 	}
 	
@@ -1294,9 +1539,9 @@ void okim6295_write(UINT8 Offset, UINT8 Data)
 static UINT32 c140_sample_addr(C140_DATA* chip, UINT8 adr_msb, UINT8 adr_lsb,
 							   UINT8 bank, UINT8 voice)
 {
+	static const INT16 asic219banks[4] = {0x07, 0x01, 0x03, 0x05};
 	UINT32 TempAddr;
 	UINT32 NewAddr;
-	const INT16 asic219banks[4] = {0x07, 0x01, 0x03, 0x05};
 	UINT8 BnkReg;
 	
 	TempAddr = (bank << 16) | (adr_msb << 8) | (adr_lsb << 0);
@@ -1456,9 +1701,10 @@ void qsound_write(UINT8 Offset, UINT16 Value)
 			TempChn->key = 1;
 			
 			StAddr = (TempChn->bank << 16) + TempChn->address;
-			EndAddr = (TempChn->bank << 16) + TempChn->end + 1;
+			EndAddr = (TempChn->bank << 16) + TempChn->end;
 			StAddr %= chip->ROMSize;
 			EndAddr %= chip->ROMSize;
+			EndAddr ++;
 			for (Addr = StAddr; Addr < EndAddr; Addr ++)
 				chip->ROMUsage[Addr] |= 0x01;
 		}
@@ -1473,13 +1719,15 @@ static void k054539_proc_channel(K054539_DATA* chip, UINT8 Chn)
 	K054539_CHANNEL* TempChn;
 	UINT32 Addr;
 	UINT16 TempSht;
+	UINT32 Step;
 	
 	TempChn = &chip->channels[Chn];
 	Addr =	(TempChn->pos_reg[2] << 16) |
 			(TempChn->pos_reg[1] <<  8) |
 			(TempChn->pos_reg[0] <<  0);
+	Step = (TempChn->mode_reg & 0x20) ? -1 : +1;
 	
-	switch(TempChn->mode_reg)
+	switch((TempChn->mode_reg & 0x0C) >> 2)
 	{
 	case 0x00:	// 8-bit PCM
 		while(Addr < chip->ROMSize)
@@ -1488,10 +1736,11 @@ static void k054539_proc_channel(K054539_DATA* chip, UINT8 Chn)
 			if (chip->ROMData[Addr] == 0x80)
 				break;
 			
-			Addr ++;
+			Addr += Step;
 		}
 		break;
 	case 0x01:	// 16-bit PCM (LSB first)
+		Step *= 0x02;
 		while(Addr < chip->ROMSize)
 		{
 			chip->ROMUsage[Addr + 0x00] |= 0x01;
@@ -1501,7 +1750,7 @@ static void k054539_proc_channel(K054539_DATA* chip, UINT8 Chn)
 			if (TempSht == 0x8000)
 				break;
 			
-			Addr += 0x02;
+			Addr += Step;
 		}
 		break;
 	case 0x02:	// 4-bit DPCM
@@ -1511,7 +1760,7 @@ static void k054539_proc_channel(K054539_DATA* chip, UINT8 Chn)
 			if (chip->ROMData[Addr] == 0x88)
 				break;
 			
-			Addr ++;
+			Addr += Step;
 		}
 		break;
 	default:
@@ -1563,7 +1812,13 @@ void k054539_write(UINT8 Port, UINT8 Offset, UINT8 Data)
 	{
 		TempChn = &info->channels[(RegVal & 0x0F) >> 1];
 		if (! (RegVal & 0x01))
-			TempChn->mode_reg = (Data & 0x0C) >> 2;
+		{
+			TempChn->mode_reg = Data;
+			if (Data & 0x20)
+				printf("K054539 #%u, Ch %u: reverse play (Reg 0x%03X, Data 0x%02X)\n",
+						ChDat - ChipData, (RegVal & 0x0F) >> 1,
+						RegVal, Data);
+		}
 	}
 	
 	switch(RegVal)
@@ -1683,7 +1938,7 @@ void k053260_write(UINT8 Register, UINT8 Data)
 							Addr = 0x00;
 							DataLen = 0x00;
 						}
-						if (Addr + DataLen >= ic->ROMSize)
+						if (Addr + DataLen > ic->ROMSize)
 						{
 							printf("K053260: end out of range\n");
 							printf("Start: %06x\tSize: %06x\n", Addr, DataLen);
@@ -1847,6 +2102,547 @@ void upd7759_write(UINT8 Port, UINT8 Data)
 	return;
 }
 
+void nes_apu_write(UINT8 Register, UINT8 Data)
+{
+	NES_APU_DATA* chip = &ChDat->NES_APU;
+	UINT16 RemBytes;
+	UINT16 CurAddr;
+	
+	if (Register >= 0x20)
+		return;
+	
+	switch(Register)
+	{
+//	case 0x12:	// APU_WRE2
+//		break;
+//	case 0x13:	// APU_WRE3
+//		break;
+	case 0x15:	// APU_SMASK
+		if (Data & 0x10)
+		{
+			//RemBytes = (chip->RegData[0x13] << 4) + 1;
+			RemBytes = (chip->RegData[0x13] << 4) + 0x10;
+			CurAddr = 0xC000 + (chip->RegData[0x12] << 6);
+			while(RemBytes)
+			{
+				chip->ROMUsage[CurAddr] |= 0x01;
+				CurAddr ++;
+				CurAddr |= 0x8000;	// the hardware does this
+				RemBytes --;
+			}
+		}
+		break;
+	}
+	chip->RegData[Register] = Data;
+	
+	return;
+}
+
+void multipcm_write(UINT8 Port, UINT8 Data)
+{
+	MULTIPCM_DATA* chip = &ChDat->MultiPCM;
+	MULTIPCM_SLOT* TempChn;
+	UINT32 TOCAddr;
+	UINT32 AddrSt;
+	UINT32 AddrEnd;
+	UINT32 CurAddr;
+	UINT8 MaskBit;
+	
+	switch(Port)
+	{
+	case 0x00:
+		break;	// continue as usual
+	case 0x01:
+		if ((Data & 0x07) == 0x07)
+			chip->CurSlot = 0xFF;
+		chip->CurSlot = ((Data & 0x18) / 0x08 * 7) + (Data & 0x07);
+		return;
+	case 0x02:
+		chip->Address = Data;
+		return;
+	default:
+		return;
+	}
+	if (chip->CurSlot == 0xFF)
+		return;
+	TempChn = &chip->slot[chip->CurSlot];
+	
+	switch(chip->Address)
+	{
+	case 0x00:	// Pan
+		TempChn->Pan = Data;
+		return;
+	case 0x01:	// set Sample
+		if (TempChn->SmplID == Data)
+			return;
+		TempChn->SmplID = Data;
+		
+#if 0
+		// mark single sample
+		if (chip->SmplMask[TempChn->SmplID] & 0x80)
+			break;
+		chip->SmplMask[TempChn->SmplID] |= 0x80;
+		
+		AddrSt = TempChn->SmplID * 0x0C;
+		AddrEnd = AddrSt + 0x0C;
+#else
+		// mark whole sample table
+		if (chip->SmplMask[0x00] & 0x80)
+			break;
+		chip->SmplMask[0x00] |= 0x80;
+		
+		AddrSt = 0x00;
+		AddrEnd = 0x200 * 0x0C;
+		// find the real end of the sample table (assume padding with FF)
+		while(AddrEnd > AddrSt)
+		{
+			memcpy(&CurAddr, &chip->ROMData[AddrEnd - 0x04], 0x04);
+			if (CurAddr != 0xFFFFFFFF)
+				break;
+			AddrEnd -= 0x04;
+		}
+		AddrEnd = (AddrEnd + 0x0B) & ~0x0B;	// round up to 0x0C
+#endif
+		for (CurAddr = AddrSt; CurAddr < AddrEnd; CurAddr ++)
+			chip->ROMUsage[CurAddr] |= 0x01;
+		break;
+	case 0x04:	// Key On/Off
+		TempChn->Playing = Data & 0x80;
+		break;
+	default:
+		return;
+	}
+	if (! TempChn->Playing)
+		return;
+	
+	// I use 2 separate bits for BankL (bit 0) and BankR (bit 1)
+	MaskBit = (TempChn->Pan & 0x80) ? 0x01 : 0x02;
+	// Was this sample marked already?
+	if (chip->SmplMask[TempChn->SmplID] & MaskBit)
+		return;
+	// if not, set the bit to speed the process up
+	chip->SmplMask[TempChn->SmplID] |= MaskBit;
+	
+	TOCAddr = TempChn->SmplID * 0x0C;
+	AddrSt =	(chip->ROMData[TOCAddr + 0x00] << 16) |
+				(chip->ROMData[TOCAddr + 0x01] <<  8) |
+				(chip->ROMData[TOCAddr + 0x02] <<  0);
+	AddrEnd =	(chip->ROMData[TOCAddr + 0x05] <<  8) |
+				(chip->ROMData[TOCAddr + 0x06] <<  0);
+	if (AddrSt >= 0x100000)
+	{
+		AddrSt &= 0x0FFFFF;
+		AddrSt |= (TempChn->Pan & 0x80) ? chip->BankL : chip->BankR;
+	}
+	AddrEnd = AddrSt + (0x10000 - AddrEnd);
+	
+	for (CurAddr = AddrSt; CurAddr < AddrEnd; CurAddr ++)
+		chip->ROMUsage[CurAddr] |= 0x01;
+	
+	return;
+}
+
+void multipcm_bank_write(UINT8 Port, UINT16 Data)
+{
+	MULTIPCM_DATA* chip = &ChDat->MultiPCM;
+	
+	if (Port & 0x01)
+		chip->BankL = Data << 16;
+	if (Port & 0x02)
+		chip->BankR = Data << 16;
+	
+	return;
+}
+
+void x1_010_write(UINT16 offset, UINT8 data)
+{
+	X1_010_DATA *chip =  &ChDat->X1_010;
+	X1_010_CHANNEL *reg;
+	int channel, regi;
+	UINT32 addr, startpos, endpos;
+	
+	channel = offset/sizeof(X1_010_CHANNEL);
+	regi    = offset%sizeof(X1_010_CHANNEL);
+	
+	/* Control register write */
+	if( channel < SETA_NUM_CHANNELS && regi == 0)
+	{
+		reg = (X1_010_CHANNEL *)&(chip->m_reg[channel*sizeof(X1_010_CHANNEL)]);
+		
+		/* Key on and PCM mode set? */
+		if( (reg->status&1) && !(reg->status&2) )
+		{
+			startpos = reg->start*0x1000;
+			endpos = ((0x100-reg->end)*0x1000)&0xfffff;
+			for (addr = startpos; addr < endpos; addr ++)
+				chip->ROMUsage[addr] |= 0x01;
+		}
+	}
+	chip->m_reg[offset] = data;
+	return;
+}
+
+void c352_write(UINT16 Offset, UINT16 val)
+{
+	C352_DATA *chip = &ChDat->C352;
+	C352_CHANNEL* TempChn;
+	UINT16 address = Offset* 2;
+	UINT32 addr, startpos, endpos, reptpos;
+	
+	UINT16 chan;
+	int i, rev, wrap, ldir;
+	
+	chan = (address >> 4) & 0xfff;
+	
+	if (address >= 0x400)
+	{
+		switch(address)
+		{
+		case 0x404:	// execute key-ons/offs
+			for ( i = 0 ; i <= 31 ; i++ )
+			{
+				TempChn = &chip->channels[i];
+				if (TempChn->flag & C352_FLG_KEYON)
+				{
+					if (TempChn->start_addr != TempChn->end_addr)
+					{
+						rev = TempChn->flag & C352_FLG_REVERSE;
+						ldir = TempChn->flag & C352_FLG_LDIR;
+						
+						// reverse loops are actually bidirectional, the loop direction flag decides
+						// the initial direction. If it is unset, the sample will play "forwards" first
+						// and should thus be treated as a forwards sample
+						if((TempChn->flag & C352_FLG_LOOP) && !ldir)
+							rev = 0;
+						
+						wrap = rev ? TempChn->end_addr > TempChn->start_addr
+								   : TempChn->end_addr < TempChn->start_addr;
+						
+						startpos = wrap && rev ? ((TempChn->bank-1)<<16) : (TempChn->bank<<16);
+												
+						endpos = wrap && !rev ? ((TempChn->bank+1)<<16) : (TempChn->bank<<16);
+						reptpos = (endpos & 0xFF0000) + TempChn->repeat_addr;
+						
+						startpos += rev ? TempChn->end_addr : TempChn->start_addr;
+						
+						endpos += rev ? TempChn->start_addr : TempChn->end_addr;
+						
+						if ((TempChn->flag & C352_FLG_LOOP) && reptpos<startpos)
+							startpos=reptpos;
+						
+						for (addr = startpos; addr <= endpos; addr ++)
+							chip->ROMUsage[addr] |= 0x01;
+					}
+					TempChn->flag &= ~(C352_FLG_KEYON);
+					TempChn->flag |= C352_FLG_BUSY;
+				}
+				else if (TempChn->flag & C352_FLG_KEYOFF)
+				{
+					TempChn->flag &= ~(C352_FLG_KEYOFF);
+					TempChn->flag &= ~(C352_FLG_BUSY);
+				}
+			}
+			break;
+		default:
+			break;
+		}
+		return;
+	}
+	
+	if (chan > 31)
+		return;
+	TempChn = &chip->channels[chan];
+	switch(address & 0xf)
+	{
+	case 0x0:	// volumes (output 1)
+	case 0x2:	// volumes (output 2)
+	case 0x4:	// pitch
+		break;
+	case 0x6:	// flags
+		TempChn->flag = val;
+		if ((TempChn->flag & C352_FLG_REVERSE) && (TempChn->flag & C352_FLG_BUSY))
+		{
+			val &= 0xFF;
+			startpos = (val<<16) +TempChn->repeat_addr;
+			endpos = (val<<16) + TempChn->end_addr;
+			
+			if (endpos < startpos)
+				endpos += 0x10000;
+			for (addr = startpos; addr <= endpos; addr ++)
+				chip->ROMUsage[addr] |= 0x01;
+		}
+		break;
+	case 0x8:	// bank (bits 16-31 of address);
+		TempChn->bank = val & 0xff;
+		break;
+	case 0xa:	// start address
+		TempChn->start_addr = val;
+		// Handle linked samples
+		if ((TempChn->flag & C352_FLG_LINK) && (TempChn->flag & C352_FLG_BUSY))
+		{
+			val &= 0xFF;
+			startpos = (val<<16) +TempChn->repeat_addr;
+			endpos = (val<<16) + TempChn->end_addr;
+			
+			if (endpos < startpos)
+				endpos += 0x10000;
+			for (addr = startpos; addr <= endpos; addr ++)
+				chip->ROMUsage[addr] |= 0x01;
+		}
+		break;
+	case 0xc:	// end address
+		TempChn->end_addr = val;
+		break;
+	case 0xe:	// loop address
+		TempChn->repeat_addr = val;
+		break;
+	default:
+		break;
+	}
+	return;
+}
+
+void ga20_write(UINT8 offset, UINT8 data)
+{
+	GA20_DATA *chip = &ChDat->GA20;
+	GA20_CHANNEL* TempChn;
+	int channel;
+	UINT32 addr, startpos, endpos;
+	
+	channel = offset >> 3;
+	TempChn = &chip->channels[channel];
+	switch (offset & 0x7)
+	{
+	case 0:	// start address low
+		TempChn->start = (TempChn->start&0xff000) | (data<<4);
+		break;
+	case 1:	// start address high
+		TempChn->start = (TempChn->start&0x00ff0) | (data<<12);
+		break;
+	case 2:	// end address low
+		TempChn->end = (TempChn->end&0xff000) | (data<<4);
+		break;
+	case 3:	// end address high
+		TempChn->end = (TempChn->end&0x00ff0) | (data<<12);
+		break;
+	case 4:
+	case 5:
+		break;
+	case 6:	//AT: this is always written 2(enabling both channels?)
+		if(data)
+		{
+			startpos = TempChn->start;
+			endpos = TempChn->end;
+			for (addr = startpos; addr < endpos; addr ++)
+				chip->ROMUsage[addr] |= 0x01;
+		}
+		break;
+	}
+	return;
+}
+
+void es5503_write(UINT8 Register, UINT8 Data)
+{
+	ES5503_DATA *chip = &ChDat->ES5503;
+	ES5503_OSC* TempOsc;
+	UINT32 AddrSt;
+	UINT32 AddrEnd;
+	UINT32 CurAddr;
+	
+	if (Register < 0xE0)
+	{
+		TempOsc = &chip->oscillators[Register & 0x1F];
+		switch(Register & 0xE0)
+		{
+		case 0x40:	// volume
+			TempOsc->vol = Data;
+			break;
+		case 0x80:	// wavetable pointer
+			TempOsc->wavetblpointer = (Data << 8);
+			break;
+		case 0xA0:	// oscillator control
+			// if a fresh key-on, reset the ccumulator
+			/*if ((TempOsc->control & 1) && (!(Data&1)))
+			{
+				chip->oscillators[osc].accumulator = 0;
+			}*/
+			TempOsc->control = Data;
+			if (! (TempOsc->control & 0x01))
+			{
+				if ((TempOsc->control & 0x08) && ! TempOsc->vol)
+					break;	// IRQ + Vol 0 -> probably used for timing
+				
+				AddrSt = TempOsc->wavetblpointer & es5503_wavemasks[TempOsc->wavetblsize];
+				AddrEnd = AddrSt + TempOsc->wtsize;
+				for (CurAddr = AddrSt; CurAddr < AddrEnd; CurAddr ++)
+				{
+					chip->ROMUsage[CurAddr] |= 0x01;
+					if (! chip->ROMData[CurAddr])
+						break;
+				}
+			}
+			break;
+		case 0xC0:	// bank select / wavetable size / resolution
+			if (Data & 0x40)	// bank select - not used on the Apple IIgs
+				TempOsc->wavetblpointer |= 0x10000;
+			else
+				TempOsc->wavetblpointer &= 0x0FFFF;
+			
+			TempOsc->wavetblsize = (Data & 0x38) >> 3;
+			TempOsc->wtsize = 0x100 << TempOsc->wavetblsize;
+			//TempOsc->resolution = (Data & 0x07);
+			break;
+		}
+	}
+	else	// global registers
+	{
+		switch(Register)
+		{
+		case 0xE1:	// oscillator enable
+			//chip->oscsenabled = 1 + ((Data>>1) & 0x1F);
+			break;
+		}
+	}
+	
+	return;
+}
+
+void ymf278b_write(UINT8 Port, UINT8 Register, UINT8 Data)
+{
+	YMF278B_DATA* chip = &ChDat->YMF278B;
+	YMF278B_SLOT* slot;
+	UINT8 SlotNum;
+	UINT8 SmplBits;
+	UINT32 TOCAddr;
+	UINT32 AddrSt;
+	UINT32 AddrEnd;
+	UINT32 CurAddr;
+	
+	if (Port != 0x02)	// Port 0/1 = FM, Port 2 = PCM
+		return;
+	if (Register >= 0x08 && Register < 0xF8)
+	{
+		SlotNum = (Register - 0x08) % 24;
+		slot = &chip->slots[SlotNum];
+		switch((Register - 0x08) / 24)
+		{
+		case 0x00:	// Sample ID LSB (bits 0-7)
+			slot->SmplID &= 0x100;
+			slot->SmplID |= Data;
+			
+			if (slot->SmplID < 384 || ! chip->wavetblhdr)
+				AddrSt = slot->SmplID * 0x0C;
+			else
+				AddrSt = chip->wavetblhdr * 0x80000 + (slot->SmplID - 384) * 0x0C;
+			
+			// --- mark Sample Table ---
+#if 0
+			// mark single sample
+			if (! (chip->SmplMask[TempChn->SmplID] & 0x80))
+			{
+				chip->SmplMask[TempChn->SmplID] |= 0x80;
+				
+				AddrSt = TempChn->SmplID * 0x0C;
+				AddrEnd = AddrSt + 0x0C;
+				for (CurAddr = AddrSt; CurAddr < AddrEnd; CurAddr ++)
+					chip->ROMUsage[CurAddr] |= 0x01;
+			}
+#else
+			// mark whole sample table
+			if (! (chip->SmplMask[0x00] & 0x80))
+			{
+				chip->SmplMask[0x00] |= 0x80;
+				
+				AddrEnd =	(chip->ROMData[0x00] << 16) |
+							(chip->ROMData[0x01] <<  8) |
+							(chip->ROMData[0x02] <<  0);
+				AddrEnd &= 0x3FFFFF;
+				if (AddrEnd > 384 * 0x0C)
+					AddrEnd = 384 * 0x0C;
+				
+				AddrSt = 0x00;
+				// find the real end of the sample table (assume padding with FF)
+				while(AddrEnd > AddrSt)
+				{
+					memcpy(&CurAddr, &chip->ROMData[AddrEnd - 0x04], 0x04);
+					if (CurAddr != 0xFFFFFFFF && CurAddr != 0x00000000)
+						break;
+					AddrEnd -= 0x04;
+				}
+				AddrEnd = (AddrEnd + 0x0B) & ~0x0B;	// round up to 0x0C
+				for (CurAddr = AddrSt; CurAddr < AddrEnd; CurAddr ++)
+					chip->ROMUsage[CurAddr] |= 0x01;
+			}
+#endif
+			
+			// --- mark actual Sample Data ---
+			if (! (chip->SmplMask[slot->SmplID] & 0x01))
+			{
+				chip->SmplMask[slot->SmplID] |= 0x01;
+		
+				if (slot->SmplID < 384 || ! chip->wavetblhdr)
+					TOCAddr = slot->SmplID * 0x0C;
+				else
+					TOCAddr = chip->wavetblhdr * 0x80000 + (slot->SmplID - 384) * 0x0C;
+				SmplBits =	(chip->ROMData[TOCAddr + 0x00] & 0xC0) >> 6;
+				AddrSt =	(chip->ROMData[TOCAddr + 0x00] << 16) |
+							(chip->ROMData[TOCAddr + 0x01] <<  8) |
+							(chip->ROMData[TOCAddr + 0x02] <<  0);
+				AddrSt &= 0x3FFFFF;
+				AddrEnd =	(chip->ROMData[TOCAddr + 0x05] <<  8) |
+							(chip->ROMData[TOCAddr + 0x06] <<  0);
+				AddrEnd = (0x10000 - AddrEnd);
+				if (SmplBits == 0)	// 8-bit
+					AddrEnd = AddrEnd * 1;
+				else if (SmplBits == 1)	// 12-bit
+					AddrEnd = (AddrEnd * 3 + 1) / 2;
+				else if (SmplBits == 2)	// 16-bit
+					AddrEnd = AddrEnd * 2;
+				else if (SmplBits == 3)	// invalid
+					AddrEnd = 0;
+				AddrEnd += AddrSt;
+				
+				if (AddrSt < chip->ROMSize)
+				{
+					for (CurAddr = AddrSt; CurAddr < AddrEnd; CurAddr ++)
+						chip->ROMUsage[CurAddr] |= 0x01;
+				}
+				else
+				{
+					AddrSt -= chip->ROMSize;
+					AddrEnd -= chip->ROMSize;
+					for (CurAddr = AddrSt; CurAddr < AddrEnd; CurAddr ++)
+						chip->RAMUsage[CurAddr] |= 0x01;
+				}
+			}
+			break;
+		case 0x01:	// FNum LSB, Sample ID MSB (bit 8)
+			slot->SmplID &= 0x0FF;
+			slot->SmplID |= (Data & 0x01) << 8;
+			break;
+		}
+	}
+	else
+	{
+		switch(Register)
+		{
+		case 0x02:
+			chip->wavetblhdr = (Data & 0x1C) >> 2;
+			chip->memmode = (Data & 0x01);
+			if (chip->wavetblhdr)
+				printf("Warning: RAM activated! This isn't handled yet!\n");
+			break;
+		}
+	}
+	
+	return;
+}
+
+#define ROM_BORDER_CHECK					\
+	if (DataStart > ROMSize)				\
+		return;								\
+	if (DataStart + DataLength > ROMSize)	\
+		DataLength = ROMSize - DataStart;
 
 void write_rom_data(UINT8 ROMType, UINT32 ROMSize, UINT32 DataStart, UINT32 DataLength,
 					const UINT8* ROMData)
@@ -1857,13 +2653,20 @@ void write_rom_data(UINT8 ROMType, UINT32 ROMSize, UINT32 DataStart, UINT32 Data
 	Y8950_DATA* y8950;
 	YMZ280B_DATA* ymz280b;
 	RF5C_DATA* rf5c;
+	NES_APU_DATA* nes_apu;
+	YMF278B_DATA* ymf278;
 	YMF271_DATA* ymf271;
 	UPD7759_DATA* upd7759;
 	OKIM6295_DATA* okim6295;
+	MULTIPCM_DATA* multipcm;
 	K054539_DATA* k054539;
 	C140_DATA* c140;
 	K053260_DATA* k053260;
 	QSOUND_DATA* qsound;
+	ES5503_DATA* es5503;
+	X1_010_DATA* x1_010;
+	C352_DATA* c352;
+	GA20_DATA* ga20;
 	
 	switch(ROMType)
 	{
@@ -1896,6 +2699,7 @@ void write_rom_data(UINT8 ROMType, UINT32 ROMSize, UINT32 DataStart, UINT32 Data
 			spcm->bankmask = mask & (rom_mask >> spcm->bankshift);
 		}
 		
+		ROM_BORDER_CHECK
 		memcpy(spcm->ROMData + DataStart, ROMData, DataLength);
 		memset(spcm->ROMUsage + DataStart, 0x00, DataLength);
 		break;
@@ -1915,6 +2719,7 @@ void write_rom_data(UINT8 ROMType, UINT32 ROMSize, UINT32 DataStart, UINT32 Data
 			ym2608->DeltaT.memory_usg = ym2608->DT_ROMUsage;
 		}
 		
+		ROM_BORDER_CHECK
 		memcpy(ym2608->DT_ROMData + DataStart, ROMData, DataLength);
 		memset(ym2608->DT_ROMUsage + DataStart, 0x00, DataLength);
 		break;
@@ -1930,6 +2735,7 @@ void write_rom_data(UINT8 ROMType, UINT32 ROMSize, UINT32 DataStart, UINT32 Data
 			memset(ym2610->AP_ROMUsage, 0x02, ROMSize);
 		}
 		
+		ROM_BORDER_CHECK
 		memcpy(ym2610->AP_ROMData + DataStart, ROMData, DataLength);
 		memset(ym2610->AP_ROMUsage + DataStart, 0x00, DataLength);
 		break;
@@ -1949,10 +2755,25 @@ void write_rom_data(UINT8 ROMType, UINT32 ROMSize, UINT32 DataStart, UINT32 Data
 			ym2610->DeltaT.memory_usg = ym2610->DT_ROMUsage;
 		}
 		
+		ROM_BORDER_CHECK
 		memcpy(ym2610->DT_ROMData + DataStart, ROMData, DataLength);
 		memset(ym2610->DT_ROMUsage + DataStart, 0x00, DataLength);
 		break;
 	case 0x84:	// YMF278B ROM
+		ymf278 = &ChDat->YMF278B;
+		
+		if (ymf278->ROMSize != ROMSize)
+		{
+			ymf278->ROMData = (UINT8*)realloc(ymf278->ROMData, ROMSize);
+			ymf278->ROMUsage = (UINT8*)realloc(ymf278->ROMUsage, ROMSize);
+			ymf278->ROMSize = ROMSize;
+			memset(ymf278->ROMData, 0xFF, ROMSize);
+			memset(ymf278->ROMUsage, 0x02, ROMSize);
+		}
+		
+		ROM_BORDER_CHECK
+		memcpy(ymf278->ROMData + DataStart, ROMData, DataLength);
+		memset(ymf278->ROMUsage + DataStart, 0x00, DataLength);
 		break;
 	case 0x85:	// YMF271 ROM
 		ymf271 = &ChDat->YMF271;
@@ -1966,6 +2787,7 @@ void write_rom_data(UINT8 ROMType, UINT32 ROMSize, UINT32 DataStart, UINT32 Data
 			memset(ymf271->ROMUsage, 0x02, ROMSize);
 		}
 		
+		ROM_BORDER_CHECK
 		memcpy(ymf271->ROMData + DataStart, ROMData, DataLength);
 		memset(ymf271->ROMUsage + DataStart, 0x00, DataLength);
 		break;
@@ -1981,8 +2803,25 @@ void write_rom_data(UINT8 ROMType, UINT32 ROMSize, UINT32 DataStart, UINT32 Data
 			memset(ymz280b->ROMUsage, 0x02, ROMSize);
 		}
 		
+		ROM_BORDER_CHECK
 		memcpy(ymz280b->ROMData + DataStart, ROMData, DataLength);
 		memset(ymz280b->ROMUsage + DataStart, 0x00, DataLength);
+		break;
+	case 0x87:	// YMF278B RAM
+		ymf278 = &ChDat->YMF278B;
+		
+		if (ymf278->RAMSize != ROMSize)
+		{
+			ymf278->RAMData = (UINT8*)realloc(ymf278->RAMData, ROMSize);
+			ymf278->RAMUsage = (UINT8*)realloc(ymf278->RAMUsage, ROMSize);
+			ymf278->RAMSize = ROMSize;
+			memset(ymf278->RAMData, 0xFF, ROMSize);
+			memset(ymf278->RAMUsage, 0x02, ROMSize);
+		}
+		
+		ROM_BORDER_CHECK
+		memcpy(ymf278->RAMData + DataStart, ROMData, DataLength);
+		memset(ymf278->RAMUsage + DataStart, 0x00, DataLength);
 		break;
 	case 0x88:	// Y8950 DELTA-T ROM
 		y8950 = &ChDat->Y8950;
@@ -2000,8 +2839,26 @@ void write_rom_data(UINT8 ROMType, UINT32 ROMSize, UINT32 DataStart, UINT32 Data
 			y8950->DeltaT.memory_usg = y8950->DT_ROMUsage;
 		}
 		
+		ROM_BORDER_CHECK
 		memcpy(y8950->DT_ROMData + DataStart, ROMData, DataLength);
 		memset(y8950->DT_ROMUsage + DataStart, 0x00, DataLength);
+		break;
+	case 0x89:	// MultiPCM ROM
+		multipcm = &ChDat->MultiPCM;
+		
+		if (multipcm->ROMSize != ROMSize)
+		{
+			multipcm->ROMData = (UINT8*)realloc(multipcm->ROMData, ROMSize);
+			multipcm->ROMUsage = (UINT8*)realloc(multipcm->ROMUsage, ROMSize);
+			multipcm->ROMSize = ROMSize;
+			memset(multipcm->ROMData, 0xFF, ROMSize);
+			memset(multipcm->ROMUsage, 0x02, ROMSize);
+			memset(multipcm->SmplMask, 0x00, 0x200);
+		}
+		
+		ROM_BORDER_CHECK
+		memcpy(multipcm->ROMData + DataStart, ROMData, DataLength);
+		memset(multipcm->ROMUsage + DataStart, 0x00, DataLength);
 		break;
 	case 0x8A:	// uPD7759 ROM
 		upd7759 = &ChDat->UPD7759;
@@ -2015,6 +2872,7 @@ void write_rom_data(UINT8 ROMType, UINT32 ROMSize, UINT32 DataStart, UINT32 Data
 			memset(upd7759->ROMUsage, 0x02, ROMSize);
 		}
 		
+		ROM_BORDER_CHECK
 		memcpy(upd7759->ROMData + DataStart, ROMData, DataLength);
 		memset(upd7759->ROMUsage + DataStart, 0x00, DataLength);
 		break;
@@ -2030,6 +2888,7 @@ void write_rom_data(UINT8 ROMType, UINT32 ROMSize, UINT32 DataStart, UINT32 Data
 			memset(okim6295->ROMUsage, 0x02, ROMSize);
 		}
 		
+		ROM_BORDER_CHECK
 		memcpy(okim6295->ROMData + DataStart, ROMData, DataLength);
 		memset(okim6295->ROMUsage + DataStart, 0x00, DataLength);
 		break;
@@ -2045,6 +2904,7 @@ void write_rom_data(UINT8 ROMType, UINT32 ROMSize, UINT32 DataStart, UINT32 Data
 			memset(k054539->ROMUsage, 0x02, ROMSize);
 		}
 		
+		ROM_BORDER_CHECK
 		memcpy(k054539->ROMData + DataStart, ROMData, DataLength);
 		memset(k054539->ROMUsage + DataStart, 0x00, DataLength);
 		break;
@@ -2060,6 +2920,7 @@ void write_rom_data(UINT8 ROMType, UINT32 ROMSize, UINT32 DataStart, UINT32 Data
 			memset(c140->ROMUsage, 0x02, ROMSize);
 		}
 		
+		ROM_BORDER_CHECK
 		memcpy(c140->ROMData + DataStart, ROMData, DataLength);
 		memset(c140->ROMUsage + DataStart, 0x00, DataLength);
 		break;
@@ -2075,6 +2936,7 @@ void write_rom_data(UINT8 ROMType, UINT32 ROMSize, UINT32 DataStart, UINT32 Data
 			memset(k053260->ROMUsage, 0x02, ROMSize);
 		}
 		
+		ROM_BORDER_CHECK
 		memcpy(k053260->ROMData + DataStart, ROMData, DataLength);
 		memset(k053260->ROMUsage + DataStart, 0x00, DataLength);
 		break;
@@ -2090,11 +2952,59 @@ void write_rom_data(UINT8 ROMType, UINT32 ROMSize, UINT32 DataStart, UINT32 Data
 			memset(qsound->ROMUsage, 0x02, ROMSize);
 		}
 		
+		ROM_BORDER_CHECK
 		memcpy(qsound->ROMData + DataStart, ROMData, DataLength);
 		memset(qsound->ROMUsage + DataStart, 0x00, DataLength);
 		break;
+	case 0x90:	// ES5506 ROM
+		break;
+	case 0x91:	// X1-010 ROM
+		x1_010 = &ChDat->X1_010;
+		
+		if (x1_010->ROMSize != ROMSize)
+		{
+			x1_010->ROMData = (UINT8*)realloc(x1_010->ROMData, ROMSize);
+			x1_010->ROMUsage = (UINT8*)realloc(x1_010->ROMUsage, ROMSize);
+			x1_010->ROMSize = ROMSize;
+			memset(x1_010->ROMData, 0xFF, ROMSize);
+			memset(x1_010->ROMUsage, 0x02, ROMSize);
+		}
+		memcpy(x1_010->ROMData + DataStart, ROMData, DataLength);
+		memset(x1_010->ROMUsage + DataStart, 0x00, DataLength);
+		break;
+	case 0x92:	// C352 ROM
+		c352 = &ChDat->C352;
+		
+		if (c352->ROMSize != ROMSize)
+		{
+			c352->ROMData = (UINT8*)realloc(c352->ROMData, ROMSize);
+			c352->ROMUsage = (UINT8*)realloc(c352->ROMUsage, ROMSize);
+			c352->ROMSize = ROMSize;
+			memset(c352->ROMData, 0xFF, ROMSize);
+			memset(c352->ROMUsage, 0x02, ROMSize);
+		}
+		
+		memcpy(c352->ROMData + DataStart, ROMData, DataLength);
+		memset(c352->ROMUsage + DataStart, 0x00, DataLength);
+		break;
+	case 0x93:	// GA20 ROM
+		ga20 = &ChDat->GA20;
+		
+		if (ga20->ROMSize != ROMSize)
+		{
+			ga20->ROMData = (UINT8*)realloc(ga20->ROMData, ROMSize);
+			ga20->ROMUsage = (UINT8*)realloc(ga20->ROMUsage, ROMSize);
+			ga20->ROMSize = ROMSize;
+			memset(ga20->ROMData, 0xFF, ROMSize);
+			memset(ga20->ROMUsage, 0x02, ROMSize);
+		}
+		
+		memcpy(ga20->ROMData + DataStart, ROMData, DataLength);
+		memset(ga20->ROMUsage + DataStart, 0x00, DataLength);
+		break;
 	case 0xC0:	// RF5C68 RAM
-		rf5c = &ChDat->RF5C68;
+	case 0xC1:	// RF5C164 RAM
+		rf5c = (ROMType == 0xC0) ? &ChDat->RF5C68 : &ChDat->RF5C164;
 		
 		ROMSize = 0x10000;
 		if (rf5c->RAMSize != ROMSize)
@@ -2107,25 +3017,43 @@ void write_rom_data(UINT8 ROMType, UINT32 ROMSize, UINT32 DataStart, UINT32 Data
 		}
 		
 		DataStart += rf5c->SelBank;
+		ROM_BORDER_CHECK
 		memcpy(rf5c->RAMData + DataStart, ROMData, DataLength);
 		memset(rf5c->RAMUsage + DataStart, 0x00, DataLength);
 		break;
-	case 0xC1:	// RF5C164 RAM
-		rf5c = &ChDat->RF5C164;
+	case 0xC2:	// NES APU ROM Bank
+		nes_apu = &ChDat->NES_APU;
 		
 		ROMSize = 0x10000;
-		if (rf5c->RAMSize != ROMSize)
+		if (nes_apu->ROMSize != ROMSize)
 		{
-			rf5c->RAMData = (UINT8*)realloc(rf5c->RAMData, ROMSize);
-			rf5c->RAMUsage = (UINT8*)realloc(rf5c->RAMUsage, ROMSize);
-			rf5c->RAMSize = ROMSize;
-			memset(rf5c->RAMData, 0xFF, ROMSize);
-			memset(rf5c->RAMUsage, 0x02, ROMSize);
+			nes_apu->ROMData = (UINT8*)realloc(nes_apu->ROMData, ROMSize);
+			nes_apu->ROMUsage = (UINT8*)realloc(nes_apu->ROMUsage, ROMSize);
+			nes_apu->ROMSize = ROMSize;
+			memset(nes_apu->ROMData, 0xFF, ROMSize);
+			memset(nes_apu->ROMUsage, 0x02, ROMSize);
 		}
 		
-		DataStart += rf5c->SelBank;
-		memcpy(rf5c->RAMData + DataStart, ROMData, DataLength);
-		memset(rf5c->RAMUsage + DataStart, 0x00, DataLength);
+		ROM_BORDER_CHECK
+		memcpy(nes_apu->ROMData + DataStart, ROMData, DataLength);
+		memset(nes_apu->ROMUsage + DataStart, 0x00, DataLength);
+		break;
+	case 0xE1:	// ES5503 RAM
+		es5503 = &ChDat->ES5503;
+		
+		ROMSize = 0x20000;
+		if (es5503->ROMSize != ROMSize)
+		{
+			es5503->ROMData = (UINT8*)realloc(es5503->ROMData, ROMSize);
+			es5503->ROMUsage = (UINT8*)realloc(es5503->ROMUsage, ROMSize);
+			es5503->ROMSize = ROMSize;
+			memset(es5503->ROMData, 0xFF, ROMSize);
+			memset(es5503->ROMUsage, 0x02, ROMSize);
+		}
+		
+		ROM_BORDER_CHECK
+		memcpy(es5503->ROMData + DataStart, ROMData, DataLength);
+		memset(es5503->ROMUsage + DataStart, 0x00, DataLength);
 		break;
 	}
 	
@@ -2140,13 +3068,20 @@ UINT32 GetROMMask(UINT8 ROMType, UINT8** MaskData)
 	Y8950_DATA* y8950;
 	YMZ280B_DATA* ymz280b;
 	RF5C_DATA* rf5c;
+	NES_APU_DATA* nes_apu;
+	YMF278B_DATA* ymf278;
 	YMF271_DATA* ymf271;
 	UPD7759_DATA* upd7759;
 	OKIM6295_DATA* okim6295;
+	MULTIPCM_DATA* multipcm;
 	K054539_DATA* k054539;
 	C140_DATA* c140;
 	K053260_DATA* k053260;
 	QSOUND_DATA* qsound;
+	ES5503_DATA* es5503;
+	X1_010_DATA* x1_010;
+	C352_DATA* c352;
+	GA20_DATA* ga20;
 	
 	switch(ROMType)
 	{
@@ -2171,7 +3106,10 @@ UINT32 GetROMMask(UINT8 ROMType, UINT8** MaskData)
 		*MaskData = ym2610->DT_ROMUsage;
 		return ym2610->DT_ROMSize;
 	case 0x84:	// YMF278B ROM
-		break;
+		ymf278 = &ChDat->YMF278B;
+		
+		*MaskData = ymf278->ROMUsage;
+		return ymf278->ROMSize;
 	case 0x85:	// YMF271 ROM
 		ymf271 = &ChDat->YMF271;
 		
@@ -2182,11 +3120,21 @@ UINT32 GetROMMask(UINT8 ROMType, UINT8** MaskData)
 		
 		*MaskData = ymz280b->ROMUsage;
 		return ymz280b->ROMSize;
+	case 0x87:	// YMF278B RAM
+		ymf278 = &ChDat->YMF278B;
+		
+		*MaskData = ymf278->RAMUsage;
+		return ymf278->RAMSize;
 	case 0x88:	// Y8950 DELTA-T ROM
 		y8950 = &ChDat->Y8950;
 		
 		*MaskData = y8950->DT_ROMUsage;
 		return y8950->DT_ROMSize;
+	case 0x89:	// MultiPCM ROM
+		multipcm = &ChDat->MultiPCM;
+		
+		*MaskData = multipcm->ROMUsage;
+		return multipcm->ROMSize;
 	case 0x8A:	// uPD7759 ROM
 		upd7759 = &ChDat->UPD7759;
 		
@@ -2218,6 +3166,23 @@ UINT32 GetROMMask(UINT8 ROMType, UINT8** MaskData)
 		
 		*MaskData = qsound->ROMUsage;
 		return qsound->ROMSize;
+	case 0x90:	// ES5506 ROM
+		break;
+	case 0x91:	// X1-010 ROM
+		x1_010 = &ChDat->X1_010;
+		
+		*MaskData = x1_010->ROMUsage;
+		return x1_010->ROMSize;
+	case 0x92:	// C352 ROM
+		c352 = &ChDat->C352;
+		
+		*MaskData = c352->ROMUsage;
+		return c352->ROMSize;
+	case 0x93:	// GA20 ROM
+		ga20 = &ChDat->GA20;
+		
+		*MaskData = ga20->ROMUsage;
+		return ga20->ROMSize;
 	case 0xC0:	// RF5C68 RAM
 		rf5c = &ChDat->RF5C68;
 		
@@ -2228,6 +3193,16 @@ UINT32 GetROMMask(UINT8 ROMType, UINT8** MaskData)
 		
 		*MaskData = rf5c->RAMUsage;
 		return rf5c->RAMSize;
+	case 0xC2:	// NES APU ROM Bank
+		nes_apu = &ChDat->NES_APU;
+		
+		*MaskData = nes_apu->ROMUsage;
+		return nes_apu->ROMSize;
+	case 0xE1:	// ES5503 RAM
+		es5503 = &ChDat->ES5503;
+		
+		*MaskData = es5503->ROMUsage;
+		return es5503->ROMSize;
 	}
 	
 	return 0x00;
@@ -2241,13 +3216,20 @@ UINT32 GetROMData(UINT8 ROMType, UINT8** ROMData)
 	Y8950_DATA* y8950;
 	YMZ280B_DATA* ymz280b;
 	RF5C_DATA* rf5c;
+	NES_APU_DATA* nes_apu;
+	YMF278B_DATA* ymf278;
 	YMF271_DATA* ymf271;
 	UPD7759_DATA* upd7759;
 	OKIM6295_DATA* okim6295;
+	MULTIPCM_DATA* multipcm;
 	K054539_DATA* k054539;
 	C140_DATA* c140;
 	K053260_DATA* k053260;
 	QSOUND_DATA* qsound;
+	ES5503_DATA* es5503;
+	X1_010_DATA* x1_010;
+	C352_DATA* c352;
+	GA20_DATA* ga20;
 	
 	switch(ROMType)
 	{
@@ -2272,7 +3254,10 @@ UINT32 GetROMData(UINT8 ROMType, UINT8** ROMData)
 		*ROMData = ym2610->DT_ROMData;
 		return ym2610->DT_ROMSize;
 	case 0x84:	// YMF278B ROM
-		break;
+		ymf278 = &ChDat->YMF278B;
+		
+		*ROMData = ymf278->ROMData;
+		return ymf278->ROMSize;
 	case 0x85:	// YMF271 ROM
 		ymf271 = &ChDat->YMF271;
 		
@@ -2283,11 +3268,21 @@ UINT32 GetROMData(UINT8 ROMType, UINT8** ROMData)
 		
 		*ROMData = ymz280b->ROMData;
 		return ymz280b->ROMSize;
+	case 0x87:	// YMF278B RAM
+		ymf278 = &ChDat->YMF278B;
+		
+		*ROMData = ymf278->RAMData;
+		return ymf278->RAMSize;
 	case 0x88:	// Y8950 DELTA-T ROM
 		y8950 = &ChDat->Y8950;
 		
 		*ROMData = y8950->DT_ROMData;
 		return y8950->DT_ROMSize;
+	case 0x89:	// MultiPCM ROM
+		multipcm = &ChDat->MultiPCM;
+		
+		*ROMData = multipcm->ROMData;
+		return multipcm->ROMSize;
 	case 0x8A:	// uPD7759 ROM
 		upd7759 = &ChDat->UPD7759;
 		
@@ -2318,6 +3313,23 @@ UINT32 GetROMData(UINT8 ROMType, UINT8** ROMData)
 		
 		*ROMData = qsound->ROMData;
 		return qsound->ROMSize;
+	case 0x90:	// ES5506 ROM
+		break;
+	case 0x91:	// X1-010 ROM
+		x1_010 = &ChDat->X1_010;
+		
+		*ROMData = x1_010->ROMData;
+		return x1_010->ROMSize;
+	case 0x92:	// C352 ROM
+		c352 = &ChDat->C352;
+		
+		*ROMData = c352->ROMData;
+		return c352->ROMSize;
+	case 0x93:	// GA20 ROM
+		ga20 = &ChDat->GA20;
+		
+		*ROMData = ga20->ROMData;
+		return ga20->ROMSize;
 	case 0xC0:	// RF5C68 RAM
 		rf5c = &ChDat->RF5C68;
 		
@@ -2328,6 +3340,16 @@ UINT32 GetROMData(UINT8 ROMType, UINT8** ROMData)
 		
 		*ROMData = rf5c->RAMData;
 		return rf5c->RAMSize;
+	case 0xC2:	// NES APU ROM Bank
+		nes_apu = &ChDat->NES_APU;
+		
+		*ROMData = nes_apu->ROMData;
+		return nes_apu->ROMSize;
+	case 0xE1:	// ES5503 RAM
+		es5503 = &ChDat->ES5503;
+		
+		*ROMData = es5503->ROMData;
+		return es5503->ROMSize;
 	}
 	
 	return 0x00;

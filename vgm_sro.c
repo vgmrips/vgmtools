@@ -1,6 +1,7 @@
 // vgm_sro.c - VGM Sample-ROM Optimizer
 //
 
+#include "compat.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include "stdbool.h"
@@ -39,11 +40,20 @@ void ymz280b_write(UINT8 Register, UINT8 Data);
 void rf5c68_write(UINT8 Register, UINT8 Data);
 void rf5c164_write(UINT8 Register, UINT8 Data);
 void ymf271_write(UINT8 Port, UINT8 Register, UINT8 Data);
+void nes_apu_write(UINT8 Register, UINT8 Data);
+void multipcm_write(UINT8 Port, UINT8 Data);
+void multipcm_bank_write(UINT8 Port, UINT16 Data);
+void upd7759_write(UINT8 Port, UINT8 Data);
 void okim6295_write(UINT8 Offset, UINT8 Data);
 void k054539_write(UINT8 Port, UINT8 Offset, UINT8 Data);
 void c140_write(UINT8 Port, UINT8 Offset, UINT8 Data);
 void k053260_write(UINT8 Register, UINT8 Data);
 void qsound_write(UINT8 Offset, UINT16 Value);
+void x1_010_write(UINT16 Offset, UINT8 Data);
+void c352_write(UINT16 Offset, UINT16 Value);
+void ga20_write(UINT8 Register, UINT8 Data);
+void es5503_write(UINT8 Register, UINT8 Data);
+void ymf278b_write(UINT8 Port, UINT8 Register, UINT8 Data);
 void write_rom_data(UINT8 ROMType, UINT32 ROMSize, UINT32 DataStart, UINT32 DataLength,
 					const UINT8* ROMData);
 UINT32 GetROMMask(UINT8 ROMType, UINT8** MaskData);
@@ -63,11 +73,12 @@ typedef struct rom_region_list
 } ROM_RGN_LIST;
 
 
-#define ROM_TYPES	0x10
+#define ROM_TYPES	0x16
 const UINT8 ROM_LIST[ROM_TYPES] =
-{	0x80, 0x81, 0x82, 0x83, 0x85, 0x86, 0x88,
-	0x89, 0x8A, 0x8B, 0x8C, 0x8D, 0x8E, 0x8F,
-	0xC0, 0xC1};
+{	0x80, 0x81, 0x82, 0x83, 0x84, 0x85, 0x86,
+	0x88, 0x89, 0x8A, 0x8B, 0x8C, 0x8D, 0x8E,
+	0x8F, 0x91, 0x92, 0x93,
+	0xC0, 0xC1, 0xC2, 0xE1};
 
 
 VGM_HEADER VGMHead;
@@ -93,7 +104,7 @@ int main(int argc, char* argv[])
 	printf("File Name:\t");
 	if (argc <= 0x01)
 	{
-		gets(FileName);
+		gets_s(FileName, sizeof(FileName));
 	}
 	else
 	{
@@ -122,8 +133,10 @@ int main(int argc, char* argv[])
 		! VGMHead.lngHzY8950 && ! VGMHead.lngHzYMZ280B && ! VGMHead.lngHzRF5C68 &&
 		! VGMHead.lngHzRF5C164 && ! VGMHead.lngHzYMF271 && ! VGMHead.lngHzOKIM6295 &&
 		! VGMHead.lngHzK054539 && ! VGMHead.lngHzC140 && ! VGMHead.lngHzK053260 &&
-		! VGMHead.lngHzQSound && ! VGMHead.lngHzUPD7759 /*&& ! VGMHead.lngHzMultiPCM &&
-		! VGMHead.lngHzNESAPU*/)
+		! VGMHead.lngHzQSound && ! VGMHead.lngHzUPD7759 && ! VGMHead.lngHzMultiPCM &&
+		! VGMHead.lngHzNESAPU && ! VGMHead.lngHzES5503 && /*! VGMHead.lngHzES5506 &&*/
+		! VGMHead.lngHzGA20 && ! VGMHead.lngHzX1_010 && ! VGMHead.lngHzC352 &&
+		! VGMHead.lngHzYMF278B)
 	{
 		printf("No chips with Sample-ROM used!\n");
 		ErrVal = 2;
@@ -140,24 +153,27 @@ int main(int argc, char* argv[])
 	EnumerateROMRegions();
 	OptimizeVGMSampleROM();
 	
-	if (argc > 0x02)
-		strcpy(FileName, argv[0x02]);
-	else
-		strcpy(FileName, "");
-	if (! FileName[0x00])
+	if (DstDataLen < VGMDataLen)
 	{
-		strcpy(FileName, FileBase);
-		strcat(FileName, "_optimized.vgm");
+		if (argc > 0x02)
+			strcpy(FileName, argv[0x02]);
+		else
+			strcpy(FileName, "");
+		if (! FileName[0x00])
+		{
+			strcpy(FileName, FileBase);
+			strcat(FileName, "_optimized.vgm");
+		}
+		WriteVGMFile(FileName);
 	}
-	WriteVGMFile(FileName);
 	
 BreakProgress:
 	free(VGMData);
 	free(DstData);
 	for (CurROM = 0x00; CurROM < ROM_TYPES; CurROM ++)
 	{
-		free(ROMRgnLst[CurROM][0x00].Regions);
-		free(ROMRgnLst[CurROM][0x01].Regions);
+		free(ROMRgnLst[CurROM][0x00].Regions);	ROMRgnLst[CurROM][0x00].Regions = NULL;
+		free(ROMRgnLst[CurROM][0x01].Regions);	ROMRgnLst[CurROM][0x01].Regions = NULL;
 	}
 	
 EndProgram:
@@ -422,15 +438,6 @@ static void FindUsedROMData(void)
 				{
 				case 0x00:	// Database Block
 				case 0x40:
-					/*switch(TempByt & 0x3F)
-					{
-					case 0x00:	// YM2612 PCM Database
-						break;
-					case 0x01:	// RF5C68 PCM Database
-						break;
-					case 0x02:	// RF5C164 PCM Database
-						break;
-					}*/
 					break;
 				case 0x80:	// ROM/RAM Dump
 					memcpy(&ROMSize, &VGMPnt[0x07], 0x04);
@@ -439,9 +446,18 @@ static void FindUsedROMData(void)
 					write_rom_data(TempByt, ROMSize, DataStart, DataLen, &VGMPnt[0x0F]);
 					break;
 				case 0xC0:	// RAM Write
-					memcpy(&TempSht, &VGMPnt[0x07], 0x02);
-					DataLen = TempLng - 0x02;
-					write_rom_data(TempByt, 0x00, TempSht, DataLen, &VGMPnt[0x09]);
+					if (! (TempByt & 0x20))
+					{
+						memcpy(&TempSht, &VGMPnt[0x07], 0x02);
+						DataLen = TempLng - 0x02;
+						write_rom_data(TempByt, 0x00, TempSht, DataLen, &VGMPnt[0x09]);
+					}
+					else
+					{
+						memcpy(&DataStart, &VGMPnt[0x07], 0x04);
+						DataLen = TempLng - 0x04;
+						write_rom_data(TempByt, 0x00, DataStart, DataLen, &VGMPnt[0x0B]);
+					}
 					break;
 				}
 				CmdLen = 0x07 + TempLng;
@@ -487,11 +503,13 @@ static void FindUsedROMData(void)
 				CmdLen = 0x03;
 				break;
 			case 0xD0:	// YMF278B write
-				//chip_reg_write(0x0D, ChipID, VGMPnt[0x01], VGMPnt[0x02], VGMPnt[0x03]);
+				SetChipSet((VGMPnt[0x01] & 0x80) >> 7);
+				ymf278b_write(VGMPnt[0x01] & 0x7F, VGMPnt[0x02], VGMPnt[0x03]);
 				CmdLen = 0x04;
 				break;
 			case 0xD1:	// YMF271 write
-				ymf271_write(VGMPnt[0x01], VGMPnt[0x02], VGMPnt[0x03]);
+				SetChipSet((VGMPnt[0x01] & 0x80) >> 7);
+				ymf271_write(VGMPnt[0x01] & 0x7F, VGMPnt[0x02], VGMPnt[0x03]);
 				CmdLen = 0x04;
 				break;
 			case 0xB1:	// RF5C164 register write
@@ -511,15 +529,19 @@ static void FindUsedROMData(void)
 				CmdLen = 0x0C;
 				break;
 			case 0xB4:	// NES APU write
+				SetChipSet((VGMPnt[0x01] & 0x80) >> 7);
+				nes_apu_write(VGMPnt[0x01] & 0x7F, VGMPnt[0x02]);
 				CmdLen = 0x03;
 				break;
 			case 0xB5:	// MultiPCM write
-				//chip_reg_write(0x15, ChipID, 0x00, VGMPnt[0x01], VGMPnt[0x02]);
+				SetChipSet((VGMPnt[0x01] & 0x80) >> 7);
+				multipcm_write(VGMPnt[0x01] & 0x7F, VGMPnt[0x02]);
 				CmdLen = 0x03;
 				break;
 			case 0xC3:	// MultiPCM memory write
+				SetChipSet((VGMPnt[0x01] & 0x80) >> 7);
 				memcpy(&TempSht, &VGMPnt[0x02], 0x02);
-				//multipcm_bank_write(ChipID, VGMPnt[0x01], TempSht);
+				multipcm_bank_write(VGMPnt[0x01] & 0x7F, TempSht);
 				CmdLen = 0x04;
 				break;
 			case 0xB6:	// UPD7759 write
@@ -547,10 +569,41 @@ static void FindUsedROMData(void)
 				k053260_write(VGMPnt[0x01] & 0x7F, VGMPnt[0x02]);
 				CmdLen = 0x03;
 				break;
+			case 0xBF:	// GA20 write
+				SetChipSet((VGMPnt[0x01] & 0x80) >> 7);
+				ga20_write(VGMPnt[0x01] & 0x7F, VGMPnt[0x02]);
+				CmdLen = 0x03;
+				break;
 			case 0xC4:	// Q-Sound write
 				//SetChipSet(0x00);
 				qsound_write(VGMPnt[0x03], (VGMPnt[0x01] << 8) | (VGMPnt[0x02] << 0));
 				CmdLen = 0x04;
+				break;
+			case 0xD5:	// ES5503 write
+				SetChipSet((VGMPnt[0x01] & 0x80) >> 7);
+				es5503_write(VGMPnt[0x02], VGMPnt[0x03]);
+				CmdLen = 0x04;
+				break;
+			case 0xBE:	// ES5506 write (8-bit data)
+				SetChipSet((VGMPnt[0x01] & 0x80) >> 7);
+				//es5506_write(VGMPnt[0x01] & 0x7F, VGMPnt[0x02]);
+				CmdLen = 0x03;
+				break;
+			case 0xD6:	// ES5506 write (16-bit data)
+				SetChipSet((VGMPnt[0x01] & 0x80) >> 7);
+				//es5506_write((VGMPnt[0x01] & 0x7F) + 0x00, VGMPnt[0x02]);
+				//es5506_write((VGMPnt[0x01] & 0x7F) + 0x01, VGMPnt[0x03]);
+				CmdLen = 0x04;
+				break;
+			case 0xC8:	// X1-010 write
+				SetChipSet((VGMPnt[0x01] & 0x80) >> 7);
+				x1_010_write(((VGMPnt[0x01]&0x7f) << 8) | (VGMPnt[0x02] << 0), VGMPnt[0x03]);
+				CmdLen = 0x04;
+				break;
+			case 0xE1:	// C352 write
+				SetChipSet((VGMPnt[0x01] & 0x80) >> 7);
+				c352_write(((VGMPnt[0x01]&0x7f) << 8 | (VGMPnt[0x02] << 0)), (VGMPnt[0x03] << 8) | (VGMPnt[0x04] << 0));
+				CmdLen = 0x05;
 				break;
 			case 0x90:	// DAC Ctrl: Setup Chip
 				CmdLen = 0x05;
@@ -591,7 +644,7 @@ static void FindUsedROMData(void)
 					CmdLen = 0x05;
 					break;
 				default:
-					printf("Unknown Command: %hX\n", Command);
+					printf("Unknown Command: %X\n", Command);
 					CmdLen = 0x01;
 					//StopVGM = true;
 					break;
@@ -611,7 +664,7 @@ static void FindUsedROMData(void)
 			PrintMinSec(VGMHead.lngTotalSamples, TempStr);
 			TempLng = VGMPos - VGMHead.lngDataOffset;
 			ROMSize = VGMHead.lngEOFOffset - VGMHead.lngDataOffset;
-			printf("%04.3f %% - %s / %s (%08lX / %08lX) ...\r", (float)TempLng / ROMSize * 100,
+			printf("%04.3f %% - %s / %s (%08X / %08X) ...\r", (float)TempLng / ROMSize * 100,
 					MinSecStr, TempStr, VGMPos, VGMHead.lngEOFOffset);
 			CmdTimer = GetTickCount() + 200;
 		}
@@ -629,55 +682,76 @@ char* GetROMRegionText(UINT8 ROM_ID)
 	switch(ROM_ID)
 	{
 	case 0x80:	// SegaPCM ROM
-		RetStr ="SegaPCM";
+		RetStr = "SegaPCM";
 		break;
 	case 0x81:	// YM2608 DELTA-T ROM
-		RetStr ="YM2608 DELTA-T";
+		RetStr = "YM2608 DELTA-T";
 		break;
 	case 0x82:	// YM2610 ADPCM ROM
-		RetStr ="YM2610 ADPCM";
+		RetStr = "YM2610 ADPCM";
 		break;
 	case 0x83:	// YM2610 DELTA-T ROM
-		RetStr ="YM2610 DELTA-T";
+		RetStr = "YM2610 DELTA-T";
+		break;
+	case 0x84:	// YMF278B ROM
+		RetStr = "YMF278B";
 		break;
 	case 0x85:	// YMF271 ROM
-		RetStr ="YMF271";
+		RetStr = "YMF271";
 		break;
 	case 0x86:	// YMZ280B ROM
-		RetStr ="YMZ280B";
+		RetStr = "YMZ280B";
+		break;
+	case 0x87:	// YMF278B RAM
+		RetStr = "YMF278B RAM";
 		break;
 	case 0x88:	// Y8950 DELTA-T ROM
-		RetStr ="Y8950 DELTA-T";
+		RetStr = "Y8950 DELTA-T";
 		break;
-/*	case 0x89:	// MultiPCM ROM
-		RetStr ="MultiPCM";
-		break;*/
+	case 0x89:	// MultiPCM ROM
+		RetStr = "MultiPCM";
+		break;
 	case 0x8A:	// UPD7759 ROM
-		RetStr ="UPD7759";
+		RetStr = "UPD7759";
 		break;
 	case 0x8B:	// OKIM6295 ROM
-		RetStr ="OKIM6295";
+		RetStr = "OKIM6295";
 		break;
 	case 0x8C:	// K054539
-		RetStr ="K054539";
+		RetStr = "K054539";
 		break;
 	case 0x8D:	// C140
-		RetStr ="C140";
+		RetStr = "C140";
 		break;
 	case 0x8E:	// K053260
-		RetStr ="K053260";
+		RetStr = "K053260";
 		break;
 	case 0x8F:	// QSound
-		RetStr ="Q-Sound";
+		RetStr = "Q-Sound";
+		break;
+	case 0x90:	// ES5506 ROM
+		RetStr = "ES5506";
+		break;
+	case 0x91:	// X1-010
+		RetStr = "X1-010";
+		break;
+	case 0x92:	// C352
+		RetStr = "C352";
+		break;
+	case 0x93:	// GA20
+		RetStr = "GA20";
 		break;
 	case 0xC0:	// RF5C68 RAM
-		RetStr ="RF5C68";
+		RetStr = "RF5C68";
 		break;
 	case 0xC1:	// RF5C164 RAM
-		RetStr ="RF5C164";
+		RetStr = "RF5C164";
 		break;
 	case 0xC2:	// NES APU RAM
-		RetStr ="NES APU";
+		RetStr = "NES APU";
+		break;
+	case 0xE1:	// ES5503 RAM
+		RetStr = "ES5503";
 		break;
 	default:
 		RetStr = "???";
@@ -733,7 +807,7 @@ static void EnumerateROMRegions(void)
 			{
 				if (CurPos >= ROMSize || MaskVal != ROMMask[CurPos])
 				{
-					printf("%06lX\t%06lX\t%6lX\t%s\n", PosStart, CurPos - 1, CurPos - PosStart,
+					printf("%06X\t%06X\t%6X\t%s\n", PosStart, CurPos - 1, CurPos - PosStart,
 							STATUS_TEXT[MaskVal]);
 					
 					if (MaskVal == 0x01)
@@ -822,6 +896,49 @@ static void OptimizeVGMSampleROM(void)
 	DstPos = VGMHead.lngDataOffset;
 	NewLoopS = 0x00;
 	memcpy(DstData, VGMData, VGMPos);	// Copy Header
+	
+#if 1
+	for (TempByt = 0x00; TempByt < ROM_TYPES; TempByt ++)
+	{
+		for (ChipID = 0x00; ChipID < 0x02; ChipID ++)
+		{
+			if ((ROM_LIST[TempByt] & 0xC0) != 0xC0)
+				continue;
+			
+			SetChipSet(ChipID);
+			ROMSize = GetROMData(ROM_LIST[TempByt], &ROMData);
+			TempRRL = &ROMRgnLst[TempByt][ChipID];
+			for (CurRgn = 0x00; CurRgn < TempRRL->RegionCount; CurRgn ++)
+			{
+				TempRgn = &TempRRL->Regions[CurRgn];
+				DataLen = TempRgn->AddrEnd - TempRgn->AddrStart;
+				if (! DataLen)	// empty RAM writes make no sense, since the
+					continue;	// RAM size isn't changeable
+				CmdLen = (ROM_LIST[TempByt] & 0x20) ? 0x04 : 0x02;
+				CmdLen += DataLen;
+				
+				DstData[DstPos + 0x00] = 0x67;
+				DstData[DstPos + 0x01] = 0x66;
+				DstData[DstPos + 0x02] = ROM_LIST[TempByt];
+				memcpy(&DstData[DstPos + 0x03], &CmdLen, 0x04);
+				DstData[DstPos + 0x06] |= (ChipID << 7);	// set '2nd Chip'-bit
+				if (! (ROM_LIST[TempByt] & 0x20))
+				{
+					TempSht = TempRgn->AddrStart & 0xFFFF;
+					memcpy(&DstData[DstPos + 0x07], &TempSht, 0x02);
+					memcpy(&DstData[DstPos + 0x09], &ROMData[TempSht], DataLen);
+				}
+				else
+				{
+					memcpy(&DstData[DstPos + 0x07], &TempRgn->AddrStart, 0x04);
+					memcpy(&DstData[DstPos + 0x0B], &ROMData[TempRgn->AddrStart], DataLen);
+				}
+				DstPos += 0x07 + CmdLen;
+			}
+			TempRRL->IsWritten = true;
+		}
+	}
+#endif
 	
 #ifdef WIN32
 	CmdTimer = 0;
@@ -935,16 +1052,26 @@ static void OptimizeVGMSampleROM(void)
 							DataLen = TempRgn->AddrEnd - TempRgn->AddrStart;
 							if (! DataLen)	// empty RAM writes make no sense, since the
 								continue;	// RAM size isn't changeable
-							CmdLen = 0x02 + DataLen;
-							TempSht = TempRgn->AddrStart & 0xFFFF;
+							CmdLen = (TempByt & 0x20) ? 0x04 : 0x02;
+							CmdLen += DataLen;
 							
 							DstData[DstPos + 0x00] = 0x67;
 							DstData[DstPos + 0x01] = 0x66;
 							DstData[DstPos + 0x02] = TempByt;
 							memcpy(&DstData[DstPos + 0x03], &CmdLen, 0x04);
 							DstData[DstPos + 0x06] |= (ChipID << 7);	// set '2nd Chip'-bit
-							memcpy(&DstData[DstPos + 0x07], &TempSht, 0x02);
-							memcpy(&DstData[DstPos + 0x09], &ROMData[TempSht], DataLen);
+							
+							if (! (ROM_LIST[TempByt] & 0x20))
+							{
+								TempSht = TempRgn->AddrStart & 0xFFFF;
+								memcpy(&DstData[DstPos + 0x07], &TempSht, 0x02);
+								memcpy(&DstData[DstPos + 0x09], &ROMData[TempSht], DataLen);
+							}
+							else
+							{
+								memcpy(&DstData[DstPos + 0x07], &TempRgn->AddrStart, 0x04);
+								memcpy(&DstData[DstPos + 0x0B], &ROMData[TempRgn->AddrStart], DataLen);
+							}
 							DstPos += 0x07 + CmdLen;
 						}
 						TempRRL->IsWritten = true;
@@ -1002,7 +1129,7 @@ static void OptimizeVGMSampleROM(void)
 					CmdLen = 0x05;
 					break;
 				default:
-					printf("Unknown Command: %hX\n", Command);
+					printf("Unknown Command: %X\n", Command);
 					CmdLen = 0x01;
 					//StopVGM = true;
 					break;
@@ -1011,10 +1138,12 @@ static void OptimizeVGMSampleROM(void)
 			}
 		}
 		
+		// Note: In the case that the loop offset points to a Data Block,
+		//       it gets moved to the first command after it.
+		if (VGMPos == VGMHead.lngLoopOffset)
+			NewLoopS = DstPos;
 		if (WriteEvent)
 		{
-			if (VGMPos == VGMHead.lngLoopOffset)
-				NewLoopS = DstPos;
 			memcpy(&DstData[DstPos], &VGMData[VGMPos], CmdLen);
 			DstPos += CmdLen;
 		}
@@ -1029,12 +1158,14 @@ static void OptimizeVGMSampleROM(void)
 			PrintMinSec(VGMHead.lngTotalSamples, TempStr);
 			TempLng = VGMPos - VGMHead.lngDataOffset;
 			ROMSize = VGMHead.lngEOFOffset - VGMHead.lngDataOffset;
-			printf("%04.3f %% - %s / %s (%08lX / %08lX) ...\r", (float)TempLng / ROMSize * 100,
+			printf("%04.3f %% - %s / %s (%08X / %08X) ...\r", (float)TempLng / ROMSize * 100,
 					MinSecStr, TempStr, VGMPos, VGMHead.lngEOFOffset);
 			CmdTimer = GetTickCount() + 200;
 		}
 #endif
 	}
+	if (! NewLoopS && VGMHead.lngLoopOffset)
+		printf("Warning! Failed to relocate loop!\n");
 	if (VGMHead.lngLoopOffset)
 	{
 		TempLng = NewLoopS - 0x1C;
@@ -1042,7 +1173,7 @@ static void OptimizeVGMSampleROM(void)
 	}
 	printf("\t\t\t\t\t\t\t\t\r");
 	
-	if (VGMHead.lngGD3Offset)
+	if (VGMHead.lngGD3Offset && VGMHead.lngGD3Offset + 0x0B < VGMHead.lngEOFOffset)
 	{
 		VGMPos = VGMHead.lngGD3Offset;
 		memcpy(&TempLng, &VGMData[VGMPos + 0x00], 0x04);
@@ -1088,7 +1219,7 @@ static void PrintMinSec(const UINT32 SamplePos, char* TempStr)
 	TimeSec = (float)SamplePos / (float)44100.0;
 	TimeMin = (UINT16)TimeSec / 60;
 	TimeSec -= TimeMin * 60;
-	sprintf(TempStr, "%02hu:%05.2f", TimeMin, TimeSec);
+	sprintf(TempStr, "%02u:%05.2f", TimeMin, TimeSec);
 	
 	return;
 }

@@ -1,8 +1,6 @@
-// vgm_smp1.c - Remove 1 Sample Delays
+// opl_23.c - VGM Compressor
 //
-// TODO: Make it remove 2x 7# delays.
 
-#include "compat.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include "stdbool.h"
@@ -17,58 +15,57 @@
 
 #include "stdtype.h"
 #include "VGMFile.h"
+#include "vgm_lib.h"
 
 
 static bool OpenVGMFile(const char* FileName);
 static void WriteVGMFile(const char* FileName);
-static void RoundVGMData(void);
-static void WriteVGMHeader(UINT8* DstData, const UINT8* SrcData, const UINT32 EOFPos,
-						   const UINT32 LoopPos);
+static void CompressVGMData(void);
 #ifdef WIN32
 static void PrintMinSec(const UINT32 SamplePos, char* TempStr);
 #endif
-
-
-// recommend values: 1 for vgms with PSG, 45 for dro2vgm
-UINT16 MAX_SMALL_DELAY;	// for standard VGMs
-
 
 VGM_HEADER VGMHead;
 UINT32 VGMDataLen;
 UINT8* VGMData;
 UINT32 VGMPos;
-UINT32 VGMSmplPos;
-UINT8* DstData;
-UINT32 DstDataLen;
+INT32 VGMSmplPos;
+//UINT8* DstData;
+//UINT32 DstDataLen;
 char FileBase[0x100];
-bool DidSomething;
+
+bool OPL3to2;
+#define OPL3_LEFT	0x10
+#define OPL3_RIGHT	0x20
+UINT8 OPL2ChipMap[0x02] = {0x01, 0x00};
 
 int main(int argc, char* argv[])
 {
 	int argbase;
 	int ErrVal;
 	char FileName[0x100];
+	bool NeedProcessing;
+	UINT32 NewClk_OPL2;
+	UINT32 NewClk_OPL3;
 	
-	printf("Remove 1 Sample Delays\n----------------------\n\n");
+	printf("OPL 2<->3 Converter\n-------------------\n");
 	
 	ErrVal = 0;
-	MAX_SMALL_DELAY = 0x0000;
 	argbase = 0x01;
+	OPL3to2 = true;
 	if (argc >= argbase + 0x01)
 	{
-		if (! strncmp(argv[argbase + 0x00], "-delay:", 7))
+		if (! strcmp(argv[argbase + 0x00], "-toopl3"))
 		{
-			MAX_SMALL_DELAY = (UINT16)strtoul(argv[argbase + 0x00] + 7, NULL, 0);
+			OPL3to2 = false;
 			argbase ++;
 		}
 	}
-	if (! MAX_SMALL_DELAY)
-		MAX_SMALL_DELAY = 1;
 	
 	printf("File Name:\t");
 	if (argc <= argbase + 0x00)
 	{
-		gets_s(FileName, sizeof(FileName));
+		gets(FileName);
 	}
 	else
 	{
@@ -86,24 +83,56 @@ int main(int argc, char* argv[])
 	}
 	printf("\n");
 	
-	RoundVGMData();
-	
-	if (DidSomething)
+	NeedProcessing = false;
+	if (OPL3to2)
 	{
+		if (VGMHead.lngHzYMF262)
+		{
+			if (VGMHead.lngHzYMF262 & 0x40000000)
+			{
+				printf("Sorry, but I can't work with Dual OPL3!\n");
+			}
+			else
+			{
+				NeedProcessing = true;
+				NewClk_OPL2 = 0xC0000000 | (VGMHead.lngHzYMF262 / 4);
+				NewClk_OPL3 = 0x00;
+			}
+		}
+	}
+	else
+	{
+		if (VGMHead.lngHzYM3812)
+		{
+			if (~VGMHead.lngHzYM3812 & 0xC0000000)
+			{
+				printf("Sorry, but currently I need panned DualOPL2!\n");
+			}
+			else
+			{
+				NeedProcessing = true;
+				NewClk_OPL2 = 0x00;
+				NewClk_OPL3 = VGMHead.lngHzYM3812 * 4;
+			}
+		}
+	}
+	if (NeedProcessing)
+	{
+		memcpy(&VGMData[0x50], &NewClk_OPL2, 0x04);
+		memcpy(&VGMData[0x5C], &NewClk_OPL3, 0x04);
+		CompressVGMData();
+		
 		if (argc > argbase + 0x01)
 			strcpy(FileName, argv[argbase + 0x01]);
 		else
 			strcpy(FileName, "");
 		if (! FileName[0x00])
-		{
-			strcpy(FileName, FileBase);
-			strcat(FileName, "_no1smpl.vgm");
-		}
+			sprintf(FileName, "%s_opl%u.vgm", FileBase, (OPL3to2 ? 2 : 3));
 		WriteVGMFile(FileName);
 	}
 	
 	free(VGMData);
-	free(DstData);
+	//free(DstData);
 	
 EndProgram:
 #ifdef WIN32
@@ -139,6 +168,17 @@ static bool OpenVGMFile(const char* FileName)
 	gzread(hFile, &VGMHead, sizeof(VGM_HEADER));
 	
 	// Header preperations
+	if (VGMHead.lngVersion < 0x00000101)
+	{
+		VGMHead.lngRate = 0;
+	}
+	if (VGMHead.lngVersion < 0x00000110)
+	{
+		VGMHead.shtPSG_Feedback = 0x0000;
+		VGMHead.bytPSG_SRWidth = 0x00;
+		VGMHead.lngHzYM2612 = VGMHead.lngHzYM2413;
+		VGMHead.lngHzYM2151 = VGMHead.lngHzYM2413;
+	}
 	if (VGMHead.lngVersion < 0x00000150)
 	{
 		VGMHead.lngDataOffset = 0x00000000;
@@ -195,38 +235,27 @@ OpenErr:
 static void WriteVGMFile(const char* FileName)
 {
 	FILE* hFile;
-	const char* FileTitle;
-	
-	printf("\t\t\t\t\t\t\t\t\r");
-	FileTitle = strrchr(FileName, '\\');
-	if (FileTitle == NULL)
-		FileTitle = FileName;
-	else
-		FileTitle ++;
 	
 	hFile = fopen(FileName, "wb");
-	if (hFile == NULL)
-	{
-		printf("Error writing %s!\n", FileTitle);
-		return;
-	}
-	
-	fwrite(DstData, 0x01, DstDataLen, hFile);
+	//fwrite(DstData, 0x01, DstDataLen, hFile);
+	fwrite(VGMData, 0x01, VGMDataLen, hFile);
 	fclose(hFile);
-	printf("%s written.\n", FileTitle);
+	
+	printf("File written.\n");
 	
 	return;
 }
 
-static void RoundVGMData(void)
+static void CompressVGMData(void)
 {
-	UINT32 DstPos;
 	UINT8 ChipID;
 	UINT8 Command;
-	UINT32 CmdDelay;
 	UINT8 TempByt;
 	UINT16 TempSht;
 	UINT32 TempLng;
+	UINT32 ROMSize;
+	//UINT32 DataStart;
+	//UINT32 DataLen;
 #ifdef WIN32
 	UINT32 CmdTimer;
 	char TempStr[0x80];
@@ -234,33 +263,24 @@ static void RoundVGMData(void)
 #endif
 	UINT32 CmdLen;
 	bool StopVGM;
-	bool IsDelay;
-	bool WasDelay;
-	bool WriteEvent;
-	UINT32 LoopPos;
-	UINT32 DelayQueue;
+	UINT8* VGMPnt;
 	
-	DstData = (UINT8*)malloc(VGMDataLen);
+	//DstData = (UINT8*)malloc(VGMDataLen + 0x100);
 	VGMPos = VGMHead.lngDataOffset;
-	DstPos = VGMHead.lngDataOffset;
+	//DstPos = VGMHead.lngDataOffset;
+	VGMSmplPos = 0;
+	//memcpy(DstData, VGMData, VGMPos);	// Copy Header
 	
-	DidSomething = false;
 #ifdef WIN32
 	CmdTimer = 0;
 #endif
-	VGMSmplPos = 0x00;
-	DelayQueue = 0x00;
-	LoopPos = 0x00;
+	
 	StopVGM = false;
-	IsDelay = false;
 	while(VGMPos < VGMHead.lngEOFOffset)
 	{
 		CmdLen = 0x00;
 		Command = VGMData[VGMPos + 0x00];
-		WasDelay = IsDelay;
-		IsDelay = false;
 		
-		CmdDelay = 0x00;
 		if (Command >= 0x70 && Command <= 0x8F)
 		{
 			switch(Command & 0xF0)
@@ -268,75 +288,22 @@ static void RoundVGMData(void)
 			case 0x70:
 				TempSht = (Command & 0x0F) + 0x01;
 				VGMSmplPos += TempSht;
-				CmdDelay = TempSht;
-				IsDelay = true;
 				break;
 			case 0x80:
 				TempSht = Command & 0x0F;
 				VGMSmplPos += TempSht;
-				CmdDelay = TempSht;
 				break;
 			}
 			CmdLen = 0x01;
 		}
 		else
 		{
+			VGMPnt = &VGMData[VGMPos];
+			
 			// Cheat Mode (to use 2 instances of 1 chip)
 			ChipID = 0x00;
 			switch(Command)
 			{
-			case 0x30:
-				if (VGMHead.lngHzPSG & 0x40000000)
-				{
-					Command += 0x20;
-					ChipID = 0x01;
-				}
-				break;
-			case 0xA1:
-				if (VGMHead.lngHzYM2413 & 0x40000000)
-				{
-					Command -= 0x50;
-					ChipID = 0x01;
-				}
-				break;
-			case 0xA2:
-			case 0xA3:
-				if (VGMHead.lngHzYM2612 & 0x40000000)
-				{
-					Command -= 0x50;
-					ChipID = 0x01;
-				}
-				break;
-			case 0xA4:
-				if (VGMHead.lngHzYM2151 & 0x40000000)
-				{
-					Command -= 0x50;
-					ChipID = 0x01;
-				}
-				break;
-			case 0xA5:
-				if (VGMHead.lngHzYM2203 & 0x40000000)
-				{
-					Command -= 0x50;
-					ChipID = 0x01;
-				}
-				break;
-			case 0xA6:
-			case 0xA7:
-				if (VGMHead.lngHzYM2608 & 0x40000000)
-				{
-					Command -= 0x50;
-					ChipID = 0x01;
-				}
-				break;
-			case 0xA8:
-			case 0xA9:
-				if (VGMHead.lngHzYM2610 & 0x40000000)
-				{
-					Command -= 0x50;
-					ChipID = 0x01;
-				}
-				break;
 			case 0xAA:
 				if (VGMHead.lngHzYM3812 & 0x40000000)
 				{
@@ -358,6 +325,14 @@ static void RoundVGMData(void)
 					ChipID = 0x01;
 				}
 				break;
+			case 0xAE:
+			case 0xAF:
+				if (VGMHead.lngHzYMF262 & 0x40000000)
+				{
+					Command -= 0x50;
+					ChipID = 0x01;
+				}
+				break;
 			}
 			
 			switch(Command)
@@ -369,84 +344,90 @@ static void RoundVGMData(void)
 			case 0x62:	// 1/60s delay
 				TempSht = 735;
 				VGMSmplPos += TempSht;
-				CmdDelay = TempSht;
 				CmdLen = 0x01;
-				IsDelay = true;
 				break;
 			case 0x63:	// 1/50s delay
 				TempSht = 882;
 				VGMSmplPos += TempSht;
-				CmdDelay = TempSht;
 				CmdLen = 0x01;
-				IsDelay = true;
 				break;
 			case 0x61:	// xx Sample Delay
-				memcpy(&TempSht, &VGMData[VGMPos + 0x01], 0x02);
+				memcpy(&TempSht, &VGMPnt[0x01], 0x02);
 				VGMSmplPos += TempSht;
-				CmdDelay = TempSht;
-				CmdLen = 0x03;
-				IsDelay = true;
-				break;
-			case 0x50:	// SN76496 write
-				CmdLen = 0x02;
-				break;
-			case 0x51:	// YM2413 write
-				CmdLen = 0x03;
-				break;
-			case 0x52:	// YM2612 write port 0
-			case 0x53:	// YM2612 write port 1
-				CmdLen = 0x03;
-				break;
-			case 0x67:	// PCM Data Stream
-				TempByt = VGMData[VGMPos + 0x02];
-				memcpy(&TempLng, &VGMData[VGMPos + 0x03], 0x04);
-				TempLng &= 0x7FFFFFFF;
-				CmdLen = 0x07 + TempLng;
-				break;
-			case 0xE0:	// Seek to PCM Data Bank Pos
-				CmdLen = 0x05;
-				break;
-			case 0x4F:	// GG Stereo
-				CmdLen = 0x02;
-				break;
-			case 0x54:	// YM2151 write
-				CmdLen = 0x03;
-				break;
-			case 0xC0:	// Sega PCM memory write
-				CmdLen = 0x04;
-				break;
-			case 0xB0:	// RF5C68 register write
-				CmdLen = 0x03;
-				break;
-			case 0xC1:	// RF5C68 memory write
-				CmdLen = 0x04;
-				break;
-			case 0x55:	// YM2203
-				CmdLen = 0x03;
-				break;
-			case 0x56:	// YM2608 write port 0
-			case 0x57:	// YM2608 write port 1
-				CmdLen = 0x03;
-				break;
-			case 0x58:	// YM2610 write port 0
-			case 0x59:	// YM2610 write port 1
 				CmdLen = 0x03;
 				break;
 			case 0x5A:	// YM3812 write
-				CmdLen = 0x03;
-				break;
-			case 0x5B:	// YM3526 write
-				CmdLen = 0x03;
-				break;
-			case 0x5C:	// Y8950 write
+				if (! OPL3to2)
+				{
+					switch(VGMPnt[0x01] & 0xF0)
+					{
+					case 0xC0:
+						if (ChipID == 0x00)
+							VGMPnt[0x02] |= OPL3_LEFT;
+						else if (ChipID == 0x01)
+							VGMPnt[0x02] |= OPL3_RIGHT;
+						break;
+					}
+					
+					if (VGMPnt[0x01] == 0x05)
+					{
+						VGMPnt[0x00] = 0x5F;
+						VGMPnt[0x02] |= 0x01;
+					}
+					else if (VGMPnt[0x01] < 0x20)
+						VGMPnt[0x00] = 0x5E;
+					else
+						VGMPnt[0x00] = 0x5E + OPL2ChipMap[ChipID];
+				}
 				CmdLen = 0x03;
 				break;
 			case 0x5E:	// YMF262 write port 0
 			case 0x5F:	// YMF262 write port 1
+				TempByt = Command & 0x01;
+				if (OPL3to2)
+				{
+					switch(VGMPnt[0x01] & 0xF0)
+					{
+					case 0x00:
+						if (! TempByt && VGMPnt[0x01] == 0x01)
+							VGMPnt[0x02] |= 0x20;	// enforce Wave Forms
+						break;
+					case 0xC0:
+						if (TempByt == OPL2ChipMap[0x00] && (VGMPnt[0x02] & OPL3_RIGHT))
+							printf("Warning! Stereo mismatch at 0x%06!\n", VGMPos);
+						else if (TempByt == OPL2ChipMap[0x01] && (VGMPnt[0x02] & OPL3_LEFT))
+							printf("Warning! Stereo mismatch at 0x%06!\n", VGMPos);
+						break;
+					case 0xE0:
+					case 0xF0:
+						if (VGMPnt[0x02] & 0x04)
+							printf("Warning! Waveform %02 used at 0x%06!\n", VGMPnt[0x02], VGMPos);
+						break;
+					}
+					if (VGMPnt[0x01] < 0x20)
+						VGMPnt[0x00] = TempByt ? 0xAA : 0x5A;
+					else
+						VGMPnt[0x00] = OPL2ChipMap[TempByt] ? 0xAA : 0x5A;
+				}
 				CmdLen = 0x03;
 				break;
-			case 0x5D:	// YMZ280B write
-				CmdLen = 0x03;
+			case 0x50:	// SN76496 write
+				CmdLen = 0x02;
+				break;
+			case 0x67:	// PCM Data Stream
+				memcpy(&TempLng, &VGMPnt[0x03], 0x04);
+				
+				ChipID = (TempLng & 0x80000000) >> 31;
+				TempLng &= 0x7FFFFFFF;
+				
+				CmdLen = 0x07 + TempLng;
+				break;
+			case 0xE0:	// Seek to PCM Data Bank Pos
+				memcpy(&TempLng, &VGMPnt[0x01], 0x04);
+				CmdLen = 0x05;
+				break;
+			case 0x4F:	// GG Stereo
+				CmdLen = 0x02;
 				break;
 			case 0x68:	// PCM RAM write
 				CmdLen = 0x0C;
@@ -498,60 +479,7 @@ static void RoundVGMData(void)
 				break;
 			}
 		}
-		WriteEvent = ! IsDelay;
 		
-		if (VGMHead.lngLoopOffset && VGMPos == VGMHead.lngLoopOffset)
-		{
-			LoopPos = DstPos;
-			WasDelay = true;
-		}
-		if (IsDelay)
-		{
-			if (! DelayQueue && CmdDelay > MAX_SMALL_DELAY)
-			{
-				WriteEvent = true;
-			}
-			else if (CmdDelay <= MAX_SMALL_DELAY && ! WasDelay)
-			{
-				DelayQueue += CmdDelay;
-				DidSomething = true;
-			}
-			else
-			{
-				if (WasDelay)
-				{
-					CmdDelay = 0x00;
-					WriteEvent = true;
-				}
-				CmdDelay += DelayQueue;
-				while(CmdDelay)
-				{
-					if (CmdDelay <= 0xFFFF)
-						TempSht = (UINT16)CmdDelay;
-					else
-						TempSht = 0xFFFF;
-					
-					if (TempSht <= 0x10)
-					{
-						DstData[DstPos] = 0x70 | (TempSht - 0x01);
-						DstPos ++;
-					}
-					else
-					{
-						DstData[DstPos + 0x00] = 0x61;
-						memcpy(&DstData[DstPos + 0x01], &TempSht, 0x02);
-						DstPos += 0x03;
-					}
-					CmdDelay -= TempSht;
-				}
-				DelayQueue = 0x00;
-			}
-		}
-		if (WriteEvent)
-		{
-			memcpy(&DstData[DstPos], &VGMData[VGMPos], CmdLen);
-			DstPos += CmdLen;
-		}
 		VGMPos += CmdLen;
 		if (StopVGM)
 			break;
@@ -562,59 +490,14 @@ static void RoundVGMData(void)
 			PrintMinSec(VGMSmplPos, MinSecStr);
 			PrintMinSec(VGMHead.lngTotalSamples, TempStr);
 			TempLng = VGMPos - VGMHead.lngDataOffset;
-			CmdLen = VGMHead.lngEOFOffset - VGMHead.lngDataOffset;
-			printf("%04.3f %% - %s / %s (%08X / %08X) ...\r", (float)TempLng / CmdLen * 100,
+			ROMSize = VGMHead.lngEOFOffset - VGMHead.lngDataOffset;
+			printf("%04.3f %% - %s / %s (%08X / %08X) ...\r", (float)TempLng / ROMSize * 100,
 					MinSecStr, TempStr, VGMPos, VGMHead.lngEOFOffset);
 			CmdTimer = GetTickCount() + 200;
 		}
 #endif
 	}
-	VGMHead.lngTotalSamples = VGMSmplPos - DelayQueue;
-	
-	if (VGMHead.lngLoopOffset && ! LoopPos)
-		printf("Warning! Failed to relocate Loop Point!\n");
-	
-	WriteVGMHeader(DstData, VGMData, DstPos, LoopPos);
-	
-	return;
-}
-
-static void WriteVGMHeader(UINT8* DstData, const UINT8* SrcData, const UINT32 EOFPos,
-						   const UINT32 LoopPos)
-{
-	UINT32 CurPos;
-	UINT32 DstPos;
-	UINT32 CmdLen;
-	UINT32 TempLng;
-	
-	memcpy(DstData, VGMData, VGMHead.lngDataOffset);	// Copy Header
-	
-	memcpy(&DstData[0x18], &VGMHead.lngTotalSamples, 0x04);
-	TempLng = LoopPos;
-	if (TempLng)
-		TempLng -= 0x1C;
-	memcpy(&DstData[0x1C], &TempLng, 0x04);
-	
-	DstPos = EOFPos;
-	if (VGMHead.lngGD3Offset && VGMHead.lngGD3Offset + 0x0B < VGMHead.lngEOFOffset)
-	{
-		CurPos = VGMHead.lngGD3Offset;
-		memcpy(&TempLng, &VGMData[CurPos + 0x00], 0x04);
-		if (TempLng == FCC_GD3)
-		{
-			memcpy(&CmdLen, &VGMData[CurPos + 0x08], 0x04);
-			CmdLen += 0x0C;
-			
-			TempLng = DstPos - 0x14;
-			memcpy(&DstData[0x14], &TempLng, 0x04);
-			memcpy(&DstData[DstPos], &VGMData[CurPos], CmdLen);	// Copy GD3 Tag
-			DstPos += CmdLen;
-		}
-	}
-	
-	DstDataLen = DstPos;
-	TempLng = DstDataLen - 0x04;
-	memcpy(&DstData[0x04], &TempLng, 0x04);	// Write EOF Position
+	printf("\t\t\t\t\t\t\t\t\r");
 	
 	return;
 }

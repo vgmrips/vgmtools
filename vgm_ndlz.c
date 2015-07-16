@@ -1,6 +1,7 @@
 // vgm_ndlz.c - VGM Undualizer
 // (Thanks to nineko for the name)
 
+#include "compat.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include "stdbool.h"
@@ -62,7 +63,7 @@ int main(int argc, char* argv[])
 	printf("File Name:\t");
 	if (argc <= 0x01)
 	{
-		gets(FileName);
+		gets_s(FileName, sizeof(FileName));
 	}
 	else
 	{
@@ -85,7 +86,7 @@ int main(int argc, char* argv[])
 	
 	for (FileID = 0x00; FileID < MAX_VGMS; FileID ++)
 	{
-		sprintf(FileName, "%s_%hu.vgm", FileBase, FileID);
+		sprintf(FileName, "%s_%u.vgm", FileBase, FileID);
 		WriteVGMFile(FileName, &DstVGM[FileID]);
 		free(DstVGM[FileID].Data);
 	}
@@ -492,7 +493,7 @@ static void SplitVGMData(void)
 					CmdLen = 0x05;
 					break;
 				default:
-					printf("Unknown Command: %hX\n", Command);
+					printf("Unknown Command: %X\n", Command);
 					CmdLen = 0x01;
 					//StopVGM = true;
 					break;
@@ -537,7 +538,7 @@ static void SplitVGMData(void)
 		{
 			PrintMinSec(SrcSmplPos, MinSecStr);
 			PrintMinSec(SrcHead.lngTotalSamples, TempStr);
-			printf("%04.3f %% - %s / %s (%08lX / %08lX) ...\r", (float)SrcPos / SrcDataLen *
+			printf("%04.3f %% - %s / %s (%08X / %08X) ...\r", (float)SrcPos / SrcDataLen *
 					100, MinSecStr, TempStr, SrcPos, SrcDataLen);
 			CmdTimer = GetTickCount() + 200;
 		}
@@ -557,7 +558,7 @@ static void SplitVGMData(void)
 	}
 	printf("\t\t\t\t\t\t\t\t\r");
 	
-	if (SrcHead.lngGD3Offset)
+	if (SrcHead.lngGD3Offset && SrcHead.lngGD3Offset + 0x0B < SrcHead.lngEOFOffset)
 	{
 		SrcPos = SrcHead.lngGD3Offset;
 		memcpy(&TempLng, &SrcData[SrcPos + 0x00], 0x04);
@@ -619,7 +620,7 @@ static void PrintMinSec(const UINT32 SamplePos, char* TempStr)
 	TimeSec = (float)SamplePos / (float)44100.0;
 	TimeMin = (UINT16)TimeSec / 60;
 	TimeSec -= TimeMin * 60;
-	sprintf(TempStr, "%02hu:%05.2f", TimeMin, TimeSec);
+	sprintf(TempStr, "%02u:%05.2f", TimeMin, TimeSec);
 	
 	return;
 }

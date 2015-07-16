@@ -1,6 +1,7 @@
 // vgm_facc.c - Round VGM to Frames (Make VGM Frame Accurate)
 //
 
+#include "compat.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include "stdbool.h"
@@ -49,19 +50,22 @@ UINT16 RoundTo;
 int main(int argc, char* argv[])
 {
 	int ErrVal;
+	int argbase;
 	char FileName[0x100];
 	
 	printf("Make VGM Frame Accurate\n-----------------------\n\n");
 	
 	ErrVal = 0;
+	argbase = 1;
+	
 	printf("File Name:\t");
-	if (argc <= 0x01)
+	if (argc <= argbase)
 	{
-		gets(FileName);
+		gets_s(FileName, sizeof(FileName));
 	}
 	else
 	{
-		strcpy(FileName, argv[0x01]);
+		strcpy(FileName, argv[argbase]);
 		printf("%s\n", FileName);
 	}
 	if (! strlen(FileName))
@@ -76,6 +80,17 @@ int main(int argc, char* argv[])
 	printf("\n");
 	
 	RoundVGMData();
+	
+	if (argc > argbase + 0x01)
+		strcpy(FileName, argv[argbase + 0x01]);
+	else
+		strcpy(FileName, "");
+	if (! FileName[0x00])
+	{
+		strcpy(FileName, FileBase);
+		strcat(FileName, "_frame.vgm");
+	}
+	WriteVGMFile(FileName);
 	
 	free(VGMData);
 	free(DstData);
@@ -248,7 +263,7 @@ static void RoundVGMData(void)
 			printf("Error! VGM Frame Rate can't be rounded to whole samples!\n");
 			return;
 		}
-		printf("Warning! Unusual VGM Frame Rate: %lu\n", VGMHead.lngRate);
+		printf("Warning! Unusual VGM Frame Rate: %u\n", VGMHead.lngRate);
 		RoundTo = (UINT16)(44100 / VGMHead.lngRate);
 		DelayCmd = 0x00;
 		break;
@@ -508,7 +523,7 @@ static void RoundVGMData(void)
 					CmdLen = 0x05;
 					break;
 				default:
-					printf("Unknown Command: %hX\n", Command);
+					printf("Unknown Command: %X\n", Command);
 					CmdLen = 0x01;
 					//StopVGM = true;
 					break;
@@ -576,7 +591,7 @@ static void RoundVGMData(void)
 			PrintMinSec(VGMHead.lngTotalSamples, TempStr);
 			TempLng = VGMPos - VGMHead.lngDataOffset;
 			CmdLen = VGMHead.lngEOFOffset - VGMHead.lngDataOffset;
-			printf("%04.3f %% - %s / %s (%08lX / %08lX) ...\r", (float)TempLng / CmdLen * 100,
+			printf("%04.3f %% - %s / %s (%08X / %08X) ...\r", (float)TempLng / CmdLen * 100,
 					MinSecStr, TempStr, VGMPos, VGMHead.lngEOFOffset);
 			CmdTimer = GetTickCount() + 200;
 		}
@@ -588,11 +603,11 @@ static void RoundVGMData(void)
 	
 	WriteVGMHeader(DstData, VGMData, DstPos, SampleCount,
 					LoopPos, SampleCount - LoopSmpl);
-	sprintf(TempStr, "%s_frame.vgm", FileBase);
-	WriteVGMFile(TempStr);
+	/*sprintf(TempStr, "%s_frame.vgm", FileBase);
+	WriteVGMFile(TempStr);*/
 	
 	printf("Maximum Rounding Difference:\n");
-	printf("\t%ld at %06lX\n\t%ld at %06lX\n\t%ld at %06lX (first frame only)\n",
+	printf("\t%d at %06X\n\t%d at %06X\n\t%d at %06X (first frame only)\n",
 			RndErrMin, RndPosMin, RndErrMax, RndPosMax, RndErrMax1, RndPosMax1);
 	
 	return;
@@ -616,7 +631,7 @@ static void WriteVGMHeader(UINT8* DstData, const UINT8* SrcData, const UINT32 EO
 	memcpy(&DstData[0x20], &LoopSmpls, 0x04);
 	
 	DstPos = EOFPos;
-	if (VGMHead.lngGD3Offset)
+	if (VGMHead.lngGD3Offset && VGMHead.lngGD3Offset + 0x0B < VGMHead.lngEOFOffset)
 	{
 		CurPos = VGMHead.lngGD3Offset;
 		memcpy(&TempLng, &VGMData[CurPos + 0x00], 0x04);
@@ -648,7 +663,7 @@ static void PrintMinSec(const UINT32 SamplePos, char* TempStr)
 	TimeSec = (float)SamplePos / (float)44100.0;
 	TimeMin = (UINT16)TimeSec / 60;
 	TimeSec -= TimeMin * 60;
-	sprintf(TempStr, "%02hu:%05.2f", TimeMin, TimeSec);
+	sprintf(TempStr, "%02u:%05.2f", TimeMin, TimeSec);
 	
 	return;
 }
