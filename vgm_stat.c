@@ -247,7 +247,7 @@ static bool OpenVGMFile(const char* FileName)
 				fccHeader = strtoul(TempPnt + 1, NULL, 10);
 			else
 				fccHeader = 99;*/
-			sprintf(CurTrkEntry->Title, "%02lu ", TrackCount);
+			sprintf(CurTrkEntry->Title, "%02u ", TrackCount);
 			wcstombs(CurTrkEntry->Title + 0x03, VGMTag.strTrackNameE, TempLng - 0x03);
 		}
 		CurTrkEntry->Title[TempLng] = 0x00;
@@ -269,7 +269,7 @@ static bool OpenVGMFile(const char* FileName)
 		{
 			TempLng = strlen(TempPnt) + 0x03;
 			CurTrkEntry->Title = (char*)malloc(TempLng + 0x01);
-			sprintf(CurTrkEntry->Title, "%02lu ", TrackCount);
+			sprintf(CurTrkEntry->Title, "%02u ", TrackCount);
 			strcpy(CurTrkEntry->Title + 0x03, TempPnt);
 		}
 		TempPnt = strrchr(CurTrkEntry->Title, '.');
@@ -511,7 +511,7 @@ static void ShowFileStats(char* FileTitle)
 	PrintSampleTime(TimeTotal, SmplTotal, false);
 	PrintSampleTime(TimeLoop, SmplLoop, true);
 	
-	printf("%s\t%lu\t%lu\t%s\t%s\n", FileTitle, SmplTotal, SmplLoop, TimeTotal, TimeLoop);
+	printf("%s\t%u\t%u\t%s\t%s\n", FileTitle, SmplTotal, SmplLoop, TimeTotal, TimeLoop);
 	
 	return;
 }
@@ -538,9 +538,9 @@ static void PrintSampleTime(char* buffer, const UINT32 Samples, bool LoopMode)
 	HourVal = (UINT16)SmplVal;
 	
 	if (HourVal)
-		sprintf(buffer, "%2hu:%02hu:%02hu", HourVal, MinVal, SecVal);
+		sprintf(buffer, "%2u:%02u:%02u", HourVal, MinVal, SecVal);
 	else
-		sprintf(buffer, "%2hu:%02hu", MinVal, SecVal);
+		sprintf(buffer, "%2u:%02u", MinVal, SecVal);
 	
 	return;
 }

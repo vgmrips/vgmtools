@@ -1,6 +1,7 @@
 // vgm2txt.c - VGM Text Writer
 //
 
+#include "compat.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include "stdbool.h"
@@ -91,7 +92,7 @@ int main(int argc, char* argv[])
 	printf("File Name:\t");
 	if (argc <= 0x01)
 	{
-		gets(FileName);
+		gets_s(FileName, sizeof(FileName));
 	}
 	else
 	{
@@ -112,19 +113,19 @@ int main(int argc, char* argv[])
 	TimeMin = TimeSec = TimeMS = 0;
 	printf("Start Time:\t");
 	if (argc <= 0x02)
-		gets(FileName);
+		gets_s(FileName, sizeof(FileName));
 	else
 		strcpy(FileName, argv[0x02]);
-	sscanf(FileName, "%02lu:%02lu.%02lu", &TimeMin, &TimeSec, &TimeMS);
+	sscanf(FileName, "%02u:%02u.%02u", &TimeMin, &TimeSec, &TimeMS);
 	VGMWriteFrom = (TimeMin * 6000 + TimeSec * 100 + TimeMS) * 441;
 	
 	TimeMin = TimeSec = TimeMS = 0;
 	printf("End Time:\t");
 	if (argc <= 0x03)
-		gets(FileName);
+		gets_s(FileName, sizeof(FileName));
 	else
 		strcpy(FileName, argv[0x03]);
-	sscanf(FileName, "%02lu:%02lu.%02lu", &TimeMin, &TimeSec, &TimeMS);
+	sscanf(FileName, "%02u:%02u.%02u", &TimeMin, &TimeSec, &TimeMS);
 	VGMWriteTo = (TimeMin * 6000 + TimeSec * 100 + TimeMS) * 441;
 	//if (! VGMWriteTo)
 	//	VGMWriteTo = VGMHead.lngTotalSamples;
@@ -255,26 +256,26 @@ static void WriteVGM2Txt(const char* FileName)
 	fprintf(hFile, "VGM Header:\n");
 	memcpy(TempStr, &VGMData[0x00], 0x04);
 	fprintf(hFile, "VGM Signature:\t\t\"%s\"\n", TempStr);
-	fprintf(hFile, "File Version:\t\t0x%08lX (%lu.%02lX)\n", VGMHead.lngVersion,
+	fprintf(hFile, "File Version:\t\t0x%08X (%u.%02X)\n", VGMHead.lngVersion,
 					VGMHead.lngVersion >> 8, VGMHead.lngVersion & 0xFF);
-	fprintf(hFile, "EOF Offset:\t\t0x%08lX (absolute)\n", VGMHead.lngEOFOffset);
-	fprintf(hFile, "GD3 Tag Offset:\t\t0x%08lX (absolute)\n", VGMHead.lngGD3Offset);
-	fprintf(hFile, "Data Offset:\t\t0x%08lX (absolute)\n", VGMHead.lngDataOffset);
+	fprintf(hFile, "EOF Offset:\t\t0x%08X (absolute)\n", VGMHead.lngEOFOffset);
+	fprintf(hFile, "GD3 Tag Offset:\t\t0x%08X (absolute)\n", VGMHead.lngGD3Offset);
+	fprintf(hFile, "Data Offset:\t\t0x%08X (absolute)\n", VGMHead.lngDataOffset);
 	
 	PrintMinSec(VGMHead.lngTotalSamples, TempStr);
-	fprintf(hFile, "Total Length:\t\t%lu samples (%s s)\n", VGMHead.lngTotalSamples, TempStr);
-	fprintf(hFile, "Loop Point Offset:\t0x%08lX (absolute)\n", VGMHead.lngLoopOffset);
+	fprintf(hFile, "Total Length:\t\t%u samples (%s s)\n", VGMHead.lngTotalSamples, TempStr);
+	fprintf(hFile, "Loop Point Offset:\t0x%08X (absolute)\n", VGMHead.lngLoopOffset);
 	if (VGMHead.lngLoopSamples)
 		TempLng = VGMHead.lngTotalSamples - VGMHead.lngLoopSamples;
 	else
 		TempLng = 0;
 	PrintMinSec(TempLng, TempStr);
-	fprintf(hFile, "Loop Start:\t\t%lu samples (%s s)\n", TempLng, TempStr);
+	fprintf(hFile, "Loop Start:\t\t%u samples (%s s)\n", TempLng, TempStr);
 	PrintMinSec(VGMHead.lngLoopSamples, TempStr);
-	fprintf(hFile, "Loop Length:\t\t%lu samples (%s s)\n", VGMHead.lngLoopSamples, TempStr);
-	fprintf(hFile, "Recording Rate:\t\t%lu Hz\n", VGMHead.lngRate);
+	fprintf(hFile, "Loop Length:\t\t%u samples (%s s)\n", VGMHead.lngLoopSamples, TempStr);
+	fprintf(hFile, "Recording Rate:\t\t%u Hz\n", VGMHead.lngRate);
 	
-	sprintf(TempStr, "%lu Hz", VGMHead.lngHzPSG & 0x3FFFFFF);
+	sprintf(TempStr, "%u Hz", VGMHead.lngHzPSG & 0x3FFFFFF);
 	if (VGMHead.lngHzPSG & 0x40000000)
 	{
 		if (VGMHead.lngHzPSG & 0x80000000)
@@ -287,9 +288,9 @@ static void WriteVGM2Txt(const char* FileName)
 		sprintf(TempStr, "%s - unused", TempStr);
 	}
 	fprintf(hFile, "SN76496 Clock:\t\t%s\n", TempStr);
-	fprintf(hFile, "SN76496 Feedback:\t0x%02hX\n", VGMHead.shtPSG_Feedback);
-	fprintf(hFile, "SN76496 ShiftRegWidth:\t%hu bits\n", VGMHead.bytPSG_SRWidth);
-	fprintf(hFile, "SN76496 Flags:\t\t0x%02hX\n", VGMHead.bytPSG_Flags);
+	fprintf(hFile, "SN76496 Feedback:\t0x%02X\n", VGMHead.shtPSG_Feedback);
+	fprintf(hFile, "SN76496 ShiftRegWidth:\t%u bits\n", VGMHead.bytPSG_SRWidth);
+	fprintf(hFile, "SN76496 Flags:\t\t0x%02X\n", VGMHead.bytPSG_Flags);
 	
 	WriteClockText(TempStr, VGMHead.lngHzYM2413, "YM2413");
 	fprintf(hFile, "YM2413 Clock:\t\t%s\n", TempStr);
@@ -302,20 +303,20 @@ static void WriteVGM2Txt(const char* FileName)
 	
 	WriteClockText(TempStr, VGMHead.lngHzSPCM & 0x3FFFFFFF, NULL);
 	fprintf(hFile, "SegaPCM Clock:\t\t%s\n", TempStr);
-	fprintf(hFile, "SegaPCM Interface:\t0x%08lX\n", VGMHead.lngSPCMIntf);
+	fprintf(hFile, "SegaPCM Interface:\t0x%08X\n", VGMHead.lngSPCMIntf);
 	
 	WriteClockText(TempStr, VGMHead.lngHzRF5C68 & 0x3FFFFFFF, NULL);
 	fprintf(hFile, "RF5C68 Clock:\t\t%s\n", TempStr);
 	
 	WriteClockText(TempStr, VGMHead.lngHzYM2203, "YM2203");
 	fprintf(hFile, "YM2203 Clock:\t\t%s\n", TempStr);
-	fprintf(hFile, "YM2203 AY8910 Flags:\t0x%02hX\n", VGMHead.bytAYFlagYM2203);
+	fprintf(hFile, "YM2203 AY8910 Flags:\t0x%02X\n", VGMHead.bytAYFlagYM2203);
 	
 	WriteClockText(TempStr, VGMHead.lngHzYM2608, "YM2608");
 	fprintf(hFile, "YM2608 Clock:\t\t%s\n", TempStr);
-	fprintf(hFile, "YM2608 AY8910 Flags:\t0x%02hX\n", VGMHead.bytAYFlagYM2608);
+	fprintf(hFile, "YM2608 AY8910 Flags:\t0x%02X\n", VGMHead.bytAYFlagYM2608);
 	
-	sprintf(TempStr, "%lu Hz", VGMHead.lngHzYM2610 & 0x3FFFFFF);
+	sprintf(TempStr, "%u Hz", VGMHead.lngHzYM2610 & 0x3FFFFFF);
 	if (VGMHead.lngHzYM2610 & 0x80000000)
 		sprintf(TempStr, "%s (YM2610B Mode)", TempStr);
 	if (VGMHead.lngHzYM2610 & 0x40000000)
@@ -354,11 +355,11 @@ static void WriteVGM2Txt(const char* FileName)
 	WriteClockText(TempStr, VGMHead.lngHzAY8910, "AY8910");
 	fprintf(hFile, "AY8910 Clock:\t\t%s\n", TempStr);
 	if (VGMHead.bytAYType & ~0x13)
-		fprintf(hFile, "AY8910 Type:\t\t0x%02hX - %s\n", VGMHead.bytAYType, "???");
+		fprintf(hFile, "AY8910 Type:\t\t0x%02X - %s\n", VGMHead.bytAYType, "???");
 	else
-		fprintf(hFile, "AY8910 Type:\t\t0x%02hX - %s\n", VGMHead.bytAYType,
+		fprintf(hFile, "AY8910 Type:\t\t0x%02X - %s\n", VGMHead.bytAYType,
 				AY_NAMES[(VGMHead.bytAYType >> 2) | VGMHead.bytAYType]);
-	fprintf(hFile, "AY8910 Flags:\t\t0x%02hX\n", VGMHead.bytAYFlag);
+	fprintf(hFile, "AY8910 Flags:\t\t0x%02X\n", VGMHead.bytAYFlag);
 	
 	if (VGMHead.bytVolumeModifier <= VOLUME_MODIF_WRAP)
 		TempSSht = VGMHead.bytVolumeModifier;
@@ -367,10 +368,10 @@ static void WriteVGM2Txt(const char* FileName)
 	else
 		TempSSht = VGMHead.bytVolumeModifier - 0x100;
 	TempDbl = pow(2.0, TempSSht / (double)0x20);
-	fprintf(hFile, "Volume Modifier:\t0x%02hX (%hd) = %.3f\n", VGMHead.bytVolumeModifier,
+	fprintf(hFile, "Volume Modifier:\t0x%02X (%d) = %.3f\n", VGMHead.bytVolumeModifier,
 			TempSSht, TempDbl);
 	
-	fprintf(hFile, "Reserved (0x7D):\t0x%02hX\n", VGMHead.bytReserved2);
+	fprintf(hFile, "Reserved (0x7D):\t0x%02X\n", VGMHead.bytReserved2);
 	
 	if (VGMHead.bytLoopBase > 0)
 		TempStr[0x00] = '+';
@@ -378,11 +379,11 @@ static void WriteVGM2Txt(const char* FileName)
 		TempStr[0x00] = '-';
 	else
 		TempStr[0x00] = '±';	// 0xF1
-	fprintf(hFile, "Loop Base:\t\t0x%02hX = %c%hd\n", VGMHead.bytLoopBase, TempStr[0x00],
+	fprintf(hFile, "Loop Base:\t\t0x%02X = %c%d\n", VGMHead.bytLoopBase, TempStr[0x00],
 			VGMHead.bytLoopBase);
 	
 	TempDbl = TempSSht / 16.0;
-	fprintf(hFile, "Loop Modifier:\t\t0x%02hX (MaxLoops * %.2f)\n", VGMHead.bytLoopModifier,
+	fprintf(hFile, "Loop Modifier:\t\t0x%02X (MaxLoops * %.2f)\n", VGMHead.bytLoopModifier,
 			TempDbl);
 	
 	WriteClockText(TempStr, VGMHead.lngHzGBDMG, "GB DMG");
@@ -400,9 +401,9 @@ static void WriteVGM2Txt(const char* FileName)
 	
 	WriteClockText(TempStr, VGMHead.lngHzOKIM6258, "OKIM6258");
 	fprintf(hFile, "OKIM6258 Clock:\t\t%s\n", TempStr);
-	fprintf(hFile, "OKIM6258 Flags:\t\t0x%02hX\n", VGMHead.bytOKI6258Flags);
-	fprintf(hFile, "K054539 Flags:\t\t0x%02hX\n", VGMHead.bytK054539Flags);
-	fprintf(hFile, "C140 Type:\t\t0x%02hX\n", VGMHead.bytC140Type);
+	fprintf(hFile, "OKIM6258 Flags:\t\t0x%02X\n", VGMHead.bytOKI6258Flags);
+	fprintf(hFile, "K054539 Flags:\t\t0x%02X\n", VGMHead.bytK054539Flags);
+	fprintf(hFile, "C140 Type:\t\t0x%02X\n", VGMHead.bytC140Type);
 	
 	WriteClockText(TempStr, VGMHead.lngHzOKIM6295, "OKIM6295");
 	fprintf(hFile, "OKIM6295 Clock:\t\t%s\n", TempStr);
@@ -432,7 +433,7 @@ static void WriteVGM2Txt(const char* FileName)
 	fprintf(hFile, "SCSP Clock:\t\t%s\n", TempStr);
 	
 	WriteClockText(TempStr, VGMHead.lngHzWSwan, "WSwan");
-	fprintf(hFile, "WonderSwan Clock:\t\t%s\n", TempStr);
+	fprintf(hFile, "WonderSwan Clock:\t%s\n", TempStr);
 	
 	WriteClockText(TempStr, VGMHead.lngHzVSU, "VSU");
 	fprintf(hFile, "VSU Clock:\t\t%s\n", TempStr);
@@ -483,7 +484,7 @@ static void WriteVGM2Txt(const char* FileName)
 
 static void WriteClockText(char* Buffer, UINT32 Clock, char* ChipName)
 {
-	sprintf(Buffer, "%lu Hz", Clock & 0x3FFFFFF);
+	sprintf(Buffer, "%u Hz", Clock & 0x3FFFFFF);
 	if (Clock & 0x40000000)
 		sprintf(Buffer, "%s - Dual %s", Buffer, ChipName);
 	else if (! Clock)
@@ -646,7 +647,7 @@ static void WriteVGMData2Txt(FILE* hFile)
 				if (WriteEvents)
 				{
 					PrintMinSec(VGMSmplPos, MinSecStr);
-					sprintf(TempStr, "Wait:\t%2hu sample(s) (   %03.2f ms)\t(total\t%lu (%s))",
+					sprintf(TempStr, "Wait:\t%2u sample(s) (   %03.2f ms)\t(total\t%u (%s))",
 							TempSht, TempSht / 44.1, VGMSmplPos, MinSecStr);
 				}
 				break;
@@ -657,7 +658,7 @@ static void WriteVGMData2Txt(FILE* hFile)
 				if (WriteEvents)
 				{
 					PrintMinSec(VGMSmplPos, MinSecStr);
-					sprintf(TempStr, "Wait:\t%2hu sample(s) (   %03.2f ms)\t(total\t%lu (%s))",
+					sprintf(TempStr, "Wait:\t%2u sample(s) (   %03.2f ms)\t(total\t%u (%s))",
 							TempSht, TempSht / 44.1, VGMSmplPos, MinSecStr);
 				}
 				break;
@@ -785,7 +786,7 @@ static void WriteVGMData2Txt(FILE* hFile)
 				if (WriteEvents)
 				{
 					PrintMinSec(VGMSmplPos, MinSecStr);
-					sprintf(TempStr, "Wait:\t%hu samples (1/60 s)\t(total\t%lu (%s))",
+					sprintf(TempStr, "Wait:\t%u samples (1/60 s)\t(total\t%u (%s))",
 							TempSht, VGMSmplPos, MinSecStr);
 				}
 				CmdLen = 0x01;
@@ -797,7 +798,7 @@ static void WriteVGMData2Txt(FILE* hFile)
 				if (WriteEvents)
 				{
 					PrintMinSec(VGMSmplPos, MinSecStr);
-					sprintf(TempStr, "Wait:\t%hu samples (1/50 s)\t(total\t%lu (%s))",
+					sprintf(TempStr, "Wait:\t%u samples (1/50 s)\t(total\t%u (%s))",
 							TempSht, VGMSmplPos, MinSecStr);
 				}
 				CmdLen = 0x01;
@@ -809,7 +810,7 @@ static void WriteVGMData2Txt(FILE* hFile)
 				if (WriteEvents)
 				{
 					PrintMinSec(VGMSmplPos, MinSecStr);
-					sprintf(TempStr, "Wait:\t%hu samples (   %03.2f ms)\t(total\t%lu (%s))",
+					sprintf(TempStr, "Wait:\t%u samples (   %03.2f ms)\t(total\t%u (%s))",
 							TempSht, TempSht / 44.1, VGMSmplPos, MinSecStr);
 				}
 				CmdLen = 0x03;
@@ -964,9 +965,9 @@ static void WriteVGMData2Txt(FILE* hFile)
 						break;
 					}
 					
-					sprintf(TempStr, "Data Block - Type %02hX: %s%s\n", TempByt, MinSecStr,
+					sprintf(TempStr, "Data Block - Type %02X: %s%s\n", TempByt, MinSecStr,
 									(CurChip ? " (2nd chip)" : "") );
-					sprintf(TempStr, "%s\t\t\tData Length: 0x%08lX", TempStr, DataLen);
+					sprintf(TempStr, "%s\t\t\tData Length: 0x%08X", TempStr, DataLen);
 					switch(TempByt & 0xC0)
 					{
 					case 0x00:	// Database Block
@@ -975,11 +976,11 @@ static void WriteVGMData2Txt(FILE* hFile)
 						// TODO: print information about compression type etc.
 						break;
 					case 0x80:	// ROM/RAM Dump
-						sprintf(TempStr, "%s\n\t\t\tROM Size: 0x%08lX\tData Start: 0x%08lX",
+						sprintf(TempStr, "%s\n\t\t\tROM Size: 0x%08X\tData Start: 0x%08X",
 								TempStr, ROMSize, DataStart);
 						break;
 					case 0xC0:	// RAM Write
-						sprintf(TempStr, "%s\t\tWrite to Address: 0x%04hX",
+						sprintf(TempStr, "%s\t\tWrite to Address: 0x%04X",
 								TempStr, TempSht);
 						break;
 					}
@@ -990,7 +991,7 @@ static void WriteVGMData2Txt(FILE* hFile)
 				memcpy(&TempLng, &VGMPnt[0x01], 0x04);
 				if (WriteEvents)
 				{
-					sprintf(TempStr, "Seek to PCM Data Bank Pos: %08lX", TempLng);
+					sprintf(TempStr, "Seek to PCM Data Bank Pos: %08X", TempLng);
 				}
 				CmdLen = 0x05;
 				break;
@@ -1142,8 +1143,8 @@ static void WriteVGMData2Txt(FILE* hFile)
 						break;
 					}
 					sprintf(TempStr, "PCM RAM write:\t%s\n"
-									"\t\t\tCopy 0x%06lX Bytes from 0x%06lX (Database) "
-									"to 0x%06lX (RAM)",
+									"\t\t\tCopy 0x%06X Bytes from 0x%06X (Database) "
+									"to 0x%06X (RAM)",
 									MinSecStr, DataLen, DataStart, TempLng);
 				}
 				CmdLen = 0x0C;
@@ -1317,7 +1318,7 @@ static void WriteVGMData2Txt(FILE* hFile)
 				{
 					GetFullChipName(MinSecStr, VGMPnt[0x02]);	// Chip Type
 					
-					sprintf(TempStr, "DAC Ctrl:\tStream #%hu - Setup Chip: %s Reg %02hX %02hX",
+					sprintf(TempStr, "DAC Ctrl:\tStream #%u - Setup Chip: %s Reg %02X %02X",
 							VGMPnt[0x01], MinSecStr, VGMPnt[0x03], VGMPnt[0x04]);
 				}
 				CmdLen = 0x05;
@@ -1325,8 +1326,8 @@ static void WriteVGMData2Txt(FILE* hFile)
 			case 0x91:	// DAC Ctrl: Set Data
 				if (WriteEvents)
 				{
-					sprintf(TempStr, "DAC Ctrl:\tStream #%hu - Set Data: Bank %02hX, "
-							"Step Size %02hX, Step Base %02hX",
+					sprintf(TempStr, "DAC Ctrl:\tStream #%u - Set Data: Bank %02X, "
+							"Step Size %02X, Step Base %02X",
 							VGMPnt[0x01], VGMPnt[0x02], VGMPnt[0x03], VGMPnt[0x04]);
 				}
 				CmdLen = 0x05;
@@ -1335,7 +1336,7 @@ static void WriteVGMData2Txt(FILE* hFile)
 				if (WriteEvents)
 				{
 					memcpy(&TempLng, &VGMPnt[0x02], 0x04);
-					sprintf(TempStr, "DAC Ctrl:\tStream #%hu - Set Frequency: %u Hz",
+					sprintf(TempStr, "DAC Ctrl:\tStream #%u - Set Frequency: %u Hz",
 							VGMPnt[0x01], TempLng);
 				}
 				CmdLen = 0x06;
@@ -1349,7 +1350,7 @@ static void WriteVGMData2Txt(FILE* hFile)
 						strcat(MinSecStr, "/Loop");
 					
 					memcpy(&TempLng, &VGMPnt[0x02], 0x04);
-					sprintf(TempStr, "DAC Ctrl:\tStream #%hu - %s from 0x%02X",
+					sprintf(TempStr, "DAC Ctrl:\tStream #%u - %s from 0x%02X",
 							VGMPnt[0x01], MinSecStr, TempLng);
 					switch(VGMPnt[0x06] & 0x7F)	// Length Mode
 					{
@@ -1376,7 +1377,7 @@ static void WriteVGMData2Txt(FILE* hFile)
 				{
 					memcpy(&TempLng, &VGMPnt[0x02], 0x04);
 					if (VGMPnt[0x01] < 0xFF)
-						sprintf(TempStr, "DAC Ctrl:\tStream #%hu - Stop Stream", VGMPnt[0x01]);
+						sprintf(TempStr, "DAC Ctrl:\tStream #%u - Stop Stream", VGMPnt[0x01]);
 					else
 						sprintf(TempStr, "DAC Ctrl:\tStop All Streams");
 				}
@@ -1391,7 +1392,7 @@ static void WriteVGMData2Txt(FILE* hFile)
 						strcat(MinSecStr, "/Loop");
 					
 					memcpy(&TempSht, &VGMPnt[0x02], 0x02);
-					sprintf(TempStr, "DAC Ctrl:\tStream #%hu - %s: Block 0x%02hX",
+					sprintf(TempStr, "DAC Ctrl:\tStream #%u - %s: Block 0x%02X",
 							VGMPnt[0x01], MinSecStr, TempSht);
 				}
 				CmdLen = 0x05;
@@ -1399,7 +1400,7 @@ static void WriteVGMData2Txt(FILE* hFile)
 			default:
 				if (WriteEvents)
 				{
-					sprintf(TempStr, "Unknown command: %02hX", Command);
+					sprintf(TempStr, "Unknown command: %02X", Command);
 				}
 				
 				switch(Command & 0xF0)
@@ -1440,13 +1441,13 @@ static void WriteVGMData2Txt(FILE* hFile)
 					break;
 				if (TempLng >= 0x04)
 					break;
-				sprintf(MinSecStr + TempLng * 0x03, "%02hX ", VGMData[VGMPos + TempLng]);
+				sprintf(MinSecStr + TempLng * 0x03, "%02X ", VGMData[VGMPos + TempLng]);
 			}
 			if (TempLng < 0x04)
 				memset(MinSecStr + TempLng * 0x03, ' ', (0x04 - TempLng) * 0x03);
 			MinSecStr[0x04 * 0x03 - 0x01] = 0x00;
 			
-			fprintf(hFile, "0x%08lX: %s %s\n", VGMPos, MinSecStr, TempStr);
+			fprintf(hFile, "0x%08X: %s %s\n", VGMPos, MinSecStr, TempStr);
 		}
 		if (VGMWriteTo && VGMSmplPos > VGMWriteTo)
 			StopVGM = true;
@@ -1468,7 +1469,7 @@ static void WriteVGMData2Txt(FILE* hFile)
 				ROMSize = VGMWriteTo - VGMWriteFrom;
 			else
 				ROMSize = VGMHead.lngTotalSamples - VGMWriteFrom;
-			printf("%04.3f %% - %s / %s (%08lX / %08lX) ...\r", (float)TempLng / ROMSize * 100,
+			printf("%04.3f %% - %s / %s (%08X / %08X) ...\r", (float)TempLng / ROMSize * 100,
 					MinSecStr, TempStr, VGMPos, VGMHead.lngEOFOffset);
 			CmdTimer = GetTickCount() + 200;
 		}
@@ -1488,7 +1489,7 @@ static void PrintMinSec(const UINT32 SamplePos, char* TempStr)
 	TimeMin = (UINT16)TimeSec / 60;
 	TimeSec -= TimeMin * 60;
 	TimeSec = (UINT32)(TimeSec * 100.0f) / 100.0f;
-	sprintf(TempStr, "%02hu:%05.2f", TimeMin, TimeSec);
+	sprintf(TempStr, "%02u:%05.2f", TimeMin, TimeSec);
 	
 	return;
 }

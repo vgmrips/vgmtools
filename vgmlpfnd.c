@@ -3,6 +3,7 @@
 //TODO: Change "Start Pos" to "Start Sample"
 // more TODO: 0:59.999 becomes 0:60.00
 
+#include "compat.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include "stdbool.h"
@@ -51,6 +52,7 @@ UINT32 START_POS = 0x00;
 
 
 bool SilentMode;
+bool LabelMode; // Output Audacity labels
 VGM_HEADER VGMHead;
 UINT32 VGMDataLen;
 UINT8* VGMData;
@@ -61,6 +63,7 @@ UINT32 VGMCmdCount;
 VGM_CMD* VGMCommand;
 UINT32 EndPosCount;
 UINT32* EndPosArr;
+UINT32 NumLoops = 0;
 
 int main(int argc, char* argv[])
 {
@@ -69,8 +72,9 @@ int main(int argc, char* argv[])
 	char FileName[0x100];
 	char InputTxt[0x100];
 	UINT32 TempLng;
-	
+
 	SilentMode = false;
+	LabelMode = false;
 	argbase = 1;
 	if (argc >= argbase + 0x01)
 	{
@@ -79,99 +83,104 @@ int main(int argc, char* argv[])
 			SilentMode = true;
 			argbase ++;
 		}
+		if (! _stricmp(argv[argbase + 0x00], "-labels"))
+		{
+			LabelMode = true;
+			argbase ++;
+		}
 	}
-	
+
 	if (! SilentMode)
-		printf("VGM Loop Finder\n---------------\n\n");
-	
+		fprintf(stderr, "VGM Loop Finder\n---------------\n\n");
+
 	ErrVal = 0;
-	printf("File Name:\t");
+	fprintf(stderr, "File Name:\t");
 	if (argc < argbase + 0x01)
 	{
-		gets(FileName);
+		gets_s(FileName, sizeof(FileName));
 	}
 	else
 	{
 		strcpy(FileName, argv[argbase + 0x00]);
-		printf("%s\n", FileName);
+		fprintf(stderr, "%s\n", FileName);
 	}
 	if (! strlen(FileName))
 		return 0;
-	
+
 	if (! SilentMode)
-		printf("Step Size (default: %lu):\t", STEP_SIZE);
+		fprintf(stderr, "Step Size (default: %u):\t", STEP_SIZE);
 	if (argc < argbase + 0x02)
 	{
-		gets(InputTxt);
+		gets_s(InputTxt, sizeof(InputTxt));
 	}
 	else
 	{
 		strcpy(InputTxt, argv[argbase + 0x01]);
 		if (! SilentMode)
-			printf("%s\n", InputTxt);
+			fprintf(stderr, "%s\n", InputTxt);
 	}
 	TempLng = strtoul(InputTxt, NULL, 0);
 	if (TempLng)
 		STEP_SIZE = TempLng;
-	
+
 	if (! SilentMode)
-		printf("Minimum Number of matching Commands (default: %lu):\t", MIN_EQU_SIZE);
+		fprintf(stderr, "Minimum Number of matching Commands (default: %u):\t", MIN_EQU_SIZE);
 	if (argc < argbase + 0x02)
 	{
-		gets(InputTxt);
+		gets_s(InputTxt, sizeof(InputTxt));
 	}
 	else
 	{
 		strcpy(InputTxt, argv[argbase + 0x02]);
 		if (! SilentMode)
-			printf("%s\n", InputTxt);
+			fprintf(stderr, "%s\n", InputTxt);
 	}
 	TempLng = strtoul(InputTxt, NULL, 0);
 	if (TempLng)
 		MIN_EQU_SIZE = TempLng;
-	
+
 	if (! SilentMode)
-		printf("Start Pos (default: %lu - auto):\t", START_POS);
+		fprintf(stderr, "Start Pos (default: %u - auto):\t", START_POS);
 	if (argc < argbase + 0x04)
 	{
-		gets(InputTxt);
+		gets_s(InputTxt, sizeof(InputTxt));
 	}
 	else
 	{
 		strcpy(InputTxt, argv[argbase + 0x03]);
 		if (! SilentMode)
-			printf("%s\n", InputTxt);
+			fprintf(stderr, "%s\n", InputTxt);
 	}
 	TempLng = strtoul(InputTxt, NULL, 0);
 	if (TempLng)
 		START_POS = TempLng;
-	
+
 	if (! OpenVGMFile(FileName))
 	{
-		printf("Error opening the file!\n");
+		fprintf(stderr, "Error opening the file!\n");
 		ErrVal = 1;
 		goto EndProgram;
 	}
-	printf("\n");
-	
+	fprintf(stderr, "\n");
+
 	ReadVGMData();
 	free(VGMData);
-	
+
 	FindEqualitiesVGM();
-	
+
 	free(VGMCommand);
-	
+
 EndProgram:
 #ifdef WIN32
 	if (argv[0][1] == ':')
 	{
-		// Executed by Double-Clicking (or Drap and Drop)
+		// Executed by Double-Clicking (or Drag and Drop)
 		if (_kbhit())
 			_getch();
 		_getch();
 	}
 #endif
-	
+
 	return ErrVal;
 }
 
@@ -181,19 +190,19 @@ static bool OpenVGMFile(const char* FileName)
 	UINT32 CurPos;
 	UINT32 TempLng;
 	char* TempPnt;
-	
+
 	hFile = gzopen(FileName, "rb");
 	if (hFile == NULL)
 		return false;
-	
+
 	gzseek(hFile, 0x00, SEEK_SET);
 	gzread(hFile, &TempLng, 0x04);
 	if (TempLng != FCC_VGM)
 		goto OpenErr;
-	
+
 	gzseek(hFile, 0x00, SEEK_SET);
 	gzread(hFile, &VGMHead, sizeof(VGM_HEADER));
-	
+
 	// Header preperations
 	if (VGMHead.lngVersion < 0x00000101)
 	{
@@ -225,7 +234,7 @@ static bool OpenVGMFile(const char* FileName)
 	if (! VGMHead.lngDataOffset)
 		VGMHead.lngDataOffset = 0x0000000C;
 	VGMHead.lngDataOffset += 0x00000034;
-	
+
 	CurPos = VGMHead.lngDataOffset;
 	if (VGMHead.lngVersion < 0x00000150)
 		CurPos = 0x40;
@@ -235,7 +244,7 @@ static bool OpenVGMFile(const char* FileName)
 	else
 		TempLng = 0x00;
 	memset((UINT8*)&VGMHead + CurPos, 0x00, TempLng);
-	
+
 	// Read Data
 	VGMDataLen = VGMHead.lngEOFOffset;
 	VGMData = (UINT8*)malloc(VGMDataLen);
@@ -243,14 +252,14 @@ static bool OpenVGMFile(const char* FileName)
 		goto OpenErr;
 	gzseek(hFile, 0x00, SEEK_SET);
 	gzread(hFile, VGMData, VGMDataLen);
-	
+
 	gzclose(hFile);
-	
+
 	strcpy(FileBase, FileName);
 	TempPnt = strrchr(FileBase, '.');
 	if (TempPnt != NULL)
 		*TempPnt = 0x00;
-	
+
 	return true;
 
 OpenErr:
@@ -270,17 +279,17 @@ static void ReadVGMData(void)
 	bool StopVGM;
 	VGM_CMD* TempCmd;
 	UINT32 CurCmd;	// this variable is just for debugging
-	
-	printf("Counting Commands ...");
+
+	fprintf(stderr, "Counting Commands ...");
 	VGMPos = VGMHead.lngDataOffset;
-	
+
 	VGMCmdCount = 0x00;
 	StopVGM = false;
 	while(VGMPos < VGMHead.lngEOFOffset)
 	{
 		CmdLen = 0x00;
 		Command = VGMData[VGMPos + 0x00];
-		
+
 		if (Command >= 0x70 && Command <= 0x8F)
 		{
 			CmdLen = 0x01;
@@ -309,7 +318,7 @@ static void ReadVGMData(void)
 				TempByt = VGMData[VGMPos + 0x02];
 				memcpy(&TempLng, &VGMData[VGMPos + 0x03], 0x04);
 				TempLng &= 0x7FFFFFFF;
-				
+
 				CmdLen = 0x07 + TempLng;
 				break;
 			case 0x68:	// PCM RAM write
@@ -354,7 +363,7 @@ static void ReadVGMData(void)
 					CmdLen = 0x05;
 					break;
 				default:
-					printf("Unknown Command: %hX\n", Command);
+					printf("Unknown Command: %X\n", Command);
 					CmdLen = 0x01;
 					//StopVGM = true;
 					break;
@@ -366,21 +375,20 @@ static void ReadVGMData(void)
 		//if (! IgnoredCmd(Command, TempByt))
 		if (! IgnoredCmd(VGMData + VGMPos))
 			VGMCmdCount ++;
-		
+
 		VGMPos += CmdLen;
 		if (StopVGM)
 			break;
 	}
-	printf("  %lu\n", VGMCmdCount);
-	
+	fprintf(stderr, "  %u\n", VGMCmdCount);
 	// this includes the EOF command (the print-function needs it)
 	VGMCommand = (VGM_CMD*)malloc((VGMCmdCount + 0x01) * sizeof(VGM_CMD));
-	
+
 	if (! SilentMode)
-		printf("Reading Commands ...");
+		fprintf(stderr, "Reading Commands ...");
 	VGMPos = VGMHead.lngDataOffset;
 	VGMSmplPos = 0;
-	
+
 	CurCmd = 0x00;
 	TempCmd = VGMCommand;
 	StopVGM = false;
@@ -388,7 +396,7 @@ static void ReadVGMData(void)
 	{
 		CmdLen = 0x00;
 		Command = VGMData[VGMPos + 0x00];
-		
+
 		if (Command >= 0x70 && Command <= 0x8F)
 		{
 			switch(Command & 0xF0)
@@ -506,7 +514,7 @@ static void ReadVGMData(void)
 				}
 				break;
 			}
-			
+
 			switch(Command)
 			{
 			case 0x66:	// End Of File
@@ -535,7 +543,7 @@ static void ReadVGMData(void)
 				TempByt = VGMData[VGMPos + 0x02];
 				memcpy(&TempLng, &VGMData[VGMPos + 0x03], 0x04);
 				TempLng &= 0x7FFFFFFF;
-				
+
 				CmdLen = 0x07 + TempLng;
 				break;
 			case 0x68:	// PCM RAM write
@@ -580,7 +588,7 @@ static void ReadVGMData(void)
 					CmdLen = 0x05;
 					break;
 				default:
-					printf("Unknown Command: %hX\n", Command);
+					fprintf(stderr, "Unknown Command: %X\n", Command);
 					Command = 0x6F;
 					CmdLen = 0x01;
 					//StopVGM = true;
@@ -603,14 +611,14 @@ static void ReadVGMData(void)
 			CurCmd ++;
 			TempCmd ++;
 		}
-		
+
 		VGMPos += CmdLen;
 		if (StopVGM)
 			break;
 	}
 	if (! SilentMode)
-		printf("  Done.\n");
-	
+		fprintf(stderr, "  Done.\n");
+
 	return;
 }
 
@@ -620,7 +628,7 @@ static void FindEqualitiesVGM(void)
 	UINT32 SrcStart;
 	UINT32 SrcCmd;
 	UINT32 CmpCmd;
-	
+
 	UINT32 CurCmd;
 	//UINT8 CmpMode;
 	//UINT16 TempSht;
@@ -629,26 +637,28 @@ static void FindEqualitiesVGM(void)
 #ifdef WIN32
 	DWORD PrintTime;
 #endif
-	
+
 	CurCmd = 0x00;
 	// Seek to start-pos
 	while(VGMCommand[CurCmd].Pos < START_POS && CurCmd < VGMCmdCount)
 		CurCmd ++;
-	
+
+	if(!LabelMode) {
 #ifdef TECHNICAL_OUTPUT
-	printf("     Source Block\t      Block Copy\t   Copy Information\n");
-	printf("Start\tEnd\tSmpl\tStart\tEnd\tSmpl\tLength\tCmds\tSamples\n");
+		printf("     Source Block\t      Block Copy\t   Copy Information\n");
+		printf("Start\tEnd\tSmpl\tStart\tEnd\tSmpl\tLength\tCmds\tSamples\n");
 #else
-	printf("  Source Block\t\t  Block Copy\t\tCopy Information\n");
-	printf("Start\t  Time\t\tStart\t  Time\t\tCmds\tTime\n");
+		printf("  Source Block\t\t  Block Copy\t\tCopy Information\n");
+		printf("Start\t  Time\t\tStart\t  Time\t\tCmds\tTime\n");
 #endif
-	
+	}
+
 	EndPosCount = 0;
 	EndPosArr = (UINT32*)malloc(0x4000 * sizeof(UINT32));
 #ifdef WIN32
 	PrintTime = 0;
 #endif
-	
+
 	while(CurCmd < VGMCmdCount)
 	{
 		CmpStart = CurCmd;
@@ -683,14 +693,14 @@ static void FindEqualitiesVGM(void)
 				break;
 			}
 		}
-		
+
 		if (CmpMode == 0x01)
 		{
 			EqualityCheck(CmpStart, SrcStart, CmpCmd - CmpStart);
 			//CmpCmd = 0x00;
 			//CmpMode = 0x00;
 		}*/
-		
+
 		// New routine.
 		// now with complexity O(n^3)
 		for (SrcStart = CurCmd + 0x01; SrcStart < VGMCmdCount; SrcStart ++)
@@ -711,25 +721,25 @@ static void FindEqualitiesVGM(void)
 				}
 			}
 		}
-		
+
 #ifdef WIN32
 		if (PrintTime < GetTickCount())
 		{
 			if (! SilentMode)
-				printf("%.3f %% - %lu / %lu\r",
+				fprintf(stderr, "%.3f %% - %u / %u\r",
 						100.0 * CurCmd / VGMCmdCount, CurCmd, VGMCmdCount);
 			PrintTime = GetTickCount() + 500;
 		}
 #endif
-		
+
 		CurCmd += STEP_SIZE;
 	}
 	if (! SilentMode)
-		printf("\t\t\t\t\r");
-	printf("Done.\n");
+		fprintf(stderr, "\t\t\t\t\r");
+	fprintf(stderr, "Done.\n");
 	if (! SilentMode)
-		printf("\n");
-	
+		fprintf(stderr, "\n");
+
 	return;
 }
 
@@ -745,19 +755,19 @@ static bool EqualityCheck(UINT32 CmpCmd, UINT32 SrcCmd, UINT32 CmdCount)
 #ifndef TECHNICAL_OUTPUT
 	char TempStr[0x10];
 #endif
-	
+
 	if (CmdCount < MIN_EQU_SIZE)
 		return false;
-	
+
 	for (TempLng = 0x00; TempLng < EndPosCount; TempLng ++)
 	{
 		if (EndPosArr[TempLng] == SrcCmd + CmdCount)
 			return false;
 	}
-	
+
 	EndPosArr[EndPosCount] = SrcCmd + CmdCount;
 	EndPosCount ++;
-	
+
 	CmdSrcS = &VGMCommand[CmpCmd];
 	CmdSrcE = &VGMCommand[CmpCmd + CmdCount];
 	CmdCpyS = &VGMCommand[SrcCmd];
@@ -767,35 +777,39 @@ static bool EqualityCheck(UINT32 CmpCmd, UINT32 SrcCmd, UINT32 CmdCount)
 		BlkFlags |= 0x01;	// Notify user that this may be a good loop
 	if (SrcCmd + CmdCount >= VGMCmdCount)
 		BlkFlags |= 0x02;	// Notify user that it matched until the End of File
-	
+
 	//	     Source Block             Block Copy           Copy Information
 	//	Start   End     Smpl    Start   End     Smpl    Length  Cmds    Samples
-	
-	//	printf("%lX\t%lX\t%lu\t%lX\t%lX\t%lu\t%lX\t%lu\t%lu\n",
+	//	printf("%X\t%X\t%u\t%X\t%X\t%u\t%X\t%u\t%u\n",
 	//			CmpStart, CmpPos - 0x01, TimeSmplC, SrcStart, SrcCmd, CmpTimeB,
 	//			CmpPos - CmpStart, CmpCnt, CmpTime);
 #ifdef TECHNICAL_OUTPUT
-	printf("%lX\t%lX\t", CmdSrcS->Pos, CmdSrcE->Pos - 0x01);
+	printf("%X\t%X\t", CmdSrcS->Pos, CmdSrcE->Pos - 0x01);
 	if (BlkFlags)
 		printf("\b%c", ExtraChr[BlkFlags]);
-	printf("%lu\t%lX\t%lX\t%lu\t%lX\t%lu\t%lu\n",
+	printf("%u\t%X\t%X\t%u\t%X\t%u\t%u\n",
 			CmdSrcS->Sample, CmdCpyS->Pos, CmdCpyE->Pos - 0x01, CmdCpyS->Sample,
 			CmdSrcE->Pos - CmdSrcS->Pos, CmdCount, CmdSrcE->Sample - CmdSrcS->Sample);
 #else
-	PrintMinSec(CmdSrcS->Sample, TempStr);
-	//printf("%lX\t%s", CmdSrcS->Pos, TempStr);
-	printf("%lu\t%s", CmdSrcS->Sample, TempStr);
-	if (BlkFlags)
-		printf("  %c", ExtraChr[BlkFlags]);
-	
-	PrintMinSec(CmdCpyS->Sample, TempStr);
-	//printf("\t%lX\t%s", CmdCpyS->Pos, TempStr);
-	printf("\t%lu\t%s", CmdCpyS->Sample, TempStr);
-	
-	PrintMinSec(CmdSrcE->Sample - CmdSrcS->Sample, TempStr);
-	printf("\t%lu\t%s\n", CmdCount, TempStr);
+	NumLoops++;
+	if(LabelMode) {
+		printf("%g\t%g\tLoop %d (%d cmds)\n", (double)CmdSrcS->Sample / 44100.0, (double)CmdCpyS->Sample / 44100.0, NumLoops, CmdCount);
+	} else {
+		PrintMinSec(CmdSrcS->Sample, TempStr);
+		//printf("%X\t%s", CmdSrcS->Pos, TempStr);
+		printf("%u\t%s", CmdSrcS->Sample, TempStr);
+		if (BlkFlags)
+			printf("  %c", ExtraChr[BlkFlags]);
+
+		PrintMinSec(CmdCpyS->Sample, TempStr);
+		//printf("\t%X\t%s", CmdCpyS->Pos, TempStr);
+		printf("\t%u\t%s", CmdCpyS->Sample, TempStr);
+
+		PrintMinSec(CmdSrcE->Sample - CmdSrcS->Sample, TempStr);
+		printf("\t%u\t%s\n", CmdCount, TempStr);
+	}
 #endif
-	
+
 	return true;
 }
 
@@ -812,12 +826,12 @@ static void PrintMinSec(const UINT32 SamplePos, char* TempStr)
 {
 	float TimeSec;
 	UINT16 TimeMin;
-	
+
 	TimeSec = (float)SamplePos / (float)44100.0;
 	TimeMin = (UINT16)TimeSec / 60;
 	TimeSec -= TimeMin * 60;
-	sprintf(TempStr, "%02hu:%05.2f", TimeMin, TimeSec);
-	
+	sprintf(TempStr, "%02u:%05.2f", TimeMin, TimeSec);
+
 	return;
 }
 
@@ -837,19 +851,19 @@ INLINE bool IgnoredCmd(const UINT8* VGMPnt)
 		return true;	// YM2612 DAC or OPN Timer or SSG Port Write
 	if (Command == 0x58 && (RegData == 0x1C))
 		return true;	// YM2610 Flag Control
-	
+
 //	if ((Command == 0x52 || Command == 0x53) &&
 //		(RegData & 0xBC) == 0xB4)
 //		return true;	// YM2612 Stereo
 	if (Command == 0x58 && (RegData >= 0x19 && RegData <= 0x1B))
 		return true;	// YM2610 DELTA-T: Delta-N
-	if (Command == 0x59 && (RegData >= 0x00 && RegData <= 0x2F))
-		return true;	// YM2610 ADPCM
-	if (Command == 0x58 && (RegData >= 0x00 && RegData <= 0x1F))
+	//if (Command == 0x59 && (RegData >= 0x00 && RegData <= 0x2F))
+	//	return true;	// YM2610 ADPCM
+	if (Command == 0x58 && (RegData >= 0x00 && RegData <= 0x05))
 		return true;	// YM2610 SSG Freq
 	if (Command == 0x58 && (RegData >= 0x08 && RegData <= 0x0A))
 		return true;	// YM2610 SSG Vol
-	
+
 	if (Command == 0x54 && (RegData >= 0x10 && RegData <= 0x14))
 		return true;	// YM2151 Timer
 	if (((Command >= 0x5A && Command <= 0x5C) || Command == 0x5E) &&
@@ -873,7 +887,6 @@ INLINE bool IgnoredCmd(const UINT8* VGMPnt)
 		return true;	// OKIM6258 ADPCM Data
 	if (Command == 0xB5 && RegData >= 0x01)
 		return true;	// MultiPCM "Set Slot"
-	
 	/*if (Command == 0xBA)
 	{
 		if ((RegData & 0x07) == 0x07 || RegData == 0x2A)
@@ -897,6 +910,6 @@ INLINE bool IgnoredCmd(const UINT8* VGMPnt)
 				return true;
 		}
 	}
-	
+
 	return false;
 }
