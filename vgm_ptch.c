@@ -540,34 +540,37 @@ static void ReadChipExtraData16(UINT32 StartOffset, VGMX_CHP_EXTRA16* ChpExtra)
 
 static bool WriteVGMFile(const char* FileName, bool Compress)
 {
-	gzFile hFile;
+	union {
+		gzFile gz;
+		FILE *f;
+	} hFile;
 #ifdef WIN32
 	HANDLE hFileWin;
 #endif
 	
 	if (! Compress)
-		hFile = fopen(FileName, "wb");
+		hFile.f = fopen(FileName, "wb");
 	else
-		hFile = gzopen(FileName, "wb9");
-	if (hFile == NULL)
+		hFile.gz = gzopen(FileName, "wb9");
+	if (hFile.f == NULL)
 		return false;
 	
 	// Write VGM Data (including GD3 Tag)
 	if (! Compress)
 	{
-		fseek((FILE*)hFile, 0x00, SEEK_SET);
-		fwrite(VGMData, 0x01, VGMDataLen, (FILE*)hFile);
+		fseek(hFile.f, 0x00, SEEK_SET);
+		fwrite(VGMData, 0x01, VGMDataLen, hFile.f);
 	}
 	else
 	{
-		gzseek(hFile, 0x00, SEEK_SET);
-		gzwrite(hFile, VGMData, VGMDataLen);
+		gzseek(hFile.gz, 0x00, SEEK_SET);
+		gzwrite(hFile.gz, VGMData, VGMDataLen);
 	}
 	
 	if (! Compress)
-		fclose((FILE*)hFile);
+		fclose(hFile.f);
 	else
-		gzclose(hFile);
+		gzclose(hFile.gz);
 	
 	if (KeepDate)
 	{
