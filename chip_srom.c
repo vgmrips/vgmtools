@@ -1,12 +1,10 @@
 // TODO: Check sample end < sample start
 
-#include <malloc.h>
 #include <stdlib.h>
+#include <memory.h>
 #include <stdio.h>
-
 #include "stdtype.h"
 #include "stdbool.h"
-
 
 #define SPCM_BANK_256		(11)
 #define SPCM_BANK_512		(12)
