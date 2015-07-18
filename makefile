@@ -15,30 +15,30 @@ OBJ=obj
 TOOLS=\
 	dro2vgm \
 	optdac \
+	opt_oki \
 	optvgm32 \
 	optvgmrf \
 	vgm2txt \
+	vgm_cmp \
 	vgm_cnt \
 	vgm_dbc \
 	vgm_facc \
+	vgmlpfnd \
+	vgmmerge \
 	vgm_mono \
 	vgm_ndlz \
+	vgm_ptch \
 	vgm_smp1 \
 	vgm_sptd \
 	vgm_spts \
 	vgm_sro \
-	vgm_vol \
-	vgmlpfnd \
-	vgm_ptch \
+	vgm_stat \
 	vgm_tag \
 	vgm_trim \
-	vgm_cmp \
-	opt_oki \
-	vgmmerge
+	vgm_vol
 
 # extra tools not compiled by default
-EXTRA_TOOLS=\
-	vgm_stat
+EXTRA_TOOLS=
 
 all: $(OBJ) $(TOOLS)
 
