@@ -291,8 +291,10 @@ static wchar_t* ReadWStrFromFile(gzFile hFile, UINT32* FilePos, UINT32 EOFPos)
 	wchar_t* TempStr;
 	UINT32 StrLen;
 	UINT16 UnicodeChr;
+#ifndef WIN32
 	UINT32 i;
-	
+#endif
+
 	// Unicode 2-Byte -> 4-Byte conversion is not neccessary,
 	// but it's easier to handle wchar_t than unsigned short
 	// (note: wchar_t is 16-bit on Windows, but 32-bit on Linux)
