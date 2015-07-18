@@ -44,4 +44,5 @@ int _getch();
 #else
 #define _getch getchar
 #define _stricmp strcasecmp
+#define stricmp strcasecmp
 #endif
