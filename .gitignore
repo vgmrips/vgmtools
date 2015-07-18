@@ -23,3 +23,8 @@ vgmlpfnd
 vgmmerge
 opt_oki
 vgm_stat
+vc6/Debug
+vc6/Release
+vc6/*.plg
+vc6/*.opt
+vc6/*.ncb

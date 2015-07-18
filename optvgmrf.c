@@ -178,15 +178,7 @@ BreakProgress:
 	free(DstData);
 	
 EndProgram:
-#ifdef WIN32
-	if (argv[0][1] == ':')
-	{
-		// Executed by Double-Clicking (or Drap and Drop)
-		if (_kbhit())
-			_getch();
-		_getch();
-	}
-#endif
+	waitkey(argv[0]);
 	
 	return ErrVal;
 }
