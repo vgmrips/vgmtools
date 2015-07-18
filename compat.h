@@ -46,3 +46,8 @@ int _getch();
 #define _stricmp strcasecmp
 #define stricmp strcasecmp
 #endif
+
+// Wait for a key so the console doesn't close
+// Should work only when the executable is run by double clicking
+// or dropping a file on it
+void waitkey(char *);
