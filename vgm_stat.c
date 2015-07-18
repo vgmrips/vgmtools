@@ -2,22 +2,12 @@
 //
 // TODO: Proper hours support.
 
-#include <stdio.h>
-#include <stdlib.h>
-#include "stdbool.h"
-#include <string.h>
+#include "vgmtools.h"
 
-#ifdef WIN32
-#include <conio.h>
-#include <windows.h>	// for Directory Listing
-#else
-#error "Sorry, but it's only compatible with Windows (due to directory listing)."
+#ifndef WIN32
+#include <glob.h>
+#include <sys/stat.h>
 #endif
-
-#include "zlib.h"
-
-#include "stdtype.h"
-#include "VGMFile.h"
 
 
 static bool OpenVGMFile(const char* FileName);
@@ -65,7 +55,7 @@ int main(int argc, char* argv[])
 	printf("File Path or PlayList:\t");
 	if (argc <= 0x01)
 	{
-		gets(FileName);
+		gets_s(FileName, sizeof(FileName));
 	}
 	else
 	{
@@ -81,7 +71,12 @@ int main(int argc, char* argv[])
 	
 	if (FileName[strlen(FileName - 0x01)] != '\\')
 	{
+#ifdef WIN32
 		if (! (GetFileAttributes(FileName) & FILE_ATTRIBUTE_DIRECTORY))
+#else
+		struct stat st;
+		if(!stat(FileName, &st) && S_ISREG(st.st_mode))
+#endif
 		{
 			FileExt = strrchr(FileName, '.');
 			if (FileExt < strrchr(FileName, '\\'))
@@ -296,6 +291,7 @@ static wchar_t* ReadWStrFromFile(gzFile hFile, UINT32* FilePos, UINT32 EOFPos)
 	wchar_t* TempStr;
 	UINT32 StrLen;
 	UINT16 UnicodeChr;
+	UINT32 i;
 	
 	// Unicode 2-Byte -> 4-Byte conversion is not neccessary,
 	// but it's easier to handle wchar_t than unsigned short
@@ -325,27 +321,38 @@ static wchar_t* ReadWStrFromFile(gzFile hFile, UINT32* FilePos, UINT32 EOFPos)
 	return TextStr;
 }
 
+#ifdef WIN32
+#define DIR_SEP '\\'
+#else
+#define DIR_SEP '/'
+#endif
 static void ReadDirectory(const char* DirName)
 {
+#ifdef WIN32
 	HANDLE hFindFile;
 	WIN32_FIND_DATA FindFileData;
 	BOOL RetVal;
+#else
+	struct stat st;
+	int i;
+#endif
 	char FileName[MAX_PATH];
 	char* TempPnt;
 	char* FileExt;
-	
+
 	strcpy(FilePath, DirName);
-	TempPnt = strrchr(FilePath, '\\');
+	TempPnt = strrchr(FilePath, DIR_SEP);
 	if (TempPnt == NULL)
 		strcpy(FilePath, "");
-	
-	TempPnt = strrchr(FilePath, '\\');
+
+	TempPnt = strrchr(FilePath, DIR_SEP);
 	if (TempPnt != NULL)
 		TempPnt[0x01] = 0x00;
 	strcpy(FileName, FilePath);
 	strcat(FileName, "*.vg?");
 //printf("  Base Path: %s\n", FilePath);
 
+#ifdef WIN32
 	hFindFile = FindFirstFile(FileName, &FindFileData);
 	if (hFindFile == INVALID_HANDLE_VALUE)
 	{
@@ -353,39 +360,63 @@ static void ReadDirectory(const char* DirName)
 		printf("Error reading directory!\n");
 		return;
 	}
+#else
+	glob_t globbuf;
+	glob(FileName, 0, NULL, &globbuf);
+#endif
 	strcpy(FileName, FilePath);
 	TempPnt = FileName + strlen(FileName);
 	printf("\t\t    Sample\t    Time\n");
 	printf("File Title\tTotal\tLoop\tTotal\tLoop\n\n");
-	
+
+#ifdef WIN32
 	do
 	{
-//printf("  Found File: %s\n", FindFileData.cFileName);
 		if (FindFileData.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY)
 			goto SkipFile;
-		
 		FileExt = strrchr(FindFileData.cFileName, '.');
 		if (FileExt == NULL)
 			goto SkipFile;
 		FileExt ++;
-		
+
 		if (stricmp_u(FileExt, "vgm") && stricmp_u(FileExt, "vgz"))
 			goto SkipFile;
-		
+
 		strcpy(TempPnt, FindFileData.cFileName);
-//printf("  Full File Path: %s\n", FileName);
 		if (! OpenVGMFile(FileName))
 			printf("%s\tError opening the file!\n", TempPnt);
 		else
 			ShowFileStats(TempPnt);
-		
 SkipFile:
 		RetVal = FindNextFile(hFindFile, &FindFileData);
 	}
 	while(RetVal);
-	
+#else
+	for(i = 0; i < globbuf.gl_pathc; i++) {
+		if(!stat(globbuf.gl_pathv[i], &st)) {
+			FileExt = strrchr(globbuf.gl_pathv[i], '.');
+			if (FileExt == NULL)
+				continue;
+			FileExt ++;
+
+			if(stricmp(FileExt, "vgm") && stricmp(FileExt, "vgz"))
+				continue;
+
+			strcpy(TempPnt, globbuf.gl_pathv[i]);
+			if (! OpenVGMFile(globbuf.gl_pathv[i]))
+				printf("%s\tError opening the file!\n", TempPnt);
+			else
+				ShowFileStats(TempPnt);
+		}
+	}
+#endif
+
+#ifdef WIN32
 	RetVal = FindClose(hFindFile);
-	
+#else
+	globfree(&globbuf);
+#endif
+
 	return;
 }
 
