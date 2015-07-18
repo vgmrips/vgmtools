@@ -1,2 +1,2 @@
-[2~*.dsp text eol=crlf
+*.dsp text eol=crlf
 *.dsw text eol=crlf
