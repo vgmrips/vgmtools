@@ -1,5 +1,5 @@
 #include "compat.h"
-#include <malloc.h>
+#include <stdlib.h>
 #include <memory.h>
 #include <stdio.h>
 #include "stdbool.h"

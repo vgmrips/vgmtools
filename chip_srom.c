@@ -1,7 +1,7 @@
 // TODO: Check sample end < sample start
 
 #include <malloc.h>
-#include <memory.h>
+#include <stdlib.h>
 #include <stdio.h>
 
 #include "stdtype.h"
