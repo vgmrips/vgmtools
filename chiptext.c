@@ -61,17 +61,17 @@ static const char* NOTE_STRS[0x0C] = {"C", "C#", "D", "D#", "E", "F", "F#", "G",
 static const char* T6W28_PORT[0x02] = {"L/T", "R/N"};
 static const char* SN76496_NOISE_TYPE[0x04] = {"Periodic", "White"};
 static const char* SN76496_NOISE_FREQ[0x04] = {"High (6927Hz)", "Med (3463Hz)", "Low (1731Hz)", "Ch 2"};
-static const char* YM2413_INS_NAMES[0x10] = {"User instrument", "Violin", "Guitar", "Piano", "Flute",
+/*static const char* YM2413_INS_NAMES[0x10] = {"User instrument", "Violin", "Guitar", "Piano", "Flute",
 	"Clarinet", "Oboe", "Trumpet", "Organ", "Horn", "Synthesizer", "Harpsichord",
 	"Vibraphone", "Synthesizer Bass", "Acoustic Bass", "Electric Guitar"};
 static const char* YM2413_RHYTHM_NAMES[0x05] = {"High Hat", "Cymbal", "Tom-Tom", "Snare Drum",
-	"Bass Drum"};
+	"Bass Drum"};*/
 static const char* YM2151_WAVE_FORM[0x04] = {"Sawtooth", "Square", "Triangle", "Random Noise"};
 static const UINT32 dt2_tab[0x04] = {0, 384, 500, 608};
 static const char* YMZ280B_MODES[0x04] = {"Unknown", "ADPCM", "PCM8", "PCM16"};
 
 static const char* OPN_LFOFreqs[0x08]= {"3.98", "5.56", "6.02", "6.37", "6.88", "9.63", "48.1", "72.2"};
-static const double PI = 3.1415926535897932;
+//static const double PI = 3.1415926535897932;
 //static const double PI_HLF = PI / 2;
 
 static const char* PWM_PORTS[0x06] = {"Control Reg", "Cycle Reg", "Left Ch", "Right Ch", "Both Ch", "Invalid"};
@@ -3255,7 +3255,7 @@ void scsp_write(char* TempStr, UINT16 Register, UINT8 Data)
 	
 	if (Register < 0x400)
 	{
-		int slot=Register/0x20;
+		//int slot=Register/0x20;
 		Register&=0x1f;
 		//*((unsigned short *) (scsp->Slots[slot].udata.datab+(Register))) = val;
 		//SCSP_UpdateSlotReg(scsp,slot,Register&0x1f);

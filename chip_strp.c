@@ -622,7 +622,7 @@ bool y8950_write(UINT8 Register, UINT8 Data)
 bool ymf262_write(UINT8 Port, UINT8 Register, UINT8 Data)
 {
 	STRIP_OPL* strip = &StpDat->YMF262;
-	UINT16 RegVal;
+	UINT16 RegVal = 0;
 	
 	if (strip->All)
 		return false;

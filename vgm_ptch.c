@@ -4,6 +4,8 @@
 #include "vgmtools.h"
 #include "chip_strp.h"
 
+#include <math.h>
+
 // GD3 Tag Entry Count
 #define GD3T_ENT_V100	11
 
@@ -1135,7 +1137,7 @@ static UINT8 PatchVGM(int ArgCount, char* ArgList[])
 #else
 				NewVal = RealHdrSize;
 				ChipHzPnt = (UINT32*)(&VGMData[NewVal]);
-				while(ChipHzPnt > &VGMData[0x34])
+				while(ChipHzPnt > (UINT32*)&VGMData[0x34])
 				{
 					ChipHzPnt --;
 					if (*ChipHzPnt)
@@ -1193,13 +1195,13 @@ static UINT8 PatchVGM(int ArgCount, char* ArgList[])
 					if (OldVal != NewVal)
 					{
 						ResizeVGMHeader(NewVal);
-						printf("VGM Header Size Old: %02X, New: %02X\n", OldVal, NewVal);
+						printf("VGM Header Size Old: 0x%02X, New: 0x%02X\n", OldVal, NewVal);
 						RetVal |= 0x10;
 					}
 				}
 				else
 				{
-					printf("Invalid header size: 0x02X! 0x02X is minimum!\n", NewVal, OldVal);
+					printf("Invalid header size: 0x%02X! 0x%02X is minimum!\n", NewVal, OldVal);
 				}
 			}
 			else
@@ -2851,7 +2853,6 @@ static void StripVGMData(void)
 	UINT32 VGMPos;
 	UINT8* DstData;
 	UINT32 DstPos;
-	UINT32 CmdTimer;
 	UINT8 ChipID;
 	UINT8 Command;
 	UINT32 CmdDelay;
@@ -2878,10 +2879,7 @@ static void StripVGMData(void)
 	LoopOfs = VGMHead.lngLoopOffset ? (0x1C + VGMHead.lngLoopOffset) : 0x00;
 	NewLoopS = 0x00;
 	memcpy(DstData, VGMData, VGMPos);	// Copy Header
-	
-#ifdef WIN32
-	CmdTimer = 0;
-#endif
+
 	InitAllChips();
 	/*if (VGMHead.lngHzK054539)
 	{

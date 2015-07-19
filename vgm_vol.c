@@ -1,25 +1,8 @@
 // vgm_vol.c - VGM Volume Detector
 //
 
-#include "compat.h"
-#include <stdio.h>
-#include <stdlib.h>
-#include "stdbool.h"
-#include <string.h>
+#include "vgmtools.h"
 #include <math.h>
-
-#ifdef WIN32
-
-#include <conio.h>
-#include <windows.h>	// for Directory Listing
-
-#else
-
-// Note: Directory Listing is only supported in Windows
-#include <limits.h>
-#define MAX_PATH	PATH_MAX
-
-#endif
 
 #ifndef M_LN2
 #define	M_LN2		0.69314718055994530942
@@ -29,10 +12,12 @@
 
 
 static void ReadWAVFile(const char* FileName);
-static void ReadDirectory(const char* DirName);
 static void ReadPlaylist(const char* FileName);
 static void PrintVolMod(UINT16 MaxLvl);
+#ifdef WIN32
+static void ReadDirectory(const char* DirName);
 static INT8 stricmp_u(const char *string1, const char *string2);
+#endif
 
 
 #define FCC_RIFF	0x46464952
@@ -331,6 +316,36 @@ SkipFile:
 	
 	return;
 }
+
+static INT8 stricmp_u(const char *string1, const char *string2)
+{
+	// my own stricmp, because VC++6 doesn't find _stricmp when compiling without
+	// standard librarys
+	const char* StrPnt1;
+	const char* StrPnt2;
+	char StrChr1;
+	char StrChr2;
+	
+	StrPnt1 = string1;
+	StrPnt2 = string2;
+	while(true)
+	{
+		StrChr1 = toupper(*StrPnt1);
+		StrChr2 = toupper(*StrPnt2);
+		
+		if (StrChr1 < StrChr2)
+			return -1;
+		else if (StrChr1 > StrChr2)
+			return +1;
+		if (StrChr1 == 0x00)
+			return 0;
+		
+		StrPnt1 ++;
+		StrPnt2 ++;
+	}
+	
+	return 0;
+}
 #endif
 
 static void ReadPlaylist(const char* FileName)
@@ -424,32 +439,3 @@ static void ReadPlaylist(const char* FileName)
 	return;
 }
 
-static INT8 stricmp_u(const char *string1, const char *string2)
-{
-	// my own stricmp, because VC++6 doesn't find _stricmp when compiling without
-	// standard librarys
-	const char* StrPnt1;
-	const char* StrPnt2;
-	char StrChr1;
-	char StrChr2;
-	
-	StrPnt1 = string1;
-	StrPnt2 = string2;
-	while(true)
-	{
-		StrChr1 = toupper(*StrPnt1);
-		StrChr2 = toupper(*StrPnt2);
-		
-		if (StrChr1 < StrChr2)
-			return -1;
-		else if (StrChr1 > StrChr2)
-			return +1;
-		if (StrChr1 == 0x00)
-			return 0;
-		
-		StrPnt1 ++;
-		StrPnt2 ++;
-	}
-	
-	return 0;
-}

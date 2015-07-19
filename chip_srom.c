@@ -1537,11 +1537,10 @@ void okim6295_write(UINT8 Offset, UINT8 Data)
 static UINT32 c140_sample_addr(C140_DATA* chip, UINT8 adr_msb, UINT8 adr_lsb,
 							   UINT8 bank, UINT8 voice)
 {
-	static const INT16 asic219banks[4] = {0x07, 0x01, 0x03, 0x05};
 	UINT32 TempAddr;
 	UINT32 NewAddr;
 	UINT8 BnkReg;
-	
+
 	TempAddr = (bank << 16) | (adr_msb << 8) | (adr_lsb << 0);
 	switch(chip->banking_type)
 	{
@@ -1570,7 +1569,7 @@ static UINT32 c140_sample_addr(C140_DATA* chip, UINT8 adr_msb, UINT8 adr_lsb,
 		NewAddr = 0x00;
 		break;
 	}
-	
+
 	return NewAddr;
 }
 
@@ -1813,7 +1812,7 @@ void k054539_write(UINT8 Port, UINT8 Offset, UINT8 Data)
 		{
 			TempChn->mode_reg = Data;
 			if (Data & 0x20)
-				printf("K054539 #%u, Ch %u: reverse play (Reg 0x%03X, Data 0x%02X)\n",
+				printf("K054539 #%lu, Ch %u: reverse play (Reg 0x%03X, Data 0x%02X)\n",
 						ChDat - ChipData, (RegVal & 0x0F) >> 1,
 						RegVal, Data);
 		}
@@ -2961,7 +2960,7 @@ void write_rom_data(UINT8 ROMType, UINT32 ROMSize, UINT32 DataStart, UINT32 Data
 		
 		if (x1_010->ROMSize != ROMSize)
 		{
-			x1_010->ROMData = (UINT8*)realloc(x1_010->ROMData, ROMSize);
+			x1_010->ROMData = (INT8*)realloc(x1_010->ROMData, ROMSize);
 			x1_010->ROMUsage = (UINT8*)realloc(x1_010->ROMUsage, ROMSize);
 			x1_010->ROMSize = ROMSize;
 			memset(x1_010->ROMData, 0xFF, ROMSize);
@@ -2975,7 +2974,7 @@ void write_rom_data(UINT8 ROMType, UINT32 ROMSize, UINT32 DataStart, UINT32 Data
 		
 		if (c352->ROMSize != ROMSize)
 		{
-			c352->ROMData = (UINT8*)realloc(c352->ROMData, ROMSize);
+			c352->ROMData = (INT8*)realloc(c352->ROMData, ROMSize);
 			c352->ROMUsage = (UINT8*)realloc(c352->ROMUsage, ROMSize);
 			c352->ROMSize = ROMSize;
 			memset(c352->ROMData, 0xFF, ROMSize);
@@ -3316,12 +3315,12 @@ UINT32 GetROMData(UINT8 ROMType, UINT8** ROMData)
 	case 0x91:	// X1-010 ROM
 		x1_010 = &ChDat->X1_010;
 		
-		*ROMData = x1_010->ROMData;
+		*ROMData = (UINT8*)x1_010->ROMData;
 		return x1_010->ROMSize;
 	case 0x92:	// C352 ROM
 		c352 = &ChDat->C352;
-		
-		*ROMData = c352->ROMData;
+
+		*ROMData = (UINT8*)c352->ROMData;
 		return c352->ROMSize;
 	case 0x93:	// GA20 ROM
 		ga20 = &ChDat->GA20;

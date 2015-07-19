@@ -13,7 +13,11 @@ static bool OpenVGMFile(const char* FileName, bool* Compressed);
 static wchar_t* ReadWStrFromFile(gzFile hFile, UINT32* FilePos, const UINT32 EOFPos);
 static UINT8 ConvertUnicode2UTF8(char* Buffer, const UINT16 UnicodeChr);
 static bool WriteVGMFile(const char* FileName, const bool Compress);
-static UINT32 WriteWStrToFile(const gzFile hFile, const wchar_t* WString);
+union filePtr {
+	gzFile gz;
+	FILE *f;
+};
+static UINT32 WriteWStrToFile(const union filePtr hFile, const wchar_t* WString);
 static void Copy2TagStr(wchar_t** TagStr, const char* DataStr);
 static void CopySys2TagStr(wchar_t** TagStr, const SYSTEM_SHORT* DataStr, bool Mode,
 						   const char* CmdStr);
@@ -394,26 +398,26 @@ static UINT8 ConvertUnicode2UTF8(char* Buffer, const UINT16 UnicodeChr)
 
 static bool WriteVGMFile(const char* FileName, const bool Compress)
 {
-	gzFile hFile;
-	
+	union filePtr hFile;
+
 	FileCompression = Compress;
 	if (! FileCompression)
-		hFile = fopen(FileName, "wb");
+		hFile.f = fopen(FileName, "wb");
 	else
-		hFile = gzopen(FileName, "wb9");
-	if (hFile == NULL)
+		hFile.gz = gzopen(FileName, "wb9");
+	if (hFile.f == NULL)
 		return false;
 	
 	// Write VGM Data (excluding GD3 Tag)
 	if (! FileCompression)
 	{
-		fseek((FILE*)hFile, 0x00, SEEK_SET);
-		fwrite(VGMData, 0x01, VGMDataLen, (FILE*)hFile);
+		fseek(hFile.f, 0x00, SEEK_SET);
+		fwrite(VGMData, 0x01, VGMDataLen, hFile.f);
 	}
 	else
 	{
-		gzseek(hFile, 0x00, SEEK_SET);
-		gzwrite(hFile, VGMData, VGMDataLen);
+		gzseek(hFile.gz, 0x00, SEEK_SET);
+		gzwrite(hFile.gz, VGMData, VGMDataLen);
 	}
 	
 	// Write GD3 Tag
@@ -421,17 +425,17 @@ static bool WriteVGMFile(const char* FileName, const bool Compress)
 	{
 		if (! FileCompression)
 		{
-			fseek((FILE*)hFile, VGMHead.lngGD3Offset, SEEK_SET);
-			fwrite(&VGMTag.fccGD3, 0x04, 0x01, (FILE*)hFile);
-			fwrite(&VGMTag.lngVersion, 0x04, 0x01, (FILE*)hFile);
-			fwrite(&VGMTag.lngTagLength, 0x04, 0x01, (FILE*)hFile);
+			fseek(hFile.f, VGMHead.lngGD3Offset, SEEK_SET);
+			fwrite(&VGMTag.fccGD3, 0x04, 0x01, hFile.f);
+			fwrite(&VGMTag.lngVersion, 0x04, 0x01, hFile.f);
+			fwrite(&VGMTag.lngTagLength, 0x04, 0x01, hFile.f);
 		}
 		else
 		{
-			gzseek(hFile, VGMHead.lngGD3Offset, SEEK_SET);
-			gzwrite(hFile, &VGMTag.fccGD3, 0x04);
-			gzwrite(hFile, &VGMTag.lngVersion, 0x04);
-			gzwrite(hFile, &VGMTag.lngTagLength, 0x04);
+			gzseek(hFile.gz, VGMHead.lngGD3Offset, SEEK_SET);
+			gzwrite(hFile.gz, &VGMTag.fccGD3, 0x04);
+			gzwrite(hFile.gz, &VGMTag.lngVersion, 0x04);
+			gzwrite(hFile.gz, &VGMTag.lngTagLength, 0x04);
 		}
 		WriteWStrToFile(hFile, VGMTag.strTrackNameE);
 		WriteWStrToFile(hFile, VGMTag.strTrackNameJ);
@@ -447,15 +451,15 @@ static bool WriteVGMFile(const char* FileName, const bool Compress)
 	}
 	
 	if (! FileCompression)
-		fclose((FILE*)hFile);
+		fclose(hFile.f);
 	else
-		gzclose(hFile);
+		gzclose(hFile.gz);
 	printf("Tag written.\n");
 	
 	return true;
 }
 
-static UINT32 WriteWStrToFile(const gzFile hFile, const wchar_t* WString)
+static UINT32 WriteWStrToFile(union filePtr hFile, const wchar_t* WString)
 {
 	const wchar_t* TextStr;
 	UINT32 WrittenChars;
@@ -467,9 +471,9 @@ static UINT32 WriteWStrToFile(const gzFile hFile, const wchar_t* WString)
 	{
 		UnicodeChr = (wchar_t)(*TextStr);
 		if (! FileCompression)
-			fwrite(&UnicodeChr, 0x02, 0x01, (FILE*)hFile);
+			fwrite(&UnicodeChr, 0x02, 0x01, hFile.f);
 		else
-			gzwrite(hFile, &UnicodeChr, 0x02);
+			gzwrite(hFile.gz, &UnicodeChr, 0x02);
 		
 		TextStr ++;
 		WrittenChars ++;
@@ -477,9 +481,9 @@ static UINT32 WriteWStrToFile(const gzFile hFile, const wchar_t* WString)
 	// Write Null-Terminator
 	UnicodeChr = 0x0000;
 	if (! FileCompression)
-		fwrite(&UnicodeChr, 0x02, 0x01, (FILE*)hFile);
+		fwrite(&UnicodeChr, 0x02, 0x01, hFile.f);
 	else
-		gzwrite(hFile, &UnicodeChr, 0x02);
+		gzwrite(hFile.gz, &UnicodeChr, 0x02);
 	
 	return WrittenChars;
 }
@@ -1223,7 +1227,7 @@ char* ConvertWStr2ASCII_NCR(const wchar_t* WideStr)
 	while(*SrcStr)
 	{
 		UnicodeChr = (UINT16)(*SrcStr);
-		if (UnicodeChr >= 0x20 && UnicodeChr < 0x80 || UnicodeChr == '\n')
+		if((UnicodeChr >= 0x20 && UnicodeChr < 0x80) || UnicodeChr == '\n')
 		{
 			*DstStr = (UINT8)UnicodeChr;
 			DstStr ++;

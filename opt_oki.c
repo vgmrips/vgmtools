@@ -61,7 +61,8 @@ static void RewriteVGMData(void);
 static void PrintMinSec(const UINT32 SamplePos, char* TempStr);
 #endif
 
-#define printdbg
+void printignore(const char *fmt, ...) {} // suppress warnings
+#define printdbg printignore
 //#define printdbg	printf
 
 
@@ -983,7 +984,7 @@ static void MakeDataStream(void)
 				for (CurPlay = 0; CurPlay < 6; CurPlay ++)
 				{
 					BaseFreq = (VGMHead.lngHzOKIM6258 + dividers[CurPlay] / 2) / dividers[CurPlay];
-					if (abs(FreqVal - BaseFreq) < 120 ||
+					if (abs((int)FreqVal - (int)BaseFreq) < 120 ||
 						(FreqVal < BaseFreq && FreqVal >= BaseFreq - 800))
 					{
 						FreqVal = BaseFreq;

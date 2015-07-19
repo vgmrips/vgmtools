@@ -1298,8 +1298,8 @@ static void InitializeVGM(UINT8** DstDataRef, UINT32* DstPosRef)
 				CmdType = 0x12;
 				
 				if (! CurCSet &&	// only chip 1 can change the master clock
-					(TempReg->RegMask[0x0B] & 0x7F) == 0x01 ||
-					(TempReg->RegMask[0x0C] & 0x7F) == 0x01)
+					((TempReg->RegMask[0x0B] & 0x7F) == 0x01 ||
+					(TempReg->RegMask[0x0C] & 0x7F) == 0x01))
 				{
 					TempLng = VGMHead.lngHzOKIM6295 & 0x40000000;
 					VGMHead.lngHzOKIM6295 =	(TempReg->RegData.R08[0x08] <<  0) |

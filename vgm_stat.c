@@ -9,6 +9,7 @@
 #include <sys/stat.h>
 #endif
 
+#include <wchar.h>
 
 static bool OpenVGMFile(const char* FileName);
 static wchar_t* ReadWStrFromFile(gzFile hFile, UINT32* FilePos, UINT32 EOFPos);
@@ -283,9 +284,6 @@ static wchar_t* ReadWStrFromFile(gzFile hFile, UINT32* FilePos, UINT32 EOFPos)
 	wchar_t* TempStr;
 	UINT32 StrLen;
 	UINT16 UnicodeChr;
-#ifndef WIN32
-	UINT32 i;
-#endif
 
 	// Unicode 2-Byte -> 4-Byte conversion is not neccessary,
 	// but it's easier to handle wchar_t than unsigned short

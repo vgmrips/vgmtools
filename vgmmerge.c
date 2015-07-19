@@ -11,7 +11,6 @@ static void WriteVGMFile(const char* FileName);
 static void MergeVGMHeader(VGM_HEADER* DstHead, VGM_HEADER* SrcHead, CHIP_MAPS* SrcChpMap);
 static void MergeVGMData(void);
 INLINE UINT16 GetCmdLen(UINT8 Command);
-INLINE bool IsDelayCmd(UINT8 Command);
 #ifdef WIN32
 static void PrintMinSec(const UINT32 SamplePos, char* TempStr);
 #endif
@@ -1214,16 +1213,6 @@ INLINE UINT16 GetCmdLen(UINT8 Command)
 		printf("Unknown Command: %X\n", Command);
 		return 0x01;
 	}
-}
-
-INLINE bool IsDelayCmd(UINT8 Command)
-{
-	if (Command >= 0x61 && Command <= 0x63)
-		return true;
-	else if (Command >= 0x70 && Command <= 0x8F)
-		return true;
-	else
-		return false;
 }
 
 #ifdef WIN32

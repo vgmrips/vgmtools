@@ -35,7 +35,6 @@ static void CountVGMData(void);
 static void print_wordnum(const char* Word, INT32 Number);
 static void DoChipCommand(UINT8 ChipSet, UINT8 ChipID, UINT16 Reg, UINT16 Data);
 static void DoKeyOnOff(CHIP_STATE* CState, UINT8 Chn, UINT8 OnOff, UINT8 VolFlag);
-static void PrintMinSec(const UINT32 SamplePos, char* TempStr);
 
 
 #define CHIP_COUNT	0x20
@@ -800,28 +799,8 @@ static void CountVGMData()
 		VGMPos += CmdLen;
 		if (StopVGM)
 			break;
-		
-/*#ifdef WIN32
-		if (CmdTimer < GetTickCount())
-		{
-			PrintMinSec(VGMSmplPos, MinSecStr);
-			PrintMinSec(VGMHead.lngTotalSamples, TempStr);
-			if (VGMSmplPos >= VGMWriteFrom)
-				TempLng = VGMSmplPos - VGMWriteFrom;
-			else
-				TempLng = 0;
-			if (VGMWriteTo)
-				ROMSize = VGMWriteTo - VGMWriteFrom;
-			else
-				ROMSize = VGMHead.lngTotalSamples - VGMWriteFrom;
-			printf("%04.3f %% - %s / %s (%08X / %08X) ...\r", (float)TempLng / ROMSize * 100,
-					MinSecStr, TempStr, VGMPos, VGMHead.lngEOFOffset);
-			CmdTimer = GetTickCount() + 200;
-		}
-#endif*/
 	}
-//	printf("\t\t\t\t\t\t\t\t\r");
-	
+
 	for (TempByt = 0x00; TempByt < 0x02; TempByt ++)
 	{
 		for (CurChip = 0x00; CurChip < CHIP_COUNT; CurChip ++)
@@ -1132,7 +1111,7 @@ static void DoChipCommand(UINT8 ChipSet, UINT8 ChipID, UINT16 Reg, UINT16 Data)
 static void DoKeyOnOff(CHIP_STATE* CState, UINT8 Chn, UINT8 OnOff, UINT8 VolFlag)
 {
 	UINT32 KeyMask;
-	
+
 	KeyMask = 0x01 << Chn;
 	if (VolFlag & 0x01)
 	{
@@ -1141,8 +1120,7 @@ static void DoKeyOnOff(CHIP_STATE* CState, UINT8 Chn, UINT8 OnOff, UINT8 VolFlag
 			if (! (CState->VolState & KeyMask))
 			{
 				CState->VolState |= KeyMask;
-				// TODO: place parentheses
-				if (! (VolFlag & 0x80) | CState->VolState & KeyMask)
+				if (! (VolFlag & 0x80) | (CState->VolState & KeyMask))
 					CState->KeyOnCnt ++;
 			}
 		}
@@ -1158,7 +1136,7 @@ static void DoKeyOnOff(CHIP_STATE* CState, UINT8 Chn, UINT8 OnOff, UINT8 VolFlag
 			if (! (CState->VolState & KeyMask))
 			{
 				CState->VolState |= KeyMask;
-				if (! (VolFlag & 0x80) | CState->KeyState & KeyMask)
+				if (! (VolFlag & 0x80) | (CState->KeyState & KeyMask))
 					CState->KeyOnCnt ++;
 			}
 		}
@@ -1167,10 +1145,11 @@ static void DoKeyOnOff(CHIP_STATE* CState, UINT8 Chn, UINT8 OnOff, UINT8 VolFlag
 			CState->VolState &= ~KeyMask;
 		}
 	}
-	
+
 	return;
 }
 
+/*
 static void PrintMinSec(const UINT32 SamplePos, char* TempStr)
 {
 	double TimeSec;
@@ -1184,3 +1163,4 @@ static void PrintMinSec(const UINT32 SamplePos, char* TempStr)
 	
 	return;
 }
+*/

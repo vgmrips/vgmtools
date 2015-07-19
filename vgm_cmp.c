@@ -278,10 +278,10 @@ static void CompressVGMData(void)
 	UINT8 TempByt;
 	UINT16 TempSht;
 	UINT32 TempLng;
-	UINT32 ROMSize;
 	//UINT32 DataStart;
 	//UINT32 DataLen;
 #ifdef WIN32
+	UINT32 ROMSize;
 	UINT32 CmdTimer;
 	char TempStr[0x80];
 	char MinSecStr[0x80];

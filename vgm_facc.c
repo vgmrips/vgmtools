@@ -18,9 +18,6 @@
 #include "VGMFile.h"
 
 
-#define INLINE	__inline
-
-
 static bool OpenVGMFile(const char* FileName);
 static void WriteVGMFile(const char* FileName);
 static void RoundVGMData(void);
@@ -30,7 +27,7 @@ static void WriteVGMHeader(UINT8* DstData, const UINT8* SrcData, const UINT32 EO
 #ifdef WIN32
 static void PrintMinSec(const UINT32 SamplePos, char* TempStr);
 #endif
-static INLINE INT8 sign(double Value);
+INLINE INT8 sign(double Value);
 static INT32 RoundU(double Value);
 static void SetRoundError(UINT32 SrcVal, UINT32 RndVal, INT32* ErrMin, INT32* ErrMax,
 						  INT32* PosMin, INT32* PosMax);
@@ -209,8 +206,8 @@ static void RoundVGMData(void)
 	UINT8 TempByt;
 	UINT16 TempSht;
 	UINT32 TempLng;
-	char TempStr[0x80];
 #ifdef WIN32
+	char TempStr[0x80];
 	UINT32 CmdTimer;
 	char MinSecStr[0x80];
 #endif
@@ -661,7 +658,7 @@ static void PrintMinSec(const UINT32 SamplePos, char* TempStr)
 }
 #endif
 
-static INLINE INT8 sign(double Value)
+INLINE INT8 sign(double Value)
 {
 	if (Value > 0.0)
 		return 1;
