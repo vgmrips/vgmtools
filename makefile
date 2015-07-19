@@ -77,4 +77,4 @@ $(OBJ):
 	mkdir $(OBJ)
 
 clean:
-	rm -f $(TOOLS) $(EXTRA_TOOLS) $(OBJ)/*.o
+	rm -f $(TOOLS) $(EXTRA_TOOLS) $(addsuffix .exe,$(TOOLS)) $(OBJ)/*.o
