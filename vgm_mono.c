@@ -272,6 +272,9 @@ static void CompressVGMData(void)
 	UINT8 MPCMSlot;
 	UINT16 MPCMBank;
 	UINT32 LastMBnkWrtOfs;
+	UINT8 X1Channel;
+	UINT8 X1Flags[0x10];
+	UINT8* X1VolWrites[0x10];	// need to cache because sample volume register has another purpose in wavetable mode
 	
 	//DstData = (UINT8*)malloc(VGMDataLen + 0x100);
 	VGMPos = VGMHead.lngDataOffset;
@@ -805,6 +808,53 @@ static void CompressVGMData(void)
 			case 0xC4:	// Q-Sound write
 				//SetChipSet(0x00);
 				//WriteEvent = qsound_write(VGMPnt[0x03], (VGMPnt[0x01] << 8) | (VGMPnt[0x02] << 0));
+				CmdLen = 0x04;
+				break;
+			case 0xc8:	// X1-010 write
+				TempSht = VGMPnt[0x01]<<8 | VGMPnt[0x02]<<0;
+				TempByt = VGMPnt[0x03];
+				
+				// register write
+				if(TempSht < 0x80)
+				{
+					X1Channel = TempSht/8;
+					switch(TempSht%8)
+					{
+						case 0:		// flag write
+							X1Flags[X1Channel] = TempByt;
+							// sample key on - modify last volume command
+							if((TempByt&3) == 1)
+							{
+								if(X1VolWrites[X1Channel])
+								{
+									TempByt = *(X1VolWrites[X1Channel]);
+									TempByt = (TempByt>>4) > (TempByt&0x0f) ? ((TempByt&0xf0) | (TempByt>>4)) : ((TempByt&0x0f) | (TempByt<<4));
+									*(X1VolWrites[X1Channel]) = TempByt;
+									X1VolWrites[X1Channel] = 0;
+								}
+							}
+							break;
+						case 1:		// volume write
+							// in wavetable mode, this register selects the wavetable so we have to check what mode we're in before writing
+							if( (X1Flags[X1Channel] & 1) == 0) // key off = remember last volume command
+								X1VolWrites[X1Channel] = VGMPnt+3;
+							if( (X1Flags[X1Channel] & 3) == 1) // sample key on = modify volume command
+							{
+								TempByt = (TempByt>>4) > (TempByt&0x0f) ? ((TempByt&0xf0) | (TempByt>>4)) : ((TempByt&0x0f) | (TempByt<<4));
+								VGMPnt[0x03] = TempByt;
+							}
+							break;
+						default:
+							break;
+					}
+				}
+				// envelope write
+				else if (TempSht < 0x1000)
+				{
+					TempByt = (TempByt>>4) > (TempByt&0x0f) ? ((TempByt&0xf0) | (TempByt>>4)) : ((TempByt&0x0f) | (TempByt<<4));
+					VGMPnt[0x03] = TempByt;
+				}
+				
 				CmdLen = 0x04;
 				break;
 			default:
