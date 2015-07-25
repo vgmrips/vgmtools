@@ -2318,7 +2318,7 @@ void c352_write(UINT16 Offset, UINT16 val)
 						startpos = wrap && rev ? ((TempChn->bank-1)<<16) : (TempChn->bank<<16);
 												
 						endpos = wrap && !rev ? ((TempChn->bank+1)<<16) : (TempChn->bank<<16);
-						reptpos = (endpos & 0xFF0000) + TempChn->repeat_addr;
+						reptpos = (endpos & 0x00FF0000) + TempChn->repeat_addr;
 						
 						startpos += rev ? TempChn->end_addr : TempChn->start_addr;
 						
@@ -2328,7 +2328,7 @@ void c352_write(UINT16 Offset, UINT16 val)
 							startpos=reptpos;
 						
 						for (addr = startpos; addr <= endpos; addr ++)
-							chip->ROMUsage[addr] |= 0x01;
+							chip->ROMUsage[addr&0xffffff] |= 0x01;
 					}
 					TempChn->flag &= ~(C352_FLG_KEYON);
 					TempChn->flag |= C352_FLG_BUSY;
@@ -2365,8 +2365,9 @@ void c352_write(UINT16 Offset, UINT16 val)
 			
 			if (endpos < startpos)
 				endpos += 0x10000;
+			
 			for (addr = startpos; addr <= endpos; addr ++)
-				chip->ROMUsage[addr] |= 0x01;
+				chip->ROMUsage[addr&0xffffff] |= 0x01;
 		}
 		break;
 	case 0x8:	// bank (bits 16-31 of address);
@@ -2383,8 +2384,9 @@ void c352_write(UINT16 Offset, UINT16 val)
 			
 			if (endpos < startpos)
 				endpos += 0x10000;
+			
 			for (addr = startpos; addr <= endpos; addr ++)
-				chip->ROMUsage[addr] |= 0x01;
+				chip->ROMUsage[addr&0xffffff] |= 0x01;
 		}
 		break;
 	case 0xc:	// end address
