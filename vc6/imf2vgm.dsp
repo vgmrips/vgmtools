@@ -1,24 +1,24 @@
-# Microsoft Developer Studio Project File - Name="optvgm32" - Package Owner=<4>
+# Microsoft Developer Studio Project File - Name="imf2vgm" - Package Owner=<4>
 # Microsoft Developer Studio Generated Build File, Format Version 6.00
 # ** NICHT BEARBEITEN **
 
 # TARGTYPE "Win32 (x86) Console Application" 0x0103
 
-CFG=optvgm32 - Win32 Debug
+CFG=imf2vgm - Win32 Debug
 !MESSAGE Dies ist kein gültiges Makefile. Zum Erstellen dieses Projekts mit NMAKE
 !MESSAGE verwenden Sie den Befehl "Makefile exportieren" und führen Sie den Befehl
 !MESSAGE 
-!MESSAGE NMAKE /f "optvgm32.mak".
+!MESSAGE NMAKE /f "imf2vgm.mak".
 !MESSAGE 
 !MESSAGE Sie können beim Ausführen von NMAKE eine Konfiguration angeben
 !MESSAGE durch Definieren des Makros CFG in der Befehlszeile. Zum Beispiel:
 !MESSAGE 
-!MESSAGE NMAKE /f "optvgm32.mak" CFG="optvgm32 - Win32 Debug"
+!MESSAGE NMAKE /f "imf2vgm.mak" CFG="imf2vgm - Win32 Debug"
 !MESSAGE 
 !MESSAGE Für die Konfiguration stehen zur Auswahl:
 !MESSAGE 
-!MESSAGE "optvgm32 - Win32 Release" (basierend auf  "Win32 (x86) Console Application")
-!MESSAGE "optvgm32 - Win32 Debug" (basierend auf  "Win32 (x86) Console Application")
+!MESSAGE "imf2vgm - Win32 Release" (basierend auf  "Win32 (x86) Console Application")
+!MESSAGE "imf2vgm - Win32 Debug" (basierend auf  "Win32 (x86) Console Application")
 !MESSAGE 
 
 # Begin Project
@@ -28,7 +28,7 @@ CFG=optvgm32 - Win32 Debug
 CPP=cl.exe
 RSC=rc.exe
 
-!IF  "$(CFG)" == "optvgm32 - Win32 Release"
+!IF  "$(CFG)" == "imf2vgm - Win32 Release"
 
 # PROP BASE Use_MFC 0
 # PROP BASE Use_Debug_Libraries 0
@@ -42,7 +42,7 @@ RSC=rc.exe
 # PROP Ignore_Export_Lib 0
 # PROP Target_Dir ""
 # ADD BASE CPP /nologo /W3 /GX /O2 /D "WIN32" /D "NDEBUG" /D "_CONSOLE" /D "_MBCS" /YX /FD /c
-# ADD CPP /nologo /MD /W3 /GX /O2 /I "..\zlib" /D "WIN32" /D "NDEBUG" /D "_CONSOLE" /D "_MBCS" /FD /c
+# ADD CPP /nologo /MD /W3 /GX /O2 /D "WIN32" /D "NDEBUG" /D "_CONSOLE" /D "_MBCS" /FD /c
 # SUBTRACT CPP /YX
 # ADD BASE RSC /l 0x409 /d "NDEBUG"
 # ADD RSC /l 0x409 /d "NDEBUG"
@@ -51,14 +51,14 @@ BSC32=bscmake.exe
 # ADD BSC32 /nologo
 LINK32=link.exe
 # ADD BASE LINK32 kernel32.lib user32.lib gdi32.lib winspool.lib comdlg32.lib advapi32.lib shell32.lib ole32.lib oleaut32.lib uuid.lib odbc32.lib odbccp32.lib kernel32.lib user32.lib gdi32.lib winspool.lib comdlg32.lib advapi32.lib shell32.lib ole32.lib oleaut32.lib uuid.lib odbc32.lib odbccp32.lib /nologo /subsystem:console /machine:I386
-# ADD LINK32 msvcrt.lib kernel32.lib user32.lib zdll.lib /nologo /subsystem:console /pdb:none /machine:I386 /nodefaultlib /libpath:"..\zlib"
+# ADD LINK32 msvcrt.lib kernel32.lib user32.lib /nologo /subsystem:console /pdb:none /machine:I386 /nodefaultlib
 
-!ELSEIF  "$(CFG)" == "optvgm32 - Win32 Debug"
+!ELSEIF  "$(CFG)" == "imf2vgm - Win32 Debug"
 
 # PROP BASE Use_MFC 0
 # PROP BASE Use_Debug_Libraries 1
-# PROP BASE Output_Dir "optvgm32___Win32_Debug"
-# PROP BASE Intermediate_Dir "optvgm32___Win32_Debug"
+# PROP BASE Output_Dir "imf2vgm___Win32_Debug"
+# PROP BASE Intermediate_Dir "imf2vgm___Win32_Debug"
 # PROP BASE Target_Dir ""
 # PROP Use_MFC 0
 # PROP Use_Debug_Libraries 1
@@ -67,7 +67,7 @@ LINK32=link.exe
 # PROP Ignore_Export_Lib 0
 # PROP Target_Dir ""
 # ADD BASE CPP /nologo /W3 /Gm /GX /ZI /Od /D "WIN32" /D "_DEBUG" /D "_CONSOLE" /D "_MBCS" /YX /FD /GZ /c
-# ADD CPP /nologo /MDd /W3 /Gm /GX /ZI /Od /I "..\zlib" /D "WIN32" /D "_DEBUG" /D "_CONSOLE" /D "_MBCS" /FR /FD /GZ /c
+# ADD CPP /nologo /MDd /W3 /Gm /GX /ZI /Od /D "WIN32" /D "_DEBUG" /D "_CONSOLE" /D "_MBCS" /FR /FD /GZ /c
 # SUBTRACT CPP /YX
 # ADD BASE RSC /l 0x409 /d "_DEBUG"
 # ADD RSC /l 0x409 /d "_DEBUG"
@@ -76,21 +76,21 @@ BSC32=bscmake.exe
 # ADD BSC32 /nologo
 LINK32=link.exe
 # ADD BASE LINK32 kernel32.lib user32.lib gdi32.lib winspool.lib comdlg32.lib advapi32.lib shell32.lib ole32.lib oleaut32.lib uuid.lib odbc32.lib odbccp32.lib kernel32.lib user32.lib gdi32.lib winspool.lib comdlg32.lib advapi32.lib shell32.lib ole32.lib oleaut32.lib uuid.lib odbc32.lib odbccp32.lib /nologo /subsystem:console /debug /machine:I386 /pdbtype:sept
-# ADD LINK32 msvcrtd.lib kernel32.lib user32.lib zdll.lib /nologo /subsystem:console /debug /machine:I386 /nodefaultlib /libpath:"..\zlib"
+# ADD LINK32 msvcrtd.lib kernel32.lib user32.lib /nologo /subsystem:console /debug /machine:I386 /nodefaultlib
 # SUBTRACT LINK32 /pdb:none
 
 !ENDIF 
 
 # Begin Target
 
-# Name "optvgm32 - Win32 Release"
-# Name "optvgm32 - Win32 Debug"
+# Name "imf2vgm - Win32 Release"
+# Name "imf2vgm - Win32 Debug"
 # Begin Group "Source Files"
 
 # PROP Default_Filter "cpp;c;cxx;rc;def;r;odl;idl;hpj;bat"
 # Begin Source File
 
-SOURCE=..\optvgm32.c
+SOURCE=..\imf2vgm.c
 # End Source File
 # End Group
 # Begin Group "Header Files"

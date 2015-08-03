@@ -3,27 +3,19 @@
 
 #include <stdio.h>
 #include <stdlib.h>
-#include "stdbool.h"
 #include <string.h>
-
-#ifdef WIN32
-#include <conio.h>
-#include <windows.h>	// for GetTickCount
-#endif
-
-#include "zlib.h"
+#include <zlib.h>
 
 #include "stdtype.h"
+#include "stdbool.h"
 #include "VGMFile.h"
 #include "vgm_lib.h"
+#include "common.h"
 
 
 static bool OpenVGMFile(const char* FileName);
 static void WriteVGMFile(const char* FileName);
 static void CompressVGMData(void);
-#ifdef WIN32
-static void PrintMinSec(const UINT32 SamplePos, char* TempStr);
-#endif
 
 VGM_HEADER VGMHead;
 UINT32 VGMDataLen;
@@ -51,25 +43,29 @@ int main(int argc, char* argv[])
 	printf("OPL 2<->3 Converter\n-------------------\n");
 	
 	ErrVal = 0;
-	argbase = 0x01;
+	argbase = 1;
 	OPL3to2 = true;
-	if (argc >= argbase + 0x01)
+	while(argbase < argc && argv[argbase][0] == '-')
 	{
-		if (! strcmp(argv[argbase + 0x00], "-toopl3"))
+		if (! stricmp(argv[argbase], "-toopl3"))
 		{
 			OPL3to2 = false;
 			argbase ++;
 		}
+		else
+		{
+			break;
+		}
 	}
 	
 	printf("File Name:\t");
-	if (argc <= argbase + 0x00)
+	if (argc <= argbase + 0)
 	{
-		gets(FileName);
+		ReadFilename(FileName, 0x100);
 	}
 	else
 	{
-		strcpy(FileName, argv[argbase + 0x00]);
+		strcpy(FileName, argv[argbase + 0]);
 		printf("%s\n", FileName);
 	}
 	if (! strlen(FileName))
@@ -122,11 +118,11 @@ int main(int argc, char* argv[])
 		memcpy(&VGMData[0x5C], &NewClk_OPL3, 0x04);
 		CompressVGMData();
 		
-		if (argc > argbase + 0x01)
-			strcpy(FileName, argv[argbase + 0x01]);
+		if (argc > argbase + 1)
+			strcpy(FileName, argv[argbase + 1]);
 		else
 			strcpy(FileName, "");
-		if (! FileName[0x00])
+		if (FileName[0] == '\0')
 			sprintf(FileName, "%s_opl%u.vgm", FileBase, (OPL3to2 ? 2 : 3));
 		WriteVGMFile(FileName);
 	}
@@ -135,15 +131,7 @@ int main(int argc, char* argv[])
 	//free(DstData);
 	
 EndProgram:
-#ifdef WIN32
-	if (argv[0][1] == ':')
-	{
-		// Executed by Double-Clicking (or Drap and Drop)
-		if (_kbhit())
-			_getch();
-		_getch();
-	}
-#endif
+	DblClickWait(argv[0]);
 	
 	return ErrVal;
 }
@@ -256,11 +244,6 @@ static void CompressVGMData(void)
 	UINT32 ROMSize;
 	//UINT32 DataStart;
 	//UINT32 DataLen;
-#ifdef WIN32
-	UINT32 CmdTimer;
-	char TempStr[0x80];
-	char MinSecStr[0x80];
-#endif
 	UINT32 CmdLen;
 	bool StopVGM;
 	UINT8* VGMPnt;
@@ -270,10 +253,6 @@ static void CompressVGMData(void)
 	//DstPos = VGMHead.lngDataOffset;
 	VGMSmplPos = 0;
 	//memcpy(DstData, VGMData, VGMPos);	// Copy Header
-	
-#ifdef WIN32
-	CmdTimer = 0;
-#endif
 	
 	StopVGM = false;
 	while(VGMPos < VGMHead.lngEOFOffset)
@@ -483,36 +462,8 @@ static void CompressVGMData(void)
 		VGMPos += CmdLen;
 		if (StopVGM)
 			break;
-		
-#ifdef WIN32
-		if (CmdTimer < GetTickCount())
-		{
-			PrintMinSec(VGMSmplPos, MinSecStr);
-			PrintMinSec(VGMHead.lngTotalSamples, TempStr);
-			TempLng = VGMPos - VGMHead.lngDataOffset;
-			ROMSize = VGMHead.lngEOFOffset - VGMHead.lngDataOffset;
-			printf("%04.3f %% - %s / %s (%08X / %08X) ...\r", (float)TempLng / ROMSize * 100,
-					MinSecStr, TempStr, VGMPos, VGMHead.lngEOFOffset);
-			CmdTimer = GetTickCount() + 200;
-		}
-#endif
 	}
 	printf("\t\t\t\t\t\t\t\t\r");
 	
 	return;
 }
-
-#ifdef WIN32
-static void PrintMinSec(const UINT32 SamplePos, char* TempStr)
-{
-	float TimeSec;
-	UINT16 TimeMin;
-	
-	TimeSec = (float)SamplePos / (float)44100.0;
-	TimeMin = (UINT16)TimeSec / 60;
-	TimeSec -= TimeMin * 60;
-	sprintf(TempStr, "%02u:%05.2f", TimeMin, TimeSec);
-	
-	return;
-}
-#endif

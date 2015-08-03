@@ -1,10 +1,9 @@
-#include "compat.h"
 #include <stdlib.h>
-#include <memory.h>
+#include <string.h>
 #include <stdio.h>
-#include "stdbool.h"
 
 #include "stdtype.h"
+#include "stdbool.h"
 
 
 //#define REMOVE_NES_DPCM_0
@@ -1902,7 +1901,7 @@ bool nes_psg_write(UINT8 Register, UINT8 Data)
 					return false;
 				else
 					printf("Warning: DPCM Write: %02X\n", Data);
-				_getch();
+				getchar();
 #endif
 				return true;	// direct DPCM write
 			}
@@ -2573,7 +2572,7 @@ bool okim6258_write(UINT8 Port, UINT8 Data)
 		chip->RegData[Port] = Data;
 		chip->RegFirst[Port] = 0x00;
 		printf("Master Clock Change!\n");
-		_getch();
+		getchar();
 		break;
 	case 0x0C:	// Clock Divider
 		if (! chip->RegFirst[Port] && Data == chip->RegData[Port])
@@ -2591,7 +2590,7 @@ bool okim6258_write(UINT8 Port, UINT8 Data)
 		chip->RegData[Port] = Data;
 		chip->RegFirst[Port] = 0x00;
 		//printf("Clock Divider Change!\n");
-		//_getch();
+		//getchar();
 		break;
 	}
 	

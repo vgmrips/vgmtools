@@ -1,29 +1,20 @@
 // vgm_spts.c - VGM Splitter (Sample Edition)
 //
 
-#include "compat.h"
 #include <stdio.h>
 #include <stdlib.h>
-#include "stdbool.h"
 #include <string.h>
-
-#ifdef WIN32
-#include <conio.h>
-#include <windows.h>	// for GetTickCount
-#endif
-
-#include "zlib.h"
+#include <zlib.h>
 
 #include "stdtype.h"
+#include "stdbool.h"
 #include "VGMFile.h"
+#include "common.h"
 
 
 static bool OpenVGMFile(const char* FileName);
 static void WriteVGMFile(const char* FileName);
 static void SplitVGMData(int argc, char* argv[]);
-#ifdef WIN32
-static void PrintMinSec(const UINT32 SamplePos, char* TempStr);
-#endif
 
 // Function Prototype from vgm_trml.c
 void SetTrimOptions(UINT8 TrimMode, UINT8 WarnMask);
@@ -43,20 +34,22 @@ char FileBase[0x100];
 
 int main(int argc, char* argv[])
 {
+	int argbase;
 	int ErrVal;
 	char FileName[0x100];
 	
 	printf("VGM Splitter (Sample Edition)\n------------\n\n");
 	
 	ErrVal = 0;
+	argbase = 1;
 	printf("File Name:\t");
-	if (argc <= 0x01)
+	if (argc <= argbase + 0)
 	{
-		gets_s(FileName, sizeof(FileName));
+		ReadFilename(FileName, sizeof(FileName));
 	}
 	else
 	{
-		strcpy(FileName, argv[0x01]);
+		strcpy(FileName, argv[argbase + 0]);
 		printf("%s\n", FileName);
 	}
 	if (! strlen(FileName))
@@ -77,8 +70,8 @@ int main(int argc, char* argv[])
 	free(DstData);
 	
 EndProgram:
-	waitkey(argv[0]);
-
+	DblClickWait(argv[0]);
+	
 	return ErrVal;
 }
 
@@ -214,7 +207,7 @@ static void SplitVGMData(int argc, char* argv[])
 	SplitFile = 0x00;
 	StopVGM = false;
 	
-	CurArg = 0x02;
+	CurArg = 2;
 	while(! StopVGM)
 	{
 		printf("Current Sample: %u - Split Sample:\t", VGMSmplPos);
@@ -226,7 +219,7 @@ static void SplitVGMData(int argc, char* argv[])
 		}
 		else
 		{
-			gets_s(SplitTxt, sizeof(SplitTxt));
+			fgets(SplitTxt, sizeof(SplitTxt), stdin);
 		}
 		SplitSmpl = strtol(SplitTxt, NULL, 0);
 		if (! SplitSmpl)
@@ -590,18 +583,3 @@ static void SplitVGMData(int argc, char* argv[])
 	
 	return;
 }
-
-#ifdef WIN32
-static void PrintMinSec(const UINT32 SamplePos, char* TempStr)
-{
-	float TimeSec;
-	UINT16 TimeMin;
-	
-	TimeSec = (float)SamplePos / (float)44100.0;
-	TimeMin = (UINT16)TimeSec / 60;
-	TimeSec -= TimeMin * 60;
-	sprintf(TempStr, "%02u:%05.2f", TimeMin, TimeSec);
-	
-	return;
-}
-#endif

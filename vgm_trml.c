@@ -7,27 +7,21 @@
 // TODO: Rethink concept of trimming.
 
 #include <stdio.h>
+#include <string.h>
 #include <stdlib.h>
+#include <zlib.h>
+
+#include "stdtype.h"
 #include "stdbool.h"
-#include <memory.h>
+#include "VGMFile.h"
+#include "vgm_lib.h"
+#include "common.h"
+
 
 //#define SHOW_PROGRESS
-
-#ifdef SHOW_PROGRESS
-
-#ifdef WIN32
-#include <windows.h>	// for GetTickCount
-#else
-#undef SHOW_PROGRESS
+#if defined(SHOW_PROGRESS) && ! defined(WIN32)
+#undef SHOW_PROGRESS	// no progress for Unix users for now
 #endif
-
-#endif
-
-#include "zlib.h"
-
-
-#include "vgm_incl.h"
-#include "vgm_lib.h"
 
 
 #define CHIP_SETS	0x02
@@ -164,9 +158,6 @@ void TrimVGMData(const INT32 StartSmpl, const INT32 LoopSmpl, const INT32 EndSmp
 static void WriteVGMHeader(UINT8* DstData, const UINT8* SrcData, const UINT32 EOFPos,
 						   const UINT32 SampleCount, const UINT32 LoopPos,
 						   const UINT32 LoopSmpls);
-#ifdef SHOW_PROGRESS
-static void PrintMinSec(const UINT32 SamplePos, char* TempStr);
-#endif
 static void VGMReadAhead(const UINT32 StartPos, const UINT32 Samples);
 static void DisplayPlayingNoteWarning(void);
 static void ShowPlayingNotes(const char* ChipStr, UINT16 ChnCount, UINT32 ChnMask, char* Buffer);
@@ -3175,21 +3166,6 @@ static void WriteVGMHeader(UINT8* DstData, const UINT8* SrcData, const UINT32 EO
 	
 	return;
 }
-
-#ifdef SHOW_PROGRESS
-static void PrintMinSec(const UINT32 SamplePos, char* TempStr)
-{
-	float TimeSec;
-	UINT16 TimeMin;
-	
-	TimeSec = (float)SamplePos / (float)44100.0;
-	TimeMin = (UINT16)TimeSec / 60;
-	TimeSec -= TimeMin * 60;
-	sprintf(TempStr, "%02u:%05.2f", TimeMin, TimeSec);
-	
-	return;
-}
-#endif
 
 static void VGMReadAhead(const UINT32 StartPos, const UINT32 Samples)
 {

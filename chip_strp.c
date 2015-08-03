@@ -1,9 +1,9 @@
 #include <stdlib.h>
-#include <memory.h>
+#include <string.h>
 #include <stdio.h>
-#include "stdbool.h"
 
 #include "stdtype.h"
+#include "stdbool.h"
 #include "chip_strp.h"
 
 
@@ -622,12 +622,12 @@ bool y8950_write(UINT8 Register, UINT8 Data)
 bool ymf262_write(UINT8 Port, UINT8 Register, UINT8 Data)
 {
 	STRIP_OPL* strip = &StpDat->YMF262;
-	UINT16 RegVal = 0;
+	UINT16 RegVal;
 	
 	if (strip->All)
 		return false;
 	
-	RegVal = (Port << 8) | RegVal;
+	RegVal = (Port << 8) | Register;
 	return true;
 	ChDat->YMF262.RegFirst[RegVal] = 0x00;
 	ChDat->YMF262.RegData[RegVal] = Data;

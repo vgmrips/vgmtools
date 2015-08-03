@@ -2,21 +2,15 @@
 //
 // TODO: Make it remove 2x 7# delays.
 
-#include "compat.h"
 #include <stdio.h>
 #include <stdlib.h>
-#include "stdbool.h"
 #include <string.h>
-
-#ifdef WIN32
-#include <conio.h>
-#include <windows.h>	// for GetTickCount
-#endif
-
-#include "zlib.h"
+#include <zlib.h>
 
 #include "stdtype.h"
+#include "stdbool.h"
 #include "VGMFile.h"
+#include "common.h"
 
 
 static bool OpenVGMFile(const char* FileName);
@@ -24,9 +18,6 @@ static void WriteVGMFile(const char* FileName);
 static void RoundVGMData(void);
 static void WriteVGMHeader(UINT8* DstData, const UINT8* SrcData, const UINT32 EOFPos,
 						   const UINT32 LoopPos);
-#ifdef WIN32
-static void PrintMinSec(const UINT32 SamplePos, char* TempStr);
-#endif
 
 
 // recommend values: 1 for vgms with PSG, 45 for dro2vgm
@@ -53,26 +44,30 @@ int main(int argc, char* argv[])
 	
 	ErrVal = 0;
 	MAX_SMALL_DELAY = 0x0000;
-	argbase = 0x01;
-	if (argc >= argbase + 0x01)
+	argbase = 1;
+	while(argbase < argc && argv[argbase][0] == '-')
 	{
-		if (! strncmp(argv[argbase + 0x00], "-delay:", 7))
+		if (! strncmp(argv[argbase], "-delay:", 7))
 		{
-			MAX_SMALL_DELAY = (UINT16)strtoul(argv[argbase + 0x00] + 7, NULL, 0);
+			MAX_SMALL_DELAY = (UINT16)strtoul(argv[argbase] + 7, NULL, 0);
 			argbase ++;
+		}
+		else
+		{
+			break;
 		}
 	}
 	if (! MAX_SMALL_DELAY)
 		MAX_SMALL_DELAY = 1;
 	
 	printf("File Name:\t");
-	if (argc <= argbase + 0x00)
+	if (argc <= argbase + 0)
 	{
-		gets_s(FileName, sizeof(FileName));
+		ReadFilename(FileName, sizeof(FileName));
 	}
 	else
 	{
-		strcpy(FileName, argv[argbase + 0x00]);
+		strcpy(FileName, argv[argbase + 0]);
 		printf("%s\n", FileName);
 	}
 	if (! strlen(FileName))
@@ -90,11 +85,11 @@ int main(int argc, char* argv[])
 	
 	if (DidSomething)
 	{
-		if (argc > argbase + 0x01)
-			strcpy(FileName, argv[argbase + 0x01]);
+		if (argc > argbase + 1)
+			strcpy(FileName, argv[argbase + 1]);
 		else
 			strcpy(FileName, "");
-		if (! FileName[0x00])
+		if (FileName[0] == '\0')
 		{
 			strcpy(FileName, FileBase);
 			strcat(FileName, "_no1smpl.vgm");
@@ -106,7 +101,7 @@ int main(int argc, char* argv[])
 	free(DstData);
 	
 EndProgram:
-	waitkey(argv[0]);
+	DblClickWait(argv[0]);
 	
 	return ErrVal;
 }
@@ -610,18 +605,3 @@ static void WriteVGMHeader(UINT8* DstData, const UINT8* SrcData, const UINT32 EO
 	
 	return;
 }
-
-#ifdef WIN32
-static void PrintMinSec(const UINT32 SamplePos, char* TempStr)
-{
-	float TimeSec;
-	UINT16 TimeMin;
-	
-	TimeSec = (float)SamplePos / (float)44100.0;
-	TimeMin = (UINT16)TimeSec / 60;
-	TimeSec -= TimeMin * 60;
-	sprintf(TempStr, "%02u:%05.2f", TimeMin, TimeSec);
-	
-	return;
-}
-#endif

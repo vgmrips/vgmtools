@@ -5,21 +5,15 @@
 
 #define EXTRA_SYNC
 
-#include "compat.h"
 #include <stdio.h>
 #include <stdlib.h>
-#include "stdbool.h"
 #include <string.h>
-
-#ifdef WIN32
-#include <conio.h>
-#include <windows.h>	// for GetTickCount
-#endif
-
-#include "zlib.h"
+#include <zlib.h>
 
 #include "stdtype.h"
+#include "stdbool.h"
 #include "VGMFile.h"
+#include "common.h"
 
 
 static bool OpenVGMFile(const char* FileName);
@@ -29,9 +23,6 @@ static UINT32 gcd(UINT32 x, UINT32 y);
 static void DataReducer(void);
 static void MakeDataStream(void);
 static void RewriteVGMData(void);
-#ifdef WIN32
-static void PrintMinSec(const UINT32 SamplePos, char* TempStr);
-#endif
 
 
 typedef struct vgm_data_write
@@ -103,16 +94,16 @@ int main(int argc, char* argv[])
 	
 	ErrVal = 0;
 	JustTimerCmds = false;
-	argbase = 0x01;
+	argbase = 1;
 	
 	printf("File Name:\t");
-	if (argc <= argbase + 0x00)
+	if (argc <= argbase + 0)
 	{
-		gets_s(FileName, sizeof(FileName));
+		ReadFilename(FileName, sizeof(FileName));
 	}
 	else
 	{
-		strcpy(FileName, argv[argbase + 0x00]);
+		strcpy(FileName, argv[argbase + 0]);
 		printf("%s\n", FileName);
 	}
 	if (! strlen(FileName))
@@ -137,11 +128,11 @@ int main(int argc, char* argv[])
 	
 	if (DataSizeB < DataSizeA)
 	{
-		if (argc > argbase + 0x01)
-			strcpy(FileName, argv[argbase + 0x01]);
+		if (argc > argbase + 1)
+			strcpy(FileName, argv[argbase + 1]);
 		else
 			strcpy(FileName, "");
-		if (! FileName[0x00])
+		if (FileName[0] == '\0')
 		{
 			strcpy(FileName, FileBase);
 			strcat(FileName, "_optimized.vgm");
@@ -153,7 +144,7 @@ int main(int argc, char* argv[])
 	free(DstData);
 	
 EndProgram:
-	waitkey(argv[0]);
+	DblClickWait(argv[0]);
 	
 	return ErrVal;
 }
@@ -1150,18 +1141,3 @@ static void RewriteVGMData(void)
 	
 	return;
 }
-
-#ifdef WIN32
-static void PrintMinSec(const UINT32 SamplePos, char* TempStr)
-{
-	float TimeSec;
-	UINT16 TimeMin;
-	
-	TimeSec = (float)SamplePos / (float)44100.0;
-	TimeMin = (UINT16)TimeSec / 60;
-	TimeSec -= TimeMin * 60;
-	sprintf(TempStr, "%02u:%05.2f", TimeMin, TimeSec);
-	
-	return;
-}
-#endif

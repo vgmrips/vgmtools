@@ -3,9 +3,9 @@
 #include <stdio.h>
 #include <string.h>
 #include <math.h>
-#include "stdbool.h"
 
 #include "stdtype.h"
+#include "stdbool.h"
 
 
 typedef struct chip_count
@@ -3255,7 +3255,7 @@ void scsp_write(char* TempStr, UINT16 Register, UINT8 Data)
 	
 	if (Register < 0x400)
 	{
-		//int slot=Register/0x20;
+		int slot=Register/0x20;
 		Register&=0x1f;
 		//*((unsigned short *) (scsp->Slots[slot].udata.datab+(Register))) = val;
 		//SCSP_UpdateSlotReg(scsp,slot,Register&0x1f);

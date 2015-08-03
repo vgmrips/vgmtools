@@ -1,17 +1,22 @@
 // vgm_cmp.c - VGM Compressor
 //
 
-#include "vgmtools.h"
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <zlib.h>
+
+#include "stdtype.h"
+#include "stdbool.h"
+#include "VGMFile.h"
 #include "vgm_lib.h"
+#include "common.h"
 
 
 static bool OpenVGMFile(const char* FileName);
 static void WriteVGMFile(const char* FileName);
 static void CompressVGMData(void);
 bool GetNextChipCommand(void);
-#ifdef WIN32
-static void PrintMinSec(const UINT32 SamplePos, char* TempStr);
-#endif
 
 // Function Prototypes from chip_cmp.c
 void InitAllChips(void);
@@ -86,15 +91,15 @@ int main(int argc, char* argv[])
 	JustTimerCmds = false;
 	DoOKI6258 = false;
 	
-	argbase = 0x01;
-	while(argc >= argbase + 1 && argv[argbase][0] == '-')
+	argbase = 1;
+	while(argbase < argc && argv[argbase][0] == '-')
 	{
-		if (! _stricmp(argv[argbase], "-justtmr"))
+		if (! stricmp(argv[argbase], "-justtmr"))
 		{
 			JustTimerCmds = true;
 			argbase ++;
 		}
-		else if (! _stricmp(argv[argbase], "-do6258"))
+		else if (! stricmp(argv[argbase], "-do6258"))
 		{
 			DoOKI6258 = true;
 			argbase ++;
@@ -106,13 +111,13 @@ int main(int argc, char* argv[])
 	}
 	
 	printf("File Name:\t");
-	if (argc <= argbase + 0x00)
+	if (argc <= argbase + 0)
 	{
-		gets_s(FileName, sizeof(FileName));
+		ReadFilename(FileName, sizeof(FileName));
 	}
 	else
 	{
-		strcpy(FileName, argv[argbase + 0x00]);
+		strcpy(FileName, argv[argbase + 0]);
 		printf("%s\n", FileName);
 	}
 	if (! strlen(FileName))
@@ -150,11 +155,11 @@ int main(int argc, char* argv[])
 	
 	if (DataSizeB < SrcDataSize)
 	{
-		if (argc > argbase + 0x01)
-			strcpy(FileName, argv[argbase + 0x01]);
+		if (argc > argbase + 1)
+			strcpy(FileName, argv[argbase + 1]);
 		else
 			strcpy(FileName, "");
-		if (! FileName[0x00])
+		if (FileName[0] == '\0')
 		{
 			strcpy(FileName, FileBase);
 			strcat(FileName, "_optimized.vgm");
@@ -166,7 +171,7 @@ int main(int argc, char* argv[])
 	free(DstData);
 	
 EndProgram:
-	waitkey(argv[0]);
+	DblClickWait(argv[0]);
 	
 	return ErrVal;
 }
@@ -1180,18 +1185,3 @@ bool GetNextChipCommand(void)
 	
 	return false;
 }
-
-#ifdef WIN32
-static void PrintMinSec(const UINT32 SamplePos, char* TempStr)
-{
-	float TimeSec;
-	UINT16 TimeMin;
-	
-	TimeSec = (float)SamplePos / (float)44100.0;
-	TimeMin = (UINT16)TimeSec / 60;
-	TimeSec -= TimeMin * 60;
-	sprintf(TempStr, "%02u:%05.2f", TimeMin, TimeSec);
-	
-	return;
-}
-#endif

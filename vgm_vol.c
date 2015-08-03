@@ -1,23 +1,33 @@
 // vgm_vol.c - VGM Volume Detector
 //
 
-#include "vgmtools.h"
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
 #include <math.h>
-
 #ifndef M_LN2
 #define	M_LN2		0.69314718055994530942
 #endif
 
+#ifdef WIN32
+#include <windows.h>	// for Directory Listing
+#else
+// Note: Directory Listing is only supported in Windows
+#include <limits.h>
+#define MAX_PATH	PATH_MAX
+#endif
+
 #include "stdtype.h"
+#include "stdbool.h"
+#include "common.h"
 
 
 static void ReadWAVFile(const char* FileName);
-static void ReadPlaylist(const char* FileName);
-static void PrintVolMod(UINT16 MaxLvl);
 #ifdef WIN32
 static void ReadDirectory(const char* DirName);
-static INT8 stricmp_u(const char *string1, const char *string2);
 #endif
+static void ReadPlaylist(const char* FileName);
+static void PrintVolMod(UINT16 MaxLvl);
 
 
 #define FCC_RIFF	0x46464952
@@ -39,6 +49,7 @@ bool IsPlayList;
 
 int main(int argc, char* argv[])
 {
+	int argbase;
 	int ErrVal;
 	char FileName[MAX_PATH];
 	char InputStr[0x100];
@@ -50,31 +61,33 @@ int main(int argc, char* argv[])
 	printf("VGM Volume Detector\n-------------------\n\n");
 	
 	ErrVal = 0;
+	argbase = 1;
+	
 #ifdef WIN32
 	printf("File Path or PlayList:\t");
 #else
 	printf("PlayList:\t");
 #endif
-	if (argc <= 0x01)
+	if (argc <= argbase + 0)
 	{
-		gets_s(FileName, sizeof(FileName));
+		ReadFilename(FileName, sizeof(FileName));
 	}
 	else
 	{
-		strcpy(FileName, argv[0x01]);
+		strcpy(FileName, argv[argbase + 0]);
 		printf("%s\n", FileName);
 	}
 	if (! strlen(FileName))
 		return 0;
 	
 	printf("Volume Setting (default 1.0):\t");
-	if (argc <= 0x02)
+	if (argc <= argbase + 1)
 	{
-		gets_s(InputStr, sizeof(InputStr));
+		fgets(InputStr, sizeof(InputStr), stdin);
 	}
 	else
 	{
-		strcpy(InputStr, argv[0x02]);
+		strcpy(InputStr, argv[argbase + 1]);
 		printf("%s\n", InputStr);
 	}
 	RecVolume = (float)strtod(InputStr, NULL);
@@ -95,7 +108,7 @@ int main(int argc, char* argv[])
 			if (FileExt != NULL)
 			{
 				FileExt ++;
-				if (! stricmp_u(FileExt, "m3u"))
+				if (! stricmp(FileExt, "m3u"))
 					PLMode = true;
 			}
 		}
@@ -123,7 +136,7 @@ int main(int argc, char* argv[])
 	printf("\n");
 	
 //EndProgram:
-	waitkey(argv[0]);
+	DblClickWait(argv[0]);
 	
 	return ErrVal;
 }
@@ -300,7 +313,7 @@ static void ReadDirectory(const char* DirName)
 			goto SkipFile;
 		FileExt ++;
 		
-		if (stricmp_u(FileExt, "wav"))
+		if (stricmp(FileExt, "wav"))
 			goto SkipFile;
 		
 		strcpy(TempPnt, FindFileData.cFileName);
@@ -315,36 +328,6 @@ SkipFile:
 	RetVal = FindClose(hFindFile);
 	
 	return;
-}
-
-static INT8 stricmp_u(const char *string1, const char *string2)
-{
-	// my own stricmp, because VC++6 doesn't find _stricmp when compiling without
-	// standard librarys
-	const char* StrPnt1;
-	const char* StrPnt2;
-	char StrChr1;
-	char StrChr2;
-	
-	StrPnt1 = string1;
-	StrPnt2 = string2;
-	while(true)
-	{
-		StrChr1 = toupper(*StrPnt1);
-		StrChr2 = toupper(*StrPnt2);
-		
-		if (StrChr1 < StrChr2)
-			return -1;
-		else if (StrChr1 > StrChr2)
-			return +1;
-		if (StrChr1 == 0x00)
-			return 0;
-		
-		StrPnt1 ++;
-		StrPnt2 ++;
-	}
-	
-	return 0;
 }
 #endif
 
@@ -438,4 +421,3 @@ static void ReadPlaylist(const char* FileName)
 	
 	return;
 }
-

@@ -7,16 +7,12 @@
 
 #include <stdio.h>
 #include <stdlib.h>
-#include "stdbool.h"
 #include <string.h>
 
-#ifdef WIN32
-#include <conio.h>
-#endif
-
 #include "stdtype.h"
+#include "stdbool.h"
 #include "VGMFile.h"
-#include "compat.h"
+#include "common.h"
 
 
 static bool OpenDROFile(const char* FileName);
@@ -68,18 +64,23 @@ char FileBase[0x100];
 
 int main(int argc, char* argv[])
 {
+	int argbase;
+	int ErrVal;
 	char FileName[0x100];
 	
 	printf("DRO to VGM Converter\n--------------------\n\n");
 	
+	ErrVal = 0;
+	argbase = 1;
+	
 	printf("File Name:\t");
-	if (argc <= 0x01)
+	if (argc <= argbase + 0)
 	{
-		gets_s(FileName, sizeof(FileName));
+		ReadFilename(FileName, sizeof(FileName));
 	}
 	else
 	{
-		strcpy(FileName, argv[0x01]);
+		strcpy(FileName, argv[argbase + 0]);
 		printf("%s\n", FileName);
 	}
 	if (! strlen(FileName))
@@ -88,10 +89,8 @@ int main(int argc, char* argv[])
 	if (! OpenDROFile(FileName))
 	{
 		printf("Error opening the file!\n");
-#ifdef WIN32
-		_getch();
-#endif
-		return 1;
+		ErrVal = 1;
+		goto EndProgram;
 	}
 	printf("\n");
 	
@@ -104,9 +103,10 @@ int main(int argc, char* argv[])
 	free(DROData);
 	free(VGMData);
 	
-	waitkey(argv[0]);
+EndProgram:
+	DblClickWait(argv[0]);
 	
-	return 0;
+	return ErrVal;
 }
 
 static bool OpenDROFile(const char* FileName)
@@ -382,7 +382,7 @@ static void ConvertDRO2VGM(void)
 				}
 				VGMSmplL = VGMSmplC;
 			}
-
+			
 			switch(DROHead.iVersionMajor)
 			{
 			case 0x00:
@@ -402,10 +402,12 @@ static void ConvertDRO2VGM(void)
 			CurVal = DROData[DROPos + 0x01];
 			DROPos += 0x02;
 			
+			ChipCmd = 0x00;
 			switch(DROInf.iHardwareType)
 			{
 			case 0x00:	// OPL2
-				ChipCmd = 0x5A;
+				if (! CurChip)	// ignore writes to invalid OPL chip
+					ChipCmd = 0x5A;
 				break;
 			case 0x01:	// Dual OPL2
 				ChipCmd = 0x5A + CurChip * 0x50;
@@ -414,10 +416,13 @@ static void ConvertDRO2VGM(void)
 				ChipCmd = 0x5E | CurChip;
 				break;
 			}
-			VGMData[VGMPos + 0x00] = ChipCmd;
-			VGMData[VGMPos + 0x01] = CurCmd;
-			VGMData[VGMPos + 0x02] = CurVal;
-			VGMPos += 0x03;
+			if (ChipCmd)
+			{
+				VGMData[VGMPos + 0x00] = ChipCmd;
+				VGMData[VGMPos + 0x01] = CurCmd;
+				VGMData[VGMPos + 0x02] = CurVal;
+				VGMPos += 0x03;
+			}
 		}
 	}
 	VGMData[VGMPos + 0x00] = 0x66;

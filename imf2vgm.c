@@ -5,15 +5,9 @@
 #include <stdlib.h>
 #include <string.h>
 
-#ifdef WIN32
-#include <conio.h>
-#else
-#define _stricmp	strcasecmp
-#define _strnicmp	strncasecmp
-#endif
-
 #include "stdtype.h"
 #include "VGMFile.h"
+#include "common.h"
 
 
 static UINT8 OpenDROFile(const char* FileName);
@@ -38,20 +32,21 @@ UINT8 LoopOn;
 int main(int argc, char* argv[])
 {
 	int argbase;
+	int ErrVal;
 	char FileName[0x100];
 	UINT16 ForceHz;
 	UINT8 ForceType;
 	
 	printf("IMF to VGM Converter\n--------------------\n\n");
 	
-	argbase = 0x01;
+	argbase = 1;
 	ForceHz = 0;
 	ForceType = 0xFF;
 	LoopOn = 0x00;
 	
-	while(argc >= argbase + 0x01 && argv[argbase][0] == '-')
+	while(argbase < argc && argv[argbase][0] == '-')
 	{
-		if (! _stricmp(argv[argbase], "-help"))
+		if (! stricmp(argv[argbase], "-help"))
 		{
 			printf("Usage: imf2vgm [-Loop] [-Hz###] [-Type#] Input.imf [Output.vgm]\n");
 			printf("\n");
@@ -61,17 +56,17 @@ int main(int argc, char* argv[])
 			printf("Type: Can be 0 (no header) or 1 (header with 2-byte file size)\n");
 			return 0;
 		}
-		else if (! _stricmp(argv[argbase], "-Loop"))
+		else if (! stricmp(argv[argbase], "-Loop"))
 		{
 			LoopOn = 0x01;
 			argbase ++;
 		}
-		else if (! _strnicmp(argv[argbase], "-Hz", 3))
+		else if (! strnicmp(argv[argbase], "-Hz", 3))
 		{
 			ForceHz = (UINT16)strtoul(argv[argbase] + 3, NULL, 0);
 			argbase ++;
 		}
-		else if (! _strnicmp(argv[argbase], "-Type", 5))
+		else if (! strnicmp(argv[argbase], "-Type", 5))
 		{
 			ForceType = (UINT8)strtoul(argv[argbase] + 5, NULL, 0);
 			if (ForceType >= 0x02)
@@ -88,13 +83,13 @@ int main(int argc, char* argv[])
 	}
 	
 	printf("File Name:\t");
-	if (argc <= argbase + 0x00)
+	if (argc <= argbase + 0)
 	{
-		gets(FileName);
+		ReadFilename(FileName, sizeof(FileName));
 	}
 	else
 	{
-		strcpy(FileName, argv[argbase + 0x00]);
+		strcpy(FileName, argv[argbase + 0]);
 		printf("%s\n", FileName);
 	}
 	if (! strlen(FileName))
@@ -103,10 +98,8 @@ int main(int argc, char* argv[])
 	if (OpenDROFile(FileName))
 	{
 		printf("Error opening the file!\n");
-#ifdef WIN32
-		_getch();
-#endif
-		return 1;
+		ErrVal = 1;
+		goto EndProgram;
 	}
 	printf("\n");
 	
@@ -116,11 +109,11 @@ int main(int argc, char* argv[])
 		IMFType = ForceType;
 	ConvertIMF2VGM();
 	
-	if (argc > argbase + 0x01)
-		strcpy(FileName, argv[argbase + 0x01]);
+	if (argc > argbase + 1)
+		strcpy(FileName, argv[argbase + 1]);
 	else
 		strcpy(FileName, "");
-	if (FileName[0x00] == '\0')
+	if (FileName[0] == '\0')
 	{
 		strcpy(FileName, FileBase);
 		strcat(FileName, ".vgm");
@@ -130,17 +123,10 @@ int main(int argc, char* argv[])
 	free(IMFData);
 	free(VGMData);
 	
-#ifdef WIN32
-	if (argv[0][1] == ':')
-	{
-		// Executed by Double-Clicking (or Drap and Drop)
-		if (_kbhit())
-			_getch();
-		_getch();
-	}
-#endif
+EndProgram:
+	DblClickWait(argv[0]);
 	
-	return 0;
+	return ErrVal;
 }
 
 static UINT8 OpenDROFile(const char* FileName)
@@ -182,7 +168,7 @@ static UINT8 OpenDROFile(const char* FileName)
 	{
 		TempPnt = FileBase + strlen(FileBase);
 	}
-	if (! _stricmp(TempPnt, "wlf"))
+	if (! stricmp(TempPnt, "wlf"))
 		IMFRate = 700;
 	else
 		IMFRate = 560;

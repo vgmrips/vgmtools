@@ -1,21 +1,15 @@
 // vgm_ndlz.c - VGM Undualizer
 // (Thanks to nineko for the name)
 
-#include "compat.h"
 #include <stdio.h>
 #include <stdlib.h>
-#include "stdbool.h"
 #include <string.h>
-
-#ifdef WIN32
-#include <conio.h>
-#include <windows.h>	// for GetTickCount
-#endif
-
-#include "zlib.h"
+#include <zlib.h>
 
 #include "stdtype.h"
+#include "stdbool.h"
 #include "VGMFile.h"
+#include "common.h"
 #include "vgm_lib.h"
 
 
@@ -35,9 +29,6 @@ static bool OpenVGMFile(const char* FileName);
 static void WriteVGMFile(const char* FileName, VGM_INF* VGMInf);
 static void CopyHeader(VGM_HEADER* SrcHead, VGM_HEADER* DstHead, bool IsChip2);
 static void SplitVGMData(void);
-#ifdef WIN32
-static void PrintMinSec(const UINT32 SamplePos, char* TempStr);
-#endif
 
 
 #define MAX_VGMS	0x02
@@ -53,6 +44,7 @@ char FileBase[0x100];
 
 int main(int argc, char* argv[])
 {
+	int argbase;
 	int ErrVal;
 	char FileName[0x100];
 	UINT8 FileID;
@@ -60,14 +52,15 @@ int main(int argc, char* argv[])
 	printf("VGM Undualizer\n--------------\n\n");
 	
 	ErrVal = 0;
+	argbase = 1;
 	printf("File Name:\t");
-	if (argc <= 0x01)
+	if (argc <= argbase + 0)
 	{
-		gets_s(FileName, sizeof(FileName));
+		ReadFilename(FileName, sizeof(FileName));
 	}
 	else
 	{
-		strcpy(FileName, argv[0x01]);
+		strcpy(FileName, argv[argbase + 0]);
 		printf("%s\n", FileName);
 	}
 	if (! strlen(FileName))
@@ -92,7 +85,7 @@ int main(int argc, char* argv[])
 	}
 	
 EndProgram:
-	waitkey(argv[0]);
+	DblClickWait(argv[0]);
 	
 	return ErrVal;
 }
@@ -602,18 +595,3 @@ static void SplitVGMData(void)
 	
 	return;
 }
-
-#ifdef WIN32
-static void PrintMinSec(const UINT32 SamplePos, char* TempStr)
-{
-	float TimeSec;
-	UINT16 TimeMin;
-	
-	TimeSec = (float)SamplePos / (float)44100.0;
-	TimeMin = (UINT16)TimeSec / 60;
-	TimeSec -= TimeMin * 60;
-	sprintf(TempStr, "%02u:%05.2f", TimeMin, TimeSec);
-	
-	return;
-}
-#endif

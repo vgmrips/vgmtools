@@ -1,30 +1,21 @@
 // vgm_sptd.c - VGM Splitter (Delay Edition)
 //
 
-#include "compat.h"
 #include <stdio.h>
 #include <stdlib.h>
-#include "stdbool.h"
 #include <string.h>
-
-#ifdef WIN32
-#include <conio.h>
-#include <windows.h>	// for GetTickCount
-#endif
-
-#include "zlib.h"
+#include <zlib.h>
 
 #include "stdtype.h"
+#include "stdbool.h"
 #include "VGMFile.h"
+#include "common.h"
 
 
 
 static bool OpenVGMFile(const char* FileName);
 static void WriteVGMFile(const char* FileName);
 static void SplitVGMData(const UINT32 SplitDelay);
-#ifdef WIN32
-static void PrintMinSec(const UINT32 SamplePos, char* TempStr);
-#endif
 
 // Function Prototype from vgm_trml.c
 void SetTrimOptions(UINT8 TrimMode, UINT8 WarnMask);
@@ -58,47 +49,48 @@ int main(int argc, char* argv[])
 	ErrVal = 0;
 	DIGIT_COUNT = 2;
 	HEXION_SPLIT = 0x00;
-	argbase = 0x01;
-	if (argc >= argbase + 0x01)
+	argbase = 1;
+	while(argbase < argc && argv[argbase][0] == '-')
 	{
-		if (! strncmp(argv[argbase + 0x00], "-digits:", 8))
+		if (! strncmp(argv[argbase], "-digits:", 8))
 		{
-			DIGIT_COUNT = (UINT16)strtoul(argv[argbase + 0x00] + 8, NULL, 0);
+			DIGIT_COUNT = (UINT16)strtoul(argv[argbase] + 8, NULL, 0);
 			argbase ++;
 		}
-	}
-	if (! DIGIT_COUNT)
-		DIGIT_COUNT = 1;
-	if (argc >= argbase + 0x01)
-	{
-		if (! strcmp(argv[argbase + 0x00], "-hexsplt"))
+		else if (! strcmp(argv[argbase], "-hexsplt"))
 		{
 			HEXION_SPLIT = 0x01;
 			argbase ++;
 		}
+		else
+		{
+			break;
+		}
 	}
+	if (! DIGIT_COUNT)
+		DIGIT_COUNT = 1;
 	
 	printf("File Name:\t");
-	if (argc < argbase + 0x01)
+	if (argc <= argbase + 0)
 	{
-		gets_s(FileName, sizeof(FileName));
+		ReadFilename(FileName, sizeof(FileName));
 	}
 	else
 	{
-		strcpy(FileName, argv[argbase + 0x00]);
+		strcpy(FileName, argv[argbase + 0]);
 		printf("%s\n", FileName);
 	}
 	if (! strlen(FileName))
 		return 0;
 	
 	printf("Split Delay (in Samples):\t");
-	if (argc <= argbase + 0x02)
+	if (argc <= argbase + 1)
 	{
-		gets_s(SplitTxt, sizeof(SplitTxt));
+		fgets(SplitTxt, sizeof(SplitTxt), stdin);
 	}
 	else
 	{
-		strcpy(SplitTxt, argv[argbase + 0x01]);
+		strcpy(SplitTxt, argv[argbase + 1]);
 		printf("%s\n", SplitTxt);
 	}
 	SplitDelay = strtoul(SplitTxt, NULL, 0);
@@ -120,7 +112,7 @@ int main(int argc, char* argv[])
 	free(DstData);
 	
 EndProgram:
-	waitkey(argv[0]);
+	DblClickWait(argv[0]);
 	
 	return ErrVal;
 }
@@ -691,18 +683,3 @@ static void SplitVGMData(const UINT32 SplitDelay)
 	
 	return;
 }
-
-#ifdef WIN32
-static void PrintMinSec(const UINT32 SamplePos, char* TempStr)
-{
-	float TimeSec;
-	UINT16 TimeMin;
-	
-	TimeSec = (float)SamplePos / (float)44100.0;
-	TimeMin = (UINT16)TimeSec / 60;
-	TimeSec -= TimeMin * 60;
-	sprintf(TempStr, "%02u:%05.2f", TimeMin, TimeSec);
-	
-	return;
-}
-#endif

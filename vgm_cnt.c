@@ -1,22 +1,16 @@
 // vgm_cnt.c - VGM Command Counter
 //
 
-#include "compat.h"
 #include <stdio.h>
 #include <stdlib.h>
-#include "stdbool.h"
 #include <string.h>
 #include <math.h>	// for pow()
-
-#ifdef WIN32
-#include <conio.h>
-//#include <windows.h>	// for GetTickCount
-#endif
-
-#include "zlib.h"
+#include <zlib.h>
 
 #include "stdtype.h"
+#include "stdbool.h"
 #include "VGMFile.h"
+#include "common.h"
 
 
 typedef struct chip_count_state
@@ -48,20 +42,22 @@ CHIP_STATE ChipState[0x02][CHIP_COUNT];
 
 int main(int argc, char* argv[])
 {
+	int argbase;
 	int ErrVal;
 	char FileName[0x100];
 	
 	printf("VGM Command Counter\n-------------------\n\n");
 	
 	ErrVal = 0;
+	argbase = 1;
 	printf("File Name:\t");
-	if (argc <= 0x01)
+	if (argc <= argbase + 0)
 	{
-		gets_s(FileName, sizeof(FileName));
+		ReadFilename(FileName, sizeof(FileName));
 	}
 	else
 	{
-		strcpy(FileName, argv[0x01]);
+		strcpy(FileName, argv[argbase + 0]);
 		printf("%s\n", FileName);
 	}
 	if (! strlen(FileName))
@@ -80,7 +76,7 @@ int main(int argc, char* argv[])
 	free(VGMData);
 	
 EndProgram:
-	waitkey(argv[0]);
+	DblClickWait(argv[0]);
 	
 	return ErrVal;
 }
@@ -1148,19 +1144,3 @@ static void DoKeyOnOff(CHIP_STATE* CState, UINT8 Chn, UINT8 OnOff, UINT8 VolFlag
 
 	return;
 }
-
-/*
-static void PrintMinSec(const UINT32 SamplePos, char* TempStr)
-{
-	double TimeSec;
-	UINT16 TimeMin;
-	
-	TimeSec = (double)SamplePos / 44100.0f;
-	TimeMin = (UINT16)TimeSec / 60;
-	TimeSec -= TimeMin * 60;
-	TimeSec = (UINT32)(TimeSec * 100.0f) / 100.0f;
-	sprintf(TempStr, "%02u:%05.2f", TimeMin, TimeSec);
-	
-	return;
-}
-*/

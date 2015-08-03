@@ -1,7 +1,16 @@
 // vgm_trim.c - VGM Trimmer
 //
 
-#include "vgmtools.h"
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <zlib.h>
+
+#include "stdtype.h"
+#include "stdbool.h"
+#include "VGMFile.h"
+#include "common.h"
+
 
 static bool OpenVGMFile(const char* FileName);
 static void WriteVGMFile(const char* FileName);
@@ -23,6 +32,7 @@ char FileBase[0x100];
 
 int main(int argc, char* argv[])
 {
+	int argbase;
 	int ErrVal;
 	char FileName[0x100];
 	char InputTxt[0x100];
@@ -31,29 +41,18 @@ int main(int argc, char* argv[])
 	INT32 EndSmpl;
 	bool HasLoop;
 	bool KeepLSmpl;
-	int argbase;
 	UINT8 OptsTrim;
 	UINT8 OptsWarn;
 	
 	printf("VGM Trimmer\n-----------\n\n");
 	
 	ErrVal = 0;
-	argbase = 0x01;
+	argbase = 1;
 	OptsTrim = 0x00;
 	OptsWarn = 0x00;
-	while(argc >= argbase + 0x01 && argv[argbase][0] == '-')
+	while(argbase < argc && argv[argbase][0] == '-')
 	{
-		if (! _stricmp(argv[argbase] + 1, "state"))
-		{
-			OptsTrim = 0x01;
-			argbase ++;
-		}
-		else if (! _stricmp(argv[argbase] + 1, "NoNoteWarn"))
-		{
-			OptsWarn |= 0x01;
-			argbase ++;
-		}
-		else if (! _stricmp(argv[argbase] + 1, "help"))
+		if (! stricmp(argv[argbase] + 1, "help"))
 		{
 			printf("Usage: vgm_trim [-state] [-nonotewarn] File.vgm\n");
 			printf("                StartSmpl LoopSmpl EndSmpl [OutFile.vgm]\n");
@@ -63,35 +62,45 @@ int main(int argc, char* argv[])
 			printf("    -NoNoteWarn: don't print warnings about notes playing at EOF\n");
 			return 0;
 		}
+		else if (! stricmp(argv[argbase] + 1, "state"))
+		{
+			OptsTrim = 0x01;
+			argbase ++;
+		}
+		else if (! stricmp(argv[argbase] + 1, "NoNoteWarn"))
+		{
+			OptsWarn |= 0x01;
+			argbase ++;
+		}
 		else
 		{
 			break;
 		}
 	}
 	
-	SetTrimOptions(OptsTrim, OptsWarn);
+	SetTrimOptions(OptsTrim, ! OptsWarn);
 	
 	printf("File Name:\t");
-	if (argc <= argbase + 0x00)
+	if (argc <= argbase + 0)
 	{
-		gets_s(FileName, sizeof(FileName));
+		ReadFilename(FileName, sizeof(FileName));
 	}
 	else
 	{
-		strcpy(FileName, argv[argbase + 0x00]);
+		strcpy(FileName, argv[argbase + 0]);
 		printf("%s\n", FileName);
 	}
 	if (! strlen(FileName))
 		return 0;
 	
 	printf("Start Sample (in Samples):\t");
-	if (argc <= argbase + 0x01)
+	if (argc <= argbase + 1)
 	{
-		gets_s(InputTxt, sizeof(InputTxt));
+		fgets(InputTxt, sizeof(InputTxt), stdin);
 	}
 	else
 	{
-		strcpy(InputTxt, argv[argbase + 0x01]);
+		strcpy(InputTxt, argv[argbase + 1]);
 		printf("%s\n", InputTxt);
 	}
 	StartSmpl = strtol(InputTxt, NULL, 0);
@@ -99,25 +108,25 @@ int main(int argc, char* argv[])
 		StartSmpl = 0x00;
 	
 	printf("Loop Sample (in Samples):\t");
-	if (argc <= argbase + 0x02)
+	if (argc <= argbase + 2)
 	{
-		gets_s(InputTxt, sizeof(InputTxt));
+		fgets(InputTxt, sizeof(InputTxt), stdin);
 	}
 	else
 	{
-		strcpy(InputTxt, argv[argbase + 0x02]);
+		strcpy(InputTxt, argv[argbase + 2]);
 		printf("%s\n", InputTxt);
 	}
 	LoopSmpl = strtol(InputTxt, NULL, 0);
 	
 	printf("End Sample (in Samples):\t");
-	if (argc <= argbase + 0x03)
+	if (argc <= argbase + 3)
 	{
-		gets_s(InputTxt, sizeof(InputTxt));
+		fgets(InputTxt, sizeof(InputTxt), stdin);
 	}
 	else
 	{
-		strcpy(InputTxt, argv[argbase + 0x03]);
+		strcpy(InputTxt, argv[argbase + 3]);
 		printf("%s\n", InputTxt);
 	}
 	EndSmpl = strtol(InputTxt, NULL, 0);
@@ -155,8 +164,8 @@ int main(int argc, char* argv[])
 			LoopSmpl = StartSmpl;
 			printf("Warining: Loop Sample before Start Sample - Loop Sample moved!\n");
 		}
-		if (LoopSmpl == -2 && StartSmpl > (INT32)
-											(VGMHead.lngTotalSamples - VGMHead.lngLoopSamples))
+		if (LoopSmpl == -2 &&
+			StartSmpl > (INT32)(VGMHead.lngTotalSamples - VGMHead.lngLoopSamples))
 		{
 			LoopSmpl = StartSmpl;
 			printf("Error: Old Loop Sample before new Start Sample!\n");
@@ -172,13 +181,9 @@ int main(int argc, char* argv[])
 	if (! LoopSmpl)
 		KeepLSmpl = true;
 	if (StartSmpl < 0)
-	{
 		printf("Warning: Negative Start Sample - Silence added!\n");
-	}
 	if ((UINT32)EndSmpl > VGMHead.lngTotalSamples)
-	{
 		printf("Warning: End Sample after End of File - Silence added!\n");
-	}
 	
 	if (LoopSmpl == -1)
 	{
@@ -197,11 +202,11 @@ int main(int argc, char* argv[])
 	}
 	
 	TrimVGMData(StartSmpl, LoopSmpl, EndSmpl, HasLoop, KeepLSmpl);
-	if (argc > argbase + 0x04)
-		strcpy(FileName, argv[argbase + 0x04]);
+	if (argc > argbase + 4)
+		strcpy(FileName, argv[argbase + 4]);
 	else
 		strcpy(FileName, "");
-	if (! FileName[0x00])
+	if (FileName[0] == '\0')
 	{
 		strcpy(FileName, FileBase);
 		strcat(FileName, "_trimmed.vgm");
@@ -213,8 +218,8 @@ QuickExit:
 	free(DstData);
 	
 EndProgram:
-	waitkey(argv[0]);
-
+	DblClickWait(argv[0]);
+	
 	return ErrVal;
 }
 

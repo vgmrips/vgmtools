@@ -2,14 +2,32 @@
 //
 // TODO: Proper hours support.
 
-#include "vgmtools.h"
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <ctype.h>	// for isalnum()
+#include <wchar.h>
+#include <zlib.h>
 
-#ifndef WIN32
+#ifdef WIN32
+#include <windows.h>	// for Directory Listing
+#else
 #include <glob.h>
 #include <sys/stat.h>
 #endif
 
-#include <wchar.h>
+#include "stdtype.h"
+#include "stdbool.h"
+#include "VGMFile.h"
+#include "common.h"
+
+
+#ifdef WIN32
+#define DIR_SEP	'\\'
+#else
+#define DIR_SEP	'/'
+#endif
+
 
 static bool OpenVGMFile(const char* FileName);
 static wchar_t* ReadWStrFromFile(gzFile hFile, UINT32* FilePos, UINT32 EOFPos);
@@ -17,7 +35,6 @@ static void ReadDirectory(const char* DirName);
 static void ReadPlaylist(const char* FileName);
 static void ShowFileStats(char* FileTitle);
 static void PrintSampleTime(char* buffer, const UINT32 Samples, bool LoopMode);
-static INT8 stricmp_u(const char *string1, const char *string2);
 static void ShowStatistics(void);
 UINT32 GetTitleLines(UINT32* StrAlloc, char** String, const char* TitleStr);
 
@@ -56,7 +73,7 @@ int main(int argc, char* argv[])
 	printf("File Path or PlayList:\t");
 	if (argc <= 0x01)
 	{
-		gets_s(FileName, sizeof(FileName));
+		ReadFilename(FileName, sizeof(FileName));
 	}
 	else
 	{
@@ -70,7 +87,7 @@ int main(int argc, char* argv[])
 	AllLoop = 0;
 	PLMode = false;
 	
-	if (FileName[strlen(FileName - 0x01)] != '\\')
+	if (FileName[strlen(FileName) - 1] != DIR_SEP)
 	{
 #ifdef WIN32
 		if (! (GetFileAttributes(FileName) & FILE_ATTRIBUTE_DIRECTORY))
@@ -80,19 +97,19 @@ int main(int argc, char* argv[])
 #endif
 		{
 			FileExt = strrchr(FileName, '.');
-			if (FileExt < strrchr(FileName, '\\'))
+			if (FileExt < strrchr(FileName, DIR_SEP))
 				FileExt = NULL;
 			
 			if (FileExt != NULL)
 			{
 				FileExt ++;
-				if (! stricmp_u(FileExt, "m3u"))
+				if (! stricmp(FileExt, "m3u"))
 					PLMode = true;
 			}
 		}
 		else
 		{
-			strcat(FileName, "\\");
+			strcat(FileName, "/");
 		}
 	}
 	
@@ -111,7 +128,7 @@ int main(int argc, char* argv[])
 	ShowStatistics();
 	
 //EndProgram:
-	waitkey(argv[0]);
+	DblClickWait(argv[0]);
 	
 	return ErrVal;
 }
@@ -313,11 +330,6 @@ static wchar_t* ReadWStrFromFile(gzFile hFile, UINT32* FilePos, UINT32 EOFPos)
 	return TextStr;
 }
 
-#ifdef WIN32
-#define DIR_SEP '\\'
-#else
-#define DIR_SEP '/'
-#endif
 static void ReadDirectory(const char* DirName)
 {
 #ifdef WIN32
@@ -371,7 +383,7 @@ static void ReadDirectory(const char* DirName)
 			goto SkipFile;
 		FileExt ++;
 
-		if (stricmp_u(FileExt, "vgm") && stricmp_u(FileExt, "vgz"))
+		if (stricmp(FileExt, "vgm") && stricmp(FileExt, "vgz"))
 			goto SkipFile;
 
 		strcpy(TempPnt, FindFileData.cFileName);
@@ -566,36 +578,6 @@ static void PrintSampleTime(char* buffer, const UINT32 Samples, bool LoopMode)
 		sprintf(buffer, "%2u:%02u", MinVal, SecVal);
 	
 	return;
-}
-
-static INT8 stricmp_u(const char *string1, const char *string2)
-{
-	// my own stricmp, because VC++6 doesn't find _stricmp when compiling without
-	// standard librarys
-	const char* StrPnt1;
-	const char* StrPnt2;
-	char StrChr1;
-	char StrChr2;
-	
-	StrPnt1 = string1;
-	StrPnt2 = string2;
-	while(true)
-	{
-		StrChr1 = toupper(*StrPnt1);
-		StrChr2 = toupper(*StrPnt2);
-		
-		if (StrChr1 < StrChr2)
-			return -1;
-		else if (StrChr1 > StrChr2)
-			return +1;
-		if (StrChr1 == 0x00)
-			return 0;
-		
-		StrPnt1 ++;
-		StrPnt2 ++;
-	}
-	
-	return 0;
 }
 
 #define MAX_TITLE_CHARS		35

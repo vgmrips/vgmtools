@@ -2,21 +2,15 @@
 //
 // TODO: 2xChip support (especially for data blocks)
 
-#include "compat.h"
 #include <stdio.h>
 #include <stdlib.h>
-#include "stdbool.h"
 #include <string.h>
-
-#ifdef WIN32
-#include <conio.h>
-#include <windows.h>	// for GetTickCount
-#endif
-
-#include "zlib.h"
+#include <zlib.h>
 
 #include "stdtype.h"
+#include "stdbool.h"
 #include "VGMFile.h"
+#include "common.h"
 
 
 typedef struct vgm_data_block
@@ -47,9 +41,6 @@ typedef struct compression_table
 static bool OpenVGMFile(const char* FileName);
 static void WriteVGMFile(const char* FileName);
 static void CompressVGMDataBlocks(void);
-#ifdef WIN32
-static void PrintMinSec(const UINT32 SamplePos, char* TempStr);
-#endif
 static void MakeCompressionTable(void);
 static void DecideCompressionType(COMPR_TBL_DATA* ComprTbl);
 static bool CombineTables(COMPR_TBL_DATA* BaseTbl, COMPR_TBL_DATA* NewTbl);
@@ -71,6 +62,7 @@ COMPRESS_TBL CmpTbl[0x40];
 
 int main(int argc, char* argv[])
 {
+	int argbase;
 	int ErrVal;
 	char FileName[0x100];
 	UINT8 CurPCM;
@@ -79,14 +71,15 @@ int main(int argc, char* argv[])
 	printf("VGM Data Block Compressor\n-------------------------\n\n");
 	
 	ErrVal = 0;
+	argbase = 1;
 	printf("File Name:\t");
-	if (argc <= 0x01)
+	if (argc <= argbase + 0)
 	{
-		gets_s(FileName, sizeof(FileName));
+		ReadFilename(FileName, sizeof(FileName));
 	}
 	else
 	{
-		strcpy(FileName, argv[0x01]);
+		strcpy(FileName, argv[argbase + 0]);
 		printf("%s\n", FileName);
 	}
 	if (! strlen(FileName))
@@ -104,11 +97,11 @@ int main(int argc, char* argv[])
 	
 	if (DstDataLen < VGMDataLen)
 	{
-		if (argc > 0x02)
-			strcpy(FileName, argv[0x02]);
+		if (argc > argbase + 1)
+			strcpy(FileName, argv[argbase + 1]);
 		else
 			strcpy(FileName, "");
-		if (! FileName[0x00])
+		if (FileName[0] == '\0')
 		{
 			strcpy(FileName, FileBase);
 			strcat(FileName, "_compressed.vgm");
@@ -133,15 +126,7 @@ int main(int argc, char* argv[])
 	}
 	
 EndProgram:
-#ifdef WIN32
-	if (argv[0][1] == ':')
-	{
-		// Executed by Double-Clicking (or Drap and Drop)
-		if (_kbhit())
-			_getch();
-		_getch();
-	}
-#endif
+	DblClickWait(argv[0]);
 	
 	return ErrVal;
 }
@@ -499,21 +484,6 @@ static void CompressVGMDataBlocks(void)
 	
 	return;
 }
-
-#ifdef WIN32
-static void PrintMinSec(const UINT32 SamplePos, char* TempStr)
-{
-	float TimeSec;
-	UINT16 TimeMin;
-	
-	TimeSec = (float)SamplePos / (float)44100.0;
-	TimeMin = (UINT16)TimeSec / 60;
-	TimeSec -= TimeMin * 60;
-	sprintf(TempStr, "%02u:%05.2f", TimeMin, TimeSec);
-	
-	return;
-}
-#endif
 
 static void MakeCompressionTable(void)
 {

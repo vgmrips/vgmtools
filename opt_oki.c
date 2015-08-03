@@ -1,7 +1,16 @@
 // opt_oki.c - VGM OKIM6258 Optimizer
 //
 
-#include "vgmtools.h"
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <zlib.h>
+
+#include "stdtype.h"
+#include "stdbool.h"
+#include "VGMFile.h"
+#include "common.h"
+
 
 // Structures
 typedef struct vgm_data_write
@@ -57,12 +66,8 @@ static void MakeDrumTable(void);
 static void MakeDataStream(void);
 static void WriteDACStreamCmd(STRM_CTRL_CMD* StrmCmd, UINT32* DestPos);
 static void RewriteVGMData(void);
-#ifdef WIN32
-static void PrintMinSec(const UINT32 SamplePos, char* TempStr);
-#endif
 
-void printignore(const char *fmt, ...) {} // suppress warnings
-#define printdbg printignore
+#define printdbg	
 //#define printdbg	printf
 
 
@@ -111,18 +116,18 @@ int main(int argc, char* argv[])
 	EarlyDataWrt = false;
 	SplitCmd = 0x00;
 	ErrVal = 0;
-	argbase = 0x01;
+	argbase = 1;
 	
 	CHANGING_CLK_RATE = false;
 	
 	printf("File Name:\t");
-	if (argc <= argbase + 0x00)
+	if (argc <= argbase + 0)
 	{
-		gets_s(FileName, sizeof(FileName));
+		ReadFilename(FileName, 0x100);
 	}
 	else
 	{
-		strcpy(FileName, argv[argbase + 0x00]);
+		strcpy(FileName, argv[argbase + 0]);
 		printf("%s\n", FileName);
 	}
 	if (! strlen(FileName))
@@ -158,11 +163,11 @@ int main(int argc, char* argv[])
 	
 	if (DataSizeB < DataSizeA)
 	{
-		if (argc > argbase + 0x01)
-			strcpy(FileName, argv[argbase + 0x01]);
+		if (argc > argbase + 1)
+			strcpy(FileName, argv[argbase + 1]);
 		else
 			strcpy(FileName, "");
-		if (! FileName[0x00])
+		if (FileName[0] == '\0')
 		{
 			strcpy(FileName, FileBase);
 			strcat(FileName, "_optimized.vgm");
@@ -174,8 +179,8 @@ int main(int argc, char* argv[])
 	free(DstData);
 	
 EndProgram:
-	waitkey(argv[0]);
-
+	DblClickWait(argv[0]);
+	
 	return ErrVal;
 }
 
@@ -984,8 +989,8 @@ static void MakeDataStream(void)
 				for (CurPlay = 0; CurPlay < 6; CurPlay ++)
 				{
 					BaseFreq = (VGMHead.lngHzOKIM6258 + dividers[CurPlay] / 2) / dividers[CurPlay];
-					if (abs((int)FreqVal - (int)BaseFreq) < 120 ||
-						(FreqVal < BaseFreq && FreqVal >= BaseFreq - 800))
+					if ((FreqVal < BaseFreq && FreqVal >= BaseFreq - 800) ||
+						abs((int)FreqVal - (int)BaseFreq) < 120)
 					{
 						FreqVal = BaseFreq;
 						CmdDiff = 1;
@@ -1457,18 +1462,3 @@ static void RewriteVGMData(void)
 	
 	return;
 }
-
-#ifdef WIN32
-static void PrintMinSec(const UINT32 SamplePos, char* TempStr)
-{
-	float TimeSec;
-	UINT16 TimeMin;
-	
-	TimeSec = (float)SamplePos / (float)44100.0;
-	TimeMin = (UINT16)TimeSec / 60;
-	TimeSec -= TimeMin * 60;
-	sprintf(TempStr, "%02u:%05.2f", TimeMin, TimeSec);
-	
-	return;
-}
-#endif

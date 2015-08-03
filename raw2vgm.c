@@ -5,15 +5,9 @@
 #include <stdlib.h>
 #include <string.h>
 
-#ifdef WIN32
-#include <conio.h>
-#else
-#define _stricmp	strcasecmp
-#define _strnicmp	strncasecmp
-#endif
-
 #include "stdtype.h"
 #include "VGMFile.h"
+#include "common.h"
 
 
 static UINT8 OpenRAWFile(const char* FileName);
@@ -36,23 +30,25 @@ UINT8 LoopOn;
 int main(int argc, char* argv[])
 {
 	int argbase;
+	int ErrVal;
 	char FileName[0x100];
 	
 	printf("RAW to VGM Converter\n--------------------\n\n");
 	
-	argbase = 0x01;
+	ErrVal = 0;
+	argbase = 1;
 	LoopOn = 0x00;
 	
-	while(argc >= argbase + 0x01 && argv[argbase][0] == '-')
+	while(argbase < argc && argv[argbase][0] == '-')
 	{
-		if (! _stricmp(argv[argbase], "-help"))
+		if (! stricmp(argv[argbase], "-help"))
 		{
 			printf("Usage: raw2vgm [-Loop] Input.raw [Output.vgm]\n");
 			printf("\n");
 			printf("Loop: Makes the song loop from beginning to end.\n");
 			return 0;
 		}
-		else if (! _stricmp(argv[argbase], "-Loop"))
+		else if (! stricmp(argv[argbase], "-Loop"))
 		{
 			LoopOn = 0x01;
 			argbase ++;
@@ -64,13 +60,13 @@ int main(int argc, char* argv[])
 	}
 	
 	printf("File Name:\t");
-	if (argc <= argbase + 0x00)
+	if (argc <= argbase + 0)
 	{
-		gets(FileName);
+		ReadFilename(FileName, sizeof(FileName));
 	}
 	else
 	{
-		strcpy(FileName, argv[argbase + 0x00]);
+		strcpy(FileName, argv[argbase + 0]);
 		printf("%s\n", FileName);
 	}
 	if (! strlen(FileName))
@@ -79,20 +75,18 @@ int main(int argc, char* argv[])
 	if (OpenRAWFile(FileName))
 	{
 		printf("Error opening the file!\n");
-#ifdef WIN32
-		_getch();
-#endif
-		return 1;
+		ErrVal = 1;
+		goto EndProgram;
 	}
 	printf("\n");
 	
 	ConvertRAW2VGM();
 	
-	if (argc > argbase + 0x01)
-		strcpy(FileName, argv[argbase + 0x01]);
+	if (argc > argbase + 1)
+		strcpy(FileName, argv[argbase + 1]);
 	else
 		strcpy(FileName, "");
-	if (FileName[0x00] == '\0')
+	if (FileName[0] == '\0')
 	{
 		strcpy(FileName, FileBase);
 		strcat(FileName, ".vgm");
@@ -102,17 +96,10 @@ int main(int argc, char* argv[])
 	free(RAWData);
 	free(VGMData);
 	
-#ifdef WIN32
-	if (argv[0][1] == ':')
-	{
-		// Executed by Double-Clicking (or Drap and Drop)
-		if (_kbhit())
-			_getch();
-		_getch();
-	}
-#endif
+EndProgram:
+	DblClickWait(argv[0]);
 	
-	return 0;
+	return ErrVal;
 }
 
 static UINT8 OpenRAWFile(const char* FileName)

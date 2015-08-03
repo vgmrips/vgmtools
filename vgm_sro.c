@@ -1,21 +1,15 @@
 // vgm_sro.c - VGM Sample-ROM Optimizer
 //
 
-#include "compat.h"
 #include <stdio.h>
 #include <stdlib.h>
-#include "stdbool.h"
 #include <string.h>
-
-#ifdef WIN32
-#include <conio.h>
-#include <windows.h>	// for GetTickCount
-#endif
-
-#include "zlib.h"
+#include <zlib.h>
 
 #include "stdtype.h"
+#include "stdbool.h"
 #include "VGMFile.h"
+#include "common.h"
 
 
 static bool OpenVGMFile(const char* FileName);
@@ -24,9 +18,6 @@ static void FindUsedROMData(void);
 static void EnumerateROMRegions(void);
 static void OptimizeVGMSampleROM(void);
 static UINT8 GetRomRgnFromType(UINT8 ROMType);
-#ifdef WIN32
-static void PrintMinSec(const UINT32 SamplePos, char* TempStr);
-#endif
 
 
 void InitAllChips(void);
@@ -94,6 +85,7 @@ bool CancelFlag;
 
 int main(int argc, char* argv[])
 {
+	int argbase;
 	int ErrVal;
 	char FileName[0x100];
 	UINT8 CurROM;
@@ -101,14 +93,15 @@ int main(int argc, char* argv[])
 	printf("VGM Sample-ROM Optimizer\n------------------------\n\n");
 	
 	ErrVal = 0;
+	argbase = 1;
 	printf("File Name:\t");
-	if (argc <= 0x01)
+	if (argc <= argbase + 0)
 	{
-		gets_s(FileName, sizeof(FileName));
+		ReadFilename(FileName, sizeof(FileName));
 	}
 	else
 	{
-		strcpy(FileName, argv[0x01]);
+		strcpy(FileName, argv[argbase + 0]);
 		printf("%s\n", FileName);
 	}
 	if (! strlen(FileName))
@@ -155,11 +148,11 @@ int main(int argc, char* argv[])
 	
 	if (DstDataLen < VGMDataLen)
 	{
-		if (argc > 0x02)
-			strcpy(FileName, argv[0x02]);
+		if (argc > argbase + 1)
+			strcpy(FileName, argv[argbase + 1]);
 		else
 			strcpy(FileName, "");
-		if (! FileName[0x00])
+		if (FileName[0] == '\0')
 		{
 			strcpy(FileName, FileBase);
 			strcat(FileName, "_optimized.vgm");
@@ -177,7 +170,7 @@ BreakProgress:
 	}
 	
 EndProgram:
-	waitkey(argv[0]);
+	DblClickWait(argv[0]);
 	
 	return ErrVal;
 }
@@ -1053,13 +1046,13 @@ static void OptimizeVGMSampleROM(void)
 							memcpy(&DstData[DstPos + 0x03], &CmdLen, 0x04);
 							DstData[DstPos + 0x06] |= (ChipID << 7);	// set '2nd Chip'-bit
 							
-							if (! (ROM_LIST[TempByt] & 0x20))
+							if (! (TempByt & 0x20))	// C0-DF - small RAM (<= 64 KB)
 							{
 								TempSht = TempRgn->AddrStart & 0xFFFF;
 								memcpy(&DstData[DstPos + 0x07], &TempSht, 0x02);
 								memcpy(&DstData[DstPos + 0x09], &ROMData[TempSht], DataLen);
 							}
-							else
+							else	// E0-FF - large RAM (> 64 KB)
 							{
 								memcpy(&DstData[DstPos + 0x07], &TempRgn->AddrStart, 0x04);
 								memcpy(&DstData[DstPos + 0x0B], &ROMData[TempRgn->AddrStart], DataLen);
@@ -1201,18 +1194,3 @@ static UINT8 GetRomRgnFromType(UINT8 ROMType)
 	
 	return 0x00;
 }
-
-#ifdef WIN32
-static void PrintMinSec(const UINT32 SamplePos, char* TempStr)
-{
-	float TimeSec;
-	UINT16 TimeMin;
-	
-	TimeSec = (float)SamplePos / (float)44100.0;
-	TimeMin = (UINT16)TimeSec / 60;
-	TimeSec -= TimeMin * 60;
-	sprintf(TempStr, "%02u:%05.2f", TimeMin, TimeSec);
-	
-	return;
-}
-#endif

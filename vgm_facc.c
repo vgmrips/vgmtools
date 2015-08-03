@@ -1,21 +1,15 @@
 // vgm_facc.c - Round VGM to Frames (Make VGM Frame Accurate)
 //
 
-#include "compat.h"
 #include <stdio.h>
 #include <stdlib.h>
-#include "stdbool.h"
 #include <string.h>
-
-#ifdef WIN32
-#include <conio.h>
-#include <windows.h>	// for GetTickCount
-#endif
-
-#include "zlib.h"
+#include <zlib.h>
 
 #include "stdtype.h"
+#include "stdbool.h"
 #include "VGMFile.h"
+#include "common.h"
 
 
 static bool OpenVGMFile(const char* FileName);
@@ -24,11 +18,8 @@ static void RoundVGMData(void);
 static void WriteVGMHeader(UINT8* DstData, const UINT8* SrcData, const UINT32 EOFPos,
 						   const UINT32 SampleCount, const UINT32 LoopPos,
 						   const UINT32 LoopSmpls);
-#ifdef WIN32
-static void PrintMinSec(const UINT32 SamplePos, char* TempStr);
-#endif
 INLINE INT8 sign(double Value);
-static INT32 RoundU(double Value);
+INLINE INT32 RoundU(double Value);
 static void SetRoundError(UINT32 SrcVal, UINT32 RndVal, INT32* ErrMin, INT32* ErrMax,
 						  INT32* PosMin, INT32* PosMax);
 
@@ -56,13 +47,13 @@ int main(int argc, char* argv[])
 	argbase = 1;
 	
 	printf("File Name:\t");
-	if (argc <= argbase)
+	if (argc <= argbase + 0)
 	{
-		gets_s(FileName, sizeof(FileName));
+		ReadFilename(FileName, sizeof(FileName));
 	}
 	else
 	{
-		strcpy(FileName, argv[argbase]);
+		strcpy(FileName, argv[argbase + 0]);
 		printf("%s\n", FileName);
 	}
 	if (! strlen(FileName))
@@ -78,11 +69,11 @@ int main(int argc, char* argv[])
 	
 	RoundVGMData();
 	
-	if (argc > argbase + 0x01)
-		strcpy(FileName, argv[argbase + 0x01]);
+	if (argc > argbase + 1)
+		strcpy(FileName, argv[argbase + 1]);
 	else
 		strcpy(FileName, "");
-	if (! FileName[0x00])
+	if (FileName[0] == '\0')
 	{
 		strcpy(FileName, FileBase);
 		strcat(FileName, "_frame.vgm");
@@ -93,7 +84,7 @@ int main(int argc, char* argv[])
 	free(DstData);
 	
 EndProgram:
-	waitkey(argv[0]);
+	DblClickWait(argv[0]);
 	
 	return ErrVal;
 }
@@ -643,21 +634,6 @@ static void WriteVGMHeader(UINT8* DstData, const UINT8* SrcData, const UINT32 EO
 	return;
 }
 
-#ifdef WIN32
-static void PrintMinSec(const UINT32 SamplePos, char* TempStr)
-{
-	float TimeSec;
-	UINT16 TimeMin;
-	
-	TimeSec = (float)SamplePos / (float)44100.0;
-	TimeMin = (UINT16)TimeSec / 60;
-	TimeSec -= TimeMin * 60;
-	sprintf(TempStr, "%02u:%05.2f", TimeMin, TimeSec);
-	
-	return;
-}
-#endif
-
 INLINE INT8 sign(double Value)
 {
 	if (Value > 0.0)
@@ -668,7 +644,7 @@ INLINE INT8 sign(double Value)
 		return 0;
 }
 
-static INT32 RoundU(double Value)
+INLINE INT32 RoundU(double Value)
 {
 	return (INT32)(Value / RoundTo + RoundA * sign(Value)) * RoundTo;
 }

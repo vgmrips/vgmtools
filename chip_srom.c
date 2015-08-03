@@ -1,10 +1,12 @@
 // TODO: Check sample end < sample start
 
 #include <stdlib.h>
-#include <memory.h>
+#include <string.h>
 #include <stdio.h>
+
 #include "stdtype.h"
 #include "stdbool.h"
+
 
 #define SPCM_BANK_256		(11)
 #define SPCM_BANK_512		(12)
@@ -177,6 +179,7 @@ enum
 	C140_TYPE_SYSTEM21_B,
 	C140_TYPE_ASIC219
 };
+//static const INT16 asic219banks[4] = {0x07, 0x01, 0x03, 0x05};
 #define C140_MAX_VOICE 24
 typedef struct
 {
@@ -2316,19 +2319,32 @@ void c352_write(UINT16 Offset, UINT16 val)
 								   : TempChn->end_addr < TempChn->start_addr;
 						
 						startpos = wrap && rev ? ((TempChn->bank-1)<<16) : (TempChn->bank<<16);
-												
 						endpos = wrap && !rev ? ((TempChn->bank+1)<<16) : (TempChn->bank<<16);
 						reptpos = (endpos & 0x00FF0000) + TempChn->repeat_addr;
 						
 						startpos += rev ? TempChn->end_addr : TempChn->start_addr;
-						
 						endpos += rev ? TempChn->start_addr : TempChn->end_addr;
 						
 						if ((TempChn->flag & C352_FLG_LOOP) && reptpos<startpos)
 							startpos=reptpos;
 						
-						for (addr = startpos; addr <= endpos; addr ++)
-							chip->ROMUsage[addr&0xffffff] |= 0x01;
+						if (startpos < chip->ROMSize)
+						{
+							if (endpos <= chip->ROMSize)
+							{
+								for (addr = startpos; addr <= endpos; addr ++)
+									chip->ROMUsage[addr] |= 0x01;
+							}
+							else
+							{
+								// found overflowing address counter
+								endpos -= chip->ROMSize;
+								for (addr = startpos; addr < chip->ROMSize; addr ++)
+									chip->ROMUsage[addr] |= 0x01;
+								for (addr = 0x00; addr <= endpos; addr ++)
+									chip->ROMUsage[addr] |= 0x01;
+							}
+						}
 					}
 					TempChn->flag &= ~(C352_FLG_KEYON);
 					TempChn->flag |= C352_FLG_BUSY;
@@ -2349,6 +2365,7 @@ void c352_write(UINT16 Offset, UINT16 val)
 	if (chan > 31)
 		return;
 	TempChn = &chip->channels[chan];
+	startpos = (UINT32)-1;
 	switch(address & 0xf)
 	{
 	case 0x0:	// volumes (output 1)
@@ -2362,12 +2379,6 @@ void c352_write(UINT16 Offset, UINT16 val)
 			val &= 0xFF;
 			startpos = (val<<16) +TempChn->repeat_addr;
 			endpos = (val<<16) + TempChn->end_addr;
-			
-			if (endpos < startpos)
-				endpos += 0x10000;
-			
-			for (addr = startpos; addr <= endpos; addr ++)
-				chip->ROMUsage[addr&0xffffff] |= 0x01;
 		}
 		break;
 	case 0x8:	// bank (bits 16-31 of address);
@@ -2381,12 +2392,6 @@ void c352_write(UINT16 Offset, UINT16 val)
 			val &= 0xFF;
 			startpos = (val<<16) +TempChn->repeat_addr;
 			endpos = (val<<16) + TempChn->end_addr;
-			
-			if (endpos < startpos)
-				endpos += 0x10000;
-			
-			for (addr = startpos; addr <= endpos; addr ++)
-				chip->ROMUsage[addr&0xffffff] |= 0x01;
 		}
 		break;
 	case 0xc:	// end address
@@ -2397,6 +2402,29 @@ void c352_write(UINT16 Offset, UINT16 val)
 		break;
 	default:
 		break;
+	}
+	
+	if (startpos != (UINT32)-1)
+	{
+		if (startpos >= chip->ROMSize)
+			return;
+		
+		if (endpos < startpos)
+			endpos += 0x10000;
+		if (endpos <= chip->ROMSize)
+		{
+			for (addr = startpos; addr <= endpos; addr ++)
+				chip->ROMUsage[addr] |= 0x01;
+		}
+		else
+		{
+			// found overflowing address counter
+			endpos -= chip->ROMSize;
+			for (addr = startpos; addr < chip->ROMSize; addr ++)
+				chip->ROMUsage[addr] |= 0x01;
+			for (addr = 0x00; addr <= endpos; addr ++)
+				chip->ROMUsage[addr] |= 0x01;
+		}
 	}
 	return;
 }

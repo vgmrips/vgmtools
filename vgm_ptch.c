@@ -1,18 +1,24 @@
 // vgm_ptch.c - VGM Patcher
 //
 
-#include "vgmtools.h"
-#include "chip_strp.h"
-
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <ctype.h>	// for toupper()
 #include <math.h>
+#include <zlib.h>
+
+#include "stdtype.h"
+#include "stdbool.h"
+#include "VGMFile.h"
+#include "chip_strp.h"
+#include "common.h"
 
 // GD3 Tag Entry Count
 #define GD3T_ENT_V100	11
 
 
 int main(int argc, char* argv[]);
-static INT8 stricmp_u(const char *string1, const char *string2);
-static INT8 strnicmp_u(const char *string1, const char *string2, size_t count);
 static UINT32 GetGZFileLength(const char* FileName);
 static bool OpenVGMFile(const char* FileName, bool* Compressed);
 static void ReadChipExtraData32(UINT32 StartOffset, VGMX_CHP_EXTRA32* ChpExtra);
@@ -60,13 +66,13 @@ int main(int argc, char* argv[])
 	printf("VGM Patcher\n-----------\n");
 	
 	ErrVal = 0;
-	if (argc <= 0x01)
+	if (argc <= 1)
 	{
 		printf("Usage: vgm_ptch [-command1] [-command2] file1.vgm file2.vgz ...\n");
 		printf("Use argument -help for command list.\n");
 		goto EndProgram;
 	}
-	else if (! stricmp_u(argv[1], "-Help"))
+	else if (! stricmp(argv[1], "-Help"))
 	{
 		printf("Help\n----\n");
 		printf("Usage: vgm_ptch [-command1] [-command2] file1.vgm file2.vgz\n");
@@ -90,11 +96,8 @@ int main(int argc, char* argv[])
 		printf("    -SetLoopBase  Set the Loop Base (-128 to 127)\n");
 		printf("    -SetVolMod    Set the Volume Modifier (Format: 1.0, 0x00)\n");
 		printf("\n");
-#ifdef WIN32
 		_getch();
-#else
-		getchar();
-#endif
+		
 		printf("Commands to check the lengths (total, loop) and offsets (EOF, loop, GD3):\n");
 		printf("    -Check        asks for correction\n");
 		printf("    -CheckR       read only mode\n");
@@ -112,7 +115,7 @@ int main(int argc, char* argv[])
 		printf("Command names are case insensitive.\n");
 		goto EndProgram;
 	}
-	else if (! stricmp_u(argv[1], "-ChipCmdList"))
+	else if (! stricmp(argv[1], "-ChipCmdList"))
 	{
 		printf("Chip Commands\n-------------\n");
 		printf("    -SetHzPSG      Sets the SN76496 (PSG) chip clock\n");
@@ -135,11 +138,8 @@ int main(int argc, char* argv[])
 		printf("    -SetHzYM3812   Sets the YM3812 (OPL2) chip clock\n");
 		printf("    -SetHzYM3526   Sets the YM3526 (OPL) chip clock\n");
 		printf("    -SetHzY8950    Sets the Y8950 (MSX AUDIO) chip clock\n");
-#ifdef WIN32
 		_getch();
-#else
-		getchar();
-#endif
+		
 		printf("    -SetHzYMF262   Sets the YMF262 (OP3) chip clock\n");
 		printf("    -SetHzYMF278B  Sets the YMF278B (OPL4) chip clock\n");
 		printf("    -SetHzYMF271   Sets the YMF271 (OPLX) chip clock\n");
@@ -165,7 +165,7 @@ int main(int argc, char* argv[])
 		printf("Setting a clock rate to 0 disables the chip.\n");
 		goto EndProgram;
 	}
-	else if (! stricmp_u(argv[1], "-StripList"))
+	else if (! stricmp(argv[1], "-StripList"))
 	{
 		printf("    Chips          Channels\n");
 		printf("    --------       --------\n");
@@ -189,11 +189,8 @@ int main(int argc, char* argv[])
 		printf("    RF5C164        0..7, Mem\n");
 		printf("    PWM            -\n");
 		printf("    AY8910        *0..5\n");
-#ifdef WIN32
 		_getch();
-#else
-		getchar();
-#endif
+		
 		printf("    GBDMG         *0..3\n");
 		printf("    NESAPU        *0..4\n");
 		printf("    MultiPCM      *0..27\n");
@@ -213,12 +210,12 @@ int main(int argc, char* argv[])
 		goto EndProgram;
 	}
 	
-	for (CmdCnt = 0x01; CmdCnt < argc; CmdCnt ++)
+	for (CmdCnt = 1; CmdCnt < argc; CmdCnt ++)
 	{
 		if (*argv[CmdCnt] != '-')
 			break;	// skip all commands
 	}
-	if (CmdCnt < 0x02)
+	if (CmdCnt < 2)
 	{
 		printf("Error: No commands specified!\n");
 		goto EndProgram;
@@ -229,7 +226,7 @@ int main(int argc, char* argv[])
 		goto EndProgram;
 	}
 	
-	PreparseCommands(CmdCnt - 0x01, argv + 0x01);
+	PreparseCommands(CmdCnt - 1, argv + 1);
 	for (CurArg = CmdCnt; CurArg < argc; CurArg ++)
 	{
 		printf("File: %s ...\n", argv[CurArg]);
@@ -241,7 +238,7 @@ int main(int argc, char* argv[])
 			continue;
 		}
 		
-		RetVal = PatchVGM(CmdCnt - 0x01, argv + 0x01);
+		RetVal = PatchVGM(CmdCnt - 1, argv + 1);
 		if (RetVal & 0x80)
 		{
 			if (RetVal == 0x80)
@@ -267,71 +264,9 @@ int main(int argc, char* argv[])
 	}
 	
 EndProgram:
-	waitkey(argv[0]);
+	DblClickWait(argv[0]);
 	
 	return ErrVal;
-}
-
-static INT8 stricmp_u(const char *string1, const char *string2)
-{
-	// my own stricmp, because VC++6 doesn't find _stricmp when compiling without
-	// standard libraries
-	const char* StrPnt1;
-	const char* StrPnt2;
-	char StrChr1;
-	char StrChr2;
-	
-	StrPnt1 = string1;
-	StrPnt2 = string2;
-	while(true)
-	{
-		StrChr1 = toupper(*StrPnt1);
-		StrChr2 = toupper(*StrPnt2);
-		
-		if (StrChr1 < StrChr2)
-			return -1;
-		else if (StrChr1 > StrChr2)
-			return +1;
-		if (StrChr1 == 0x00)
-			return 0;
-		
-		StrPnt1 ++;
-		StrPnt2 ++;
-	}
-	
-	return 0;
-}
-
-static INT8 strnicmp_u(const char *string1, const char *string2, size_t count)
-{
-	// my own strnicmp, because GCC doesn't seem to have _strnicmp
-	const char* StrPnt1;
-	const char* StrPnt2;
-	char StrChr1;
-	char StrChr2;
-	size_t CurChr;
-	
-	StrPnt1 = string1;
-	StrPnt2 = string2;
-	CurChr = 0x00;
-	while(CurChr < count)
-	{
-		StrChr1 = toupper(*StrPnt1);
-		StrChr2 = toupper(*StrPnt2);
-		
-		if (StrChr1 < StrChr2)
-			return -1;
-		else if (StrChr1 > StrChr2)
-			return +1;
-		if (StrChr1 == 0x00)
-			return 0;
-		
-		StrPnt1 ++;
-		StrPnt2 ++;
-		CurChr ++;
-	}
-	
-	return 0;
 }
 
 static UINT32 GetGZFileLength(const char* FileName)
@@ -596,9 +531,9 @@ static UINT8 PreparseCommands(int ArgCount, char* ArgList[])
 	//UINT32 TempLng;
 	
 	memset(&StripVGM, 0x00, sizeof(STRIP_DATA) * 2);
-	for (CurArg = 0x00; CurArg < ArgCount; CurArg ++)
+	for (CurArg = 0; CurArg < ArgCount; CurArg ++)
 	{
-		CmdStr = ArgList[CurArg] + 0x01;	// Skip the '-' at the beginning
+		CmdStr = ArgList[CurArg] + 1;	// Skip the '-' at the beginning
 		
 		CmdData = strchr(CmdStr, ':');
 		if (CmdData != NULL)
@@ -613,7 +548,7 @@ static UINT8 PreparseCommands(int ArgCount, char* ArgList[])
 			printf("%s: %s\n", CmdStr, CmdData);
 		else
 			printf("%s\n", CmdStr);*/
-		if (! stricmp_u(CmdStr, "Strip"))
+		if (! stricmp(CmdStr, "Strip"))
 		{
 			RetVal = ParseStripCommand(CmdData);
 			if (RetVal)
@@ -710,72 +645,72 @@ static UINT8 ParseStripCommand(const char* StripCmd)
 		}
 		
 		// I can compare ChipPos, because I zeroed the split-char
-		if (! stricmp_u(ChipPos, "PSG") || ! stricmp_u(ChipPos, "SN76496"))
+		if (! stricmp(ChipPos, "PSG") || ! stricmp(ChipPos, "SN76496"))
 		{
 			CurChip = 0x00;
 			TempChip = (STRIP_GENERIC*)&StripVGM[0].SN76496;
 		}
-		else if (! stricmp_u(ChipPos, "YM2413"))
+		else if (! stricmp(ChipPos, "YM2413"))
 		{
 			CurChip = 0x01;
 			TempChip = (STRIP_GENERIC*)&StripVGM[0].YM2413;
 		}
-		else if (! stricmp_u(ChipPos, "YM2612"))
+		else if (! stricmp(ChipPos, "YM2612"))
 		{
 			CurChip = 0x02;
 			TempChip = (STRIP_GENERIC*)&StripVGM[0].YM2612;
 		}
-		else if (! stricmp_u(ChipPos, "YM2151"))
+		else if (! stricmp(ChipPos, "YM2151"))
 		{
 			CurChip = 0x03;
 			TempChip = (STRIP_GENERIC*)&StripVGM[0].YM2151;
 		}
-		else if (! stricmp_u(ChipPos, "SegaPCM"))
+		else if (! stricmp(ChipPos, "SegaPCM"))
 		{
 			CurChip = 0x04;
 			TempChip = (STRIP_GENERIC*)&StripVGM[0].SegaPCM;
 		}
-		else if (! stricmp_u(ChipPos, "RF5C68"))
+		else if (! stricmp(ChipPos, "RF5C68"))
 		{
 			CurChip = 0x05;
 			TempChip = (STRIP_GENERIC*)&StripVGM[0].RF5C68;
 		}
-		else if (! stricmp_u(ChipPos, "YM2203"))
+		else if (! stricmp(ChipPos, "YM2203"))
 		{
 			CurChip = 0x06;
 			TempChip = (STRIP_GENERIC*)&StripVGM[0].YM2203;
 		}
-		else if (! stricmp_u(ChipPos, "YM2608"))
+		else if (! stricmp(ChipPos, "YM2608"))
 		{
 			CurChip = 0x07;
 			TempChip = (STRIP_GENERIC*)&StripVGM[0].YM2608;
 		}
-		else if (! stricmp_u(ChipPos, "YM2610"))
+		else if (! stricmp(ChipPos, "YM2610"))
 		{
 			CurChip = 0x08;
 			TempChip = (STRIP_GENERIC*)&StripVGM[0].YM2610;
 		}
-		else if (! stricmp_u(ChipPos, "YM3812"))
+		else if (! stricmp(ChipPos, "YM3812"))
 		{
 			CurChip = 0x09;
 			TempChip = (STRIP_GENERIC*)&StripVGM[0].YM3812;
 		}
-		else if (! stricmp_u(ChipPos, "YM3526"))
+		else if (! stricmp(ChipPos, "YM3526"))
 		{
 			CurChip = 0x0A;
 			TempChip = (STRIP_GENERIC*)&StripVGM[0].YM3526;
 		}
-		else if (! stricmp_u(ChipPos, "Y8950"))
+		else if (! stricmp(ChipPos, "Y8950"))
 		{
 			CurChip = 0x0B;
 			TempChip = (STRIP_GENERIC*)&StripVGM[0].Y8950;
 		}
-		else if (! stricmp_u(ChipPos, "YMF262"))
+		else if (! stricmp(ChipPos, "YMF262"))
 		{
 			CurChip = 0x0C;
 			TempChip = (STRIP_GENERIC*)&StripVGM[0].YMF262;
 		}
-		else if (! stricmp_u(ChipPos, "YMF278B"))
+		else if (! stricmp(ChipPos, "YMF278B"))
 		{
 			CurChip = 0x0D;
 			if (StripMode == 0x00)
@@ -788,108 +723,108 @@ static UINT8 ParseStripCommand(const char* StripCmd)
 				TempChip = (STRIP_GENERIC*)&StripVGM[0].YMF278B_WT;
 			}
 		}
-		else if (! stricmp_u(ChipPos, "YMF278B_WT"))
+		else if (! stricmp(ChipPos, "YMF278B_WT"))
 		{
 			CurChip = 0x0D;
 			TempChip = (STRIP_GENERIC*)&StripVGM[0].YMF278B_WT;
 		}
-		else if (! stricmp_u(ChipPos, "YMF278B_FM"))
+		else if (! stricmp(ChipPos, "YMF278B_FM"))
 		{
 			CurChip = 0x8D;
 			TempChip = (STRIP_GENERIC*)&StripVGM[0].YMF278B_FM;
 		}
-		else if (! stricmp_u(ChipPos, "YMF271"))
+		else if (! stricmp(ChipPos, "YMF271"))
 		{
 			CurChip = 0x0E;
 			TempChip = (STRIP_GENERIC*)&StripVGM[0].YMF271;
 		}
-		else if (! stricmp_u(ChipPos, "YMZ280B"))
+		else if (! stricmp(ChipPos, "YMZ280B"))
 		{
 			CurChip = 0x0F;
 			TempChip = (STRIP_GENERIC*)&StripVGM[0].YMZ280B;
 		}
-		else if (! stricmp_u(ChipPos, "RF5C164"))
+		else if (! stricmp(ChipPos, "RF5C164"))
 		{
 			CurChip = 0x10;
 			TempChip = (STRIP_GENERIC*)&StripVGM[0].RF5C164;
 		}
-		else if (! stricmp_u(ChipPos, "PWM"))
+		else if (! stricmp(ChipPos, "PWM"))
 		{
 			CurChip = 0x11;
 			TempChip = NULL;
 			TChipAll = &StripVGM[0].PWM.All;
 		}
-		else if (! stricmp_u(ChipPos, "AY8910"))
+		else if (! stricmp(ChipPos, "AY8910"))
 		{
 			CurChip = 0x12;
 			TempChip = (STRIP_GENERIC*)&StripVGM[0].AY8910;
 		}
-		else if (! stricmp_u(ChipPos, "GBDMG"))
+		else if (! stricmp(ChipPos, "GBDMG"))
 		{
 			CurChip = 0x13;
 			TempChip = (STRIP_GENERIC*)&StripVGM[0].GBDMG;
 		}
-		else if (! stricmp_u(ChipPos, "NESAPU"))
+		else if (! stricmp(ChipPos, "NESAPU"))
 		{
 			CurChip = 0x14;
 			TempChip = (STRIP_GENERIC*)&StripVGM[0].NESAPU;
 		}
-		else if (! stricmp_u(ChipPos, "MultiPCM"))
+		else if (! stricmp(ChipPos, "MultiPCM"))
 		{
 			CurChip = 0x15;
 			TempChip = (STRIP_GENERIC*)&StripVGM[0].MultiPCM;
 		}
-		else if (! stricmp_u(ChipPos, "UPD7759"))
+		else if (! stricmp(ChipPos, "UPD7759"))
 		{
 			CurChip = 0x16;
 			TempChip = (STRIP_GENERIC*)&StripVGM[0].UPD7759;
 		}
-		else if (! stricmp_u(ChipPos, "OKIM6258"))
+		else if (! stricmp(ChipPos, "OKIM6258"))
 		{
 			CurChip = 0x17;
 			TempChip = (STRIP_GENERIC*)&StripVGM[0].OKIM6258;
 		}
-		else if (! stricmp_u(ChipPos, "OKIM6295"))
+		else if (! stricmp(ChipPos, "OKIM6295"))
 		{
 			CurChip = 0x18;
 			TempChip = (STRIP_GENERIC*)&StripVGM[0].OKIM6295;
 		}
-		else if (! stricmp_u(ChipPos, "SCC1") || ! stricmp_u(ChipPos, "K051649"))
+		else if (! stricmp(ChipPos, "SCC1") || ! stricmp(ChipPos, "K051649"))
 		{
 			CurChip = 0x19;
 			TempChip = (STRIP_GENERIC*)&StripVGM[0].K051649;
 		}
-		else if (! stricmp_u(ChipPos, "K054539"))
+		else if (! stricmp(ChipPos, "K054539"))
 		{
 			CurChip = 0x1A;
 			TempChip = (STRIP_GENERIC*)&StripVGM[0].K054539;
 		}
-		else if (! stricmp_u(ChipPos, "HuC6280"))
+		else if (! stricmp(ChipPos, "HuC6280"))
 		{
 			CurChip = 0x1B;
 			TempChip = (STRIP_GENERIC*)&StripVGM[0].HuC6280;
 		}
-		else if (! stricmp_u(ChipPos, "C140"))
+		else if (! stricmp(ChipPos, "C140"))
 		{
 			CurChip = 0x1C;
 			TempChip = (STRIP_GENERIC*)&StripVGM[0].C140;
 		}
-		else if (! stricmp_u(ChipPos, "K053260"))
+		else if (! stricmp(ChipPos, "K053260"))
 		{
 			CurChip = 0x1D;
 			TempChip = (STRIP_GENERIC*)&StripVGM[0].K053260;
 		}
-		else if (! stricmp_u(ChipPos, "Pokey"))
+		else if (! stricmp(ChipPos, "Pokey"))
 		{
 			CurChip = 0x1E;
 			TempChip = (STRIP_GENERIC*)&StripVGM[0].Pokey;
 		}
-		else if (! stricmp_u(ChipPos, "QSound"))
+		else if (! stricmp(ChipPos, "QSound"))
 		{
 			CurChip = 0x1F;
 			TempChip = (STRIP_GENERIC*)&StripVGM[0].QSound;
 		}
-		else if (! stricmp_u(ChipPos, "DacCtrl"))
+		else if (! stricmp(ChipPos, "DacCtrl"))
 		{
 			CurChip = 0x7F;
 			TempChip = (STRIP_GENERIC*)&StripVGM[0].DacCtrl;
@@ -939,19 +874,19 @@ static UINT8 ParseStripCommand(const char* StripCmd)
 					}
 					else
 					{
-						if (CurChip == 0x00 && ! stricmp_u(ChipPos, "Stereo"))
+						if (CurChip == 0x00 && ! stricmp(ChipPos, "Stereo"))
 						{
 							StripVGM[CurCSet].SN76496.Other |= 0x01;
 						}
-						else if (CurChip == 0x05 && ! stricmp_u(ChipPos, "Mem"))
+						else if (CurChip == 0x05 && ! stricmp(ChipPos, "Mem"))
 						{
 							StripVGM[CurCSet].RF5C68.Other |= 0x01;
 						}
-						else if (CurChip == 0x10 && ! stricmp_u(ChipPos, "Mem"))
+						else if (CurChip == 0x10 && ! stricmp(ChipPos, "Mem"))
 						{
 							StripVGM[CurCSet].RF5C164.Other |= 0x01;
 						}
-						else if (CurChip == 0x1C && ! stricmp_u(ChipPos, "Other"))
+						else if (CurChip == 0x1C && ! stricmp(ChipPos, "Other"))
 						{
 							StripVGM[CurCSet].C140.Other |= 0x01;
 						}
@@ -1001,9 +936,9 @@ static UINT8 PatchVGM(int ArgCount, char* ArgList[])
 	ResVal = 0x00;	// nothing done - skip writing
 	//if (! ArgCount)
 	//	ShowHeader();
-	for (CurArg = 0x00; CurArg < ArgCount; CurArg ++)
+	for (CurArg = 0; CurArg < ArgCount; CurArg ++)
 	{
-		CmdStr = ArgList[CurArg] + 0x01;	// Skip the '-' at the beginning
+		CmdStr = ArgList[CurArg] + 1;	// Skip the '-' at the beginning
 		
 		CmdData = strchr(CmdStr, ':');
 		if (CmdData != NULL)
@@ -1020,7 +955,7 @@ static UINT8 PatchVGM(int ArgCount, char* ArgList[])
 			printf("%s: %s\n", CmdStr, CmdData);
 		else
 			printf("%s\n", CmdStr);
-		if (! stricmp_u(CmdStr, "SetVer") || ! stricmp_u(CmdStr, "UpdateVer"))
+		if (! stricmp(CmdStr, "SetVer") || ! stricmp(CmdStr, "UpdateVer"))
 		{
 			if (CmdData == NULL)
 				goto IncompleteArg;
@@ -1048,7 +983,7 @@ static UINT8 PatchVGM(int ArgCount, char* ArgList[])
 				VGMHead.lngVersion = NewVal;
 				RetVal |= 0x10;
 				
-				if (! stricmp_u(CmdStr, "UpdateVer"))
+				if (! stricmp(CmdStr, "UpdateVer"))
 				{
 					// Up- and downdate to new version
 					if (OldVal < NewVal)
@@ -1120,7 +1055,7 @@ static UINT8 PatchVGM(int ArgCount, char* ArgList[])
 				}
 			}
 		}
-		else if (! stricmp_u(CmdStr, "MinHeader"))
+		else if (! stricmp(CmdStr, "MinHeader"))
 		{
 			if (VGMHead.lngVersion >= 0x150)
 			{
@@ -1162,7 +1097,7 @@ static UINT8 PatchVGM(int ArgCount, char* ArgList[])
 				printf("Warning! Command ignored - VGM version too low!\n");
 			}
 		}
-		else if (! stricmp_u(CmdStr, "MinVer"))
+		else if (! stricmp(CmdStr, "MinVer"))
 		{
 			if (VGMHead.lngVersion >= 0x150)
 			{
@@ -1182,7 +1117,7 @@ static UINT8 PatchVGM(int ArgCount, char* ArgList[])
 				printf("Warning! Command ignored - VGM version too low!\n");
 			}
 		}
-		else if (! stricmp_u(CmdStr, "ResizeHead"))
+		else if (! stricmp(CmdStr, "ResizeHead"))
 		{
 			if (VGMHead.lngVersion >= 0x150)
 			{
@@ -1209,7 +1144,7 @@ static UINT8 PatchVGM(int ArgCount, char* ArgList[])
 				printf("Warning! Command ignored - VGM version too low!\n");
 			}
 		}
-		else if (! stricmp_u(CmdStr, "SetRate"))
+		else if (! stricmp(CmdStr, "SetRate"))
 		{
 			if (CmdData == NULL)
 				goto IncompleteArg;
@@ -1221,169 +1156,169 @@ static UINT8 PatchVGM(int ArgCount, char* ArgList[])
 				RetVal |= 0x10;
 			}
 		}
-		else if (! strnicmp_u(CmdStr, "SetHz", 5))
+		else if (! strnicmp(CmdStr, "SetHz", 5))
 		{
 			if (CmdData == NULL)
 				goto IncompleteArg;
 			
 			CmdStr += 5;
 			ChipHzPnt = NULL;
-			if (! stricmp_u(CmdStr, "PSG"))
+			if (! stricmp(CmdStr, "PSG"))
 			{
 				ChipHzPnt = &VGMHead.lngHzPSG;
 				OldVal = 0x100;
 			}
-			else if (! stricmp_u(CmdStr, "YM2413"))
+			else if (! stricmp(CmdStr, "YM2413"))
 			{
 				ChipHzPnt = &VGMHead.lngHzYM2413;
 				OldVal = 0x100;
 			}
-			else if (! stricmp_u(CmdStr, "YM2612"))
+			else if (! stricmp(CmdStr, "YM2612"))
 			{
 				ChipHzPnt = &VGMHead.lngHzYM2612;
 				OldVal = 0x110;
 			}
-			else if (! stricmp_u(CmdStr, "YM2151"))
+			else if (! stricmp(CmdStr, "YM2151"))
 			{
 				ChipHzPnt = &VGMHead.lngHzYM2151;
 				OldVal = 0x110;
 			}
-			else if (! stricmp_u(CmdStr, "SegaPCM"))
+			else if (! stricmp(CmdStr, "SegaPCM"))
 			{
 				ChipHzPnt = &VGMHead.lngHzSPCM;
 				OldVal = 0x151;
 			}
-			else if (! stricmp_u(CmdStr, "RF5C68"))
+			else if (! stricmp(CmdStr, "RF5C68"))
 			{
 				ChipHzPnt = &VGMHead.lngHzRF5C68;
 				OldVal = 0x151;
 			}
-			else if (! stricmp_u(CmdStr, "YM2203"))
+			else if (! stricmp(CmdStr, "YM2203"))
 			{
 				ChipHzPnt = &VGMHead.lngHzYM2203;
 				OldVal = 0x151;
 			}
-			else if (! stricmp_u(CmdStr, "YM2608"))
+			else if (! stricmp(CmdStr, "YM2608"))
 			{
 				ChipHzPnt = &VGMHead.lngHzYM2608;
 				OldVal = 0x151;
 			}
-			else if (! stricmp_u(CmdStr, "YM2610"))
+			else if (! stricmp(CmdStr, "YM2610"))
 			{
 				ChipHzPnt = &VGMHead.lngHzYM2610;
 				OldVal = 0x151;
 			}
-			else if (! stricmp_u(CmdStr, "YM3812"))
+			else if (! stricmp(CmdStr, "YM3812"))
 			{
 				ChipHzPnt = &VGMHead.lngHzYM3812;
 				OldVal = 0x151;
 			}
-			else if (! stricmp_u(CmdStr, "YM3526"))
+			else if (! stricmp(CmdStr, "YM3526"))
 			{
 				ChipHzPnt = &VGMHead.lngHzYM3526;
 				OldVal = 0x151;
 			}
-			else if (! stricmp_u(CmdStr, "Y8950"))
+			else if (! stricmp(CmdStr, "Y8950"))
 			{
 				ChipHzPnt = &VGMHead.lngHzY8950;
 				OldVal = 0x151;
 			}
-			else if (! stricmp_u(CmdStr, "YMF262"))
+			else if (! stricmp(CmdStr, "YMF262"))
 			{
 				ChipHzPnt = &VGMHead.lngHzYMF262;
 				OldVal = 0x151;
 			}
-			else if (! stricmp_u(CmdStr, "YMF278B"))
+			else if (! stricmp(CmdStr, "YMF278B"))
 			{
 				ChipHzPnt = &VGMHead.lngHzYMF278B;
 				OldVal = 0x151;
 			}
-			else if (! stricmp_u(CmdStr, "YMF271"))
+			else if (! stricmp(CmdStr, "YMF271"))
 			{
 				ChipHzPnt = &VGMHead.lngHzYMF271;
 				OldVal = 0x151;
 			}
-			else if (! stricmp_u(CmdStr, "YMZ280B"))
+			else if (! stricmp(CmdStr, "YMZ280B"))
 			{
 				ChipHzPnt = &VGMHead.lngHzYMZ280B;
 				OldVal = 0x151;
 			}
-			else if (! stricmp_u(CmdStr, "RF5C164"))
+			else if (! stricmp(CmdStr, "RF5C164"))
 			{
 				ChipHzPnt = &VGMHead.lngHzRF5C164;
 				OldVal = 0x151;
 			}
-			else if (! stricmp_u(CmdStr, "PWM"))
+			else if (! stricmp(CmdStr, "PWM"))
 			{
 				ChipHzPnt = &VGMHead.lngHzPWM;
 				OldVal = 0x151;
 			}
-			else if (! stricmp_u(CmdStr, "AY8910"))
+			else if (! stricmp(CmdStr, "AY8910"))
 			{
 				ChipHzPnt = &VGMHead.lngHzAY8910;
 				OldVal = 0x151;
 			}
-			else if (! stricmp_u(CmdStr, "GBDMG"))
+			else if (! stricmp(CmdStr, "GBDMG"))
 			{
 				ChipHzPnt = &VGMHead.lngHzGBDMG;
 				OldVal = 0x161;
 			}
-			else if (! stricmp_u(CmdStr, "NESAPU"))
+			else if (! stricmp(CmdStr, "NESAPU"))
 			{
 				ChipHzPnt = &VGMHead.lngHzNESAPU;
 				OldVal = 0x161;
 			}
-			else if (! stricmp_u(CmdStr, "MultiPCM"))
+			else if (! stricmp(CmdStr, "MultiPCM"))
 			{
 				ChipHzPnt = &VGMHead.lngHzMultiPCM;
 				OldVal = 0x161;
 			}
-			else if (! stricmp_u(CmdStr, "UPD7759"))
+			else if (! stricmp(CmdStr, "UPD7759"))
 			{
 				ChipHzPnt = &VGMHead.lngHzUPD7759;
 				OldVal = 0x161;
 			}
-			else if (! stricmp_u(CmdStr, "OKIM6258"))
+			else if (! stricmp(CmdStr, "OKIM6258"))
 			{
 				ChipHzPnt = &VGMHead.lngHzOKIM6258;
 				OldVal = 0x161;
 			}
-			else if (! stricmp_u(CmdStr, "OKIM6295"))
+			else if (! stricmp(CmdStr, "OKIM6295"))
 			{
 				ChipHzPnt = &VGMHead.lngHzOKIM6295;
 				OldVal = 0x161;
 			}
-			else if (! stricmp_u(CmdStr, "SCC1") || ! stricmp_u(CmdStr, "K051649"))
+			else if (! stricmp(CmdStr, "SCC1") || ! stricmp(CmdStr, "K051649"))
 			{
 				ChipHzPnt = &VGMHead.lngHzK051649;
 				OldVal = 0x161;
 			}
-			else if (! stricmp_u(CmdStr, "K054539"))
+			else if (! stricmp(CmdStr, "K054539"))
 			{
 				ChipHzPnt = &VGMHead.lngHzK054539;
 				OldVal = 0x161;
 			}
-			else if (! stricmp_u(CmdStr, "HuC6280"))
+			else if (! stricmp(CmdStr, "HuC6280"))
 			{
 				ChipHzPnt = &VGMHead.lngHzHuC6280;
 				OldVal = 0x161;
 			}
-			else if (! stricmp_u(CmdStr, "C140"))
+			else if (! stricmp(CmdStr, "C140"))
 			{
 				ChipHzPnt = &VGMHead.lngHzC140;
 				OldVal = 0x161;
 			}
-			else if (! stricmp_u(CmdStr, "K053260"))
+			else if (! stricmp(CmdStr, "K053260"))
 			{
 				ChipHzPnt = &VGMHead.lngHzK053260;
 				OldVal = 0x161;
 			}
-			else if (! stricmp_u(CmdStr, "Pokey"))
+			else if (! stricmp(CmdStr, "Pokey"))
 			{
 				ChipHzPnt = &VGMHead.lngHzPokey;
 				OldVal = 0x161;
 			}
-			else if (! stricmp_u(CmdStr, "QSound"))
+			else if (! stricmp(CmdStr, "QSound"))
 			{
 				ChipHzPnt = &VGMHead.lngHzQSound;
 				OldVal = 0x161;
@@ -1408,13 +1343,13 @@ static UINT8 PatchVGM(int ArgCount, char* ArgList[])
 				printf("Warning! Command ignored - VGM version too low!\n");
 			}
 		}
-		else if (! strnicmp_u(CmdStr, "SetPSG_", 7))
+		else if (! strnicmp(CmdStr, "SetPSG_", 7))
 		{
 			if (CmdData == NULL)
 				goto IncompleteArg;
 			
 			CmdStr += 7;
-			if (! stricmp_u(CmdStr, "FdB"))
+			if (! stricmp(CmdStr, "FdB"))
 			{
 				if (VGMHead.lngVersion >= 0x110)
 				{
@@ -1430,7 +1365,7 @@ static UINT8 PatchVGM(int ArgCount, char* ArgList[])
 					printf("Warning! Command ignored - VGM version too low!\n");
 				}
 			}
-			else if (! stricmp_u(CmdStr, "SRW"))
+			else if (! stricmp(CmdStr, "SRW"))
 			{
 				if (VGMHead.lngVersion >= 0x110)
 				{
@@ -1446,7 +1381,7 @@ static UINT8 PatchVGM(int ArgCount, char* ArgList[])
 					printf("Warning! Command ignored - VGM version too low!\n");
 				}
 			}
-			else if (! stricmp_u(CmdStr, "Flags"))
+			else if (! stricmp(CmdStr, "Flags"))
 			{
 				if (VGMHead.lngVersion >= 0x150)
 				{
@@ -1470,7 +1405,7 @@ static UINT8 PatchVGM(int ArgCount, char* ArgList[])
 				return 0x80;
 			}
 		}
-		else if (! stricmp_u(CmdStr, "SetSPCMIntf"))
+		else if (! stricmp(CmdStr, "SetSPCMIntf"))
 		{
 			if (CmdData == NULL)
 				goto IncompleteArg;
@@ -1489,7 +1424,7 @@ static UINT8 PatchVGM(int ArgCount, char* ArgList[])
 				printf("Warning! Command ignored - VGM version too low!\n");
 			}
 		}
-		else if (! stricmp_u(CmdStr, "SetLoopMod"))
+		else if (! stricmp(CmdStr, "SetLoopMod"))
 		{
 			if (CmdData == NULL)
 				goto IncompleteArg;
@@ -1519,7 +1454,7 @@ static UINT8 PatchVGM(int ArgCount, char* ArgList[])
 				printf("Warning! Command ignored - VGM version too low!\n");
 			}
 		}
-		else if (! stricmp_u(CmdStr, "SetLoopBase"))
+		else if (! stricmp(CmdStr, "SetLoopBase"))
 		{
 			if (CmdData == NULL)
 				goto IncompleteArg;
@@ -1549,7 +1484,7 @@ static UINT8 PatchVGM(int ArgCount, char* ArgList[])
 				printf("Warning! Command ignored - VGM version too low!\n");
 			}
 		}
-		else if (! stricmp_u(CmdStr, "SetVolMod"))
+		else if (! stricmp(CmdStr, "SetVolMod"))
 		{
 			if (CmdData == NULL)
 				goto IncompleteArg;
@@ -1579,30 +1514,30 @@ static UINT8 PatchVGM(int ArgCount, char* ArgList[])
 				printf("Warning! Command ignored - VGM version too low!\n");
 			}
 		}
-		else if (! strnicmp_u(CmdStr, "Check", 5))
+		else if (! strnicmp(CmdStr, "Check", 5))
 		{
 			CmdStr += 5;
-			if (! stricmp_u(CmdStr, ""))
+			if (! stricmp(CmdStr, ""))
 			{
 				// ask for way to correct
 				TempByt = 0x03;
 			}
-			else if (! stricmp_u(CmdStr, "R"))
+			else if (! stricmp(CmdStr, "R"))
 			{
 				// read only
 				TempByt = 0x00;
 			}
-			else if (! stricmp_u(CmdStr, "L"))
+			else if (! stricmp(CmdStr, "L"))
 			{
 				// fix by recalculating length
 				TempByt = 0x01;
 			}
-			else if (! stricmp_u(CmdStr, "O"))
+			else if (! stricmp(CmdStr, "O"))
 			{
 				// fix by relocating loop offset
 				TempByt = 0x02;
 			}
-			else if (! stricmp_u(CmdStr, "T"))
+			else if (! stricmp(CmdStr, "T"))
 			{
 				// ask + auto-correct tags
 				TempByt = 0x07;
@@ -1625,13 +1560,13 @@ static UINT8 PatchVGM(int ArgCount, char* ArgList[])
 			}
 			LightChange = true;
 		}
-		else if (! stricmp_u(CmdStr, "Strip"))
+		else if (! stricmp(CmdStr, "Strip"))
 		{
 			printf("Stripping data ...");
 			StripVGMData();
 			RetVal |= 0x10;
 		}
-		else if (! stricmp_u(CmdStr, "KeepDate"))
+		else if (! stricmp(CmdStr, "KeepDate"))
 		{
 			KeepDate = true;
 		}

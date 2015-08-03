@@ -2,7 +2,16 @@
 //
 // TODO: remove redundand blocks when merging 2xDAC
 
-#include "vgmtools.h"
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <zlib.h>
+
+#include "stdtype.h"
+#include "stdbool.h"
+#include "VGMFile.h"
+#include "common.h"
+
 
 typedef struct chip_mappings CHIP_MAPS;
 
@@ -11,9 +20,6 @@ static void WriteVGMFile(const char* FileName);
 static void MergeVGMHeader(VGM_HEADER* DstHead, VGM_HEADER* SrcHead, CHIP_MAPS* SrcChpMap);
 static void MergeVGMData(void);
 INLINE UINT16 GetCmdLen(UINT8 Command);
-#ifdef WIN32
-static void PrintMinSec(const UINT32 SamplePos, char* TempStr);
-#endif
 
 
 // semi-constant
@@ -89,13 +95,13 @@ int main(int argc, char* argv[])
 	ErrVal = 0;
 	argbase = 0;
 	
-	argbase = 0x01;
-	while(argc > argbase + 0x00)
+	argbase = 1;
+	while(argbase < argc && argv[argbase][0] == '-')
 	{
-		if (! strncmp(argv[argbase + 0x00], "-f:", 0x03))
+		if (! strncmp(argv[argbase], "-f:", 3))
 		{
-			TempLng = strtoul(argv[argbase + 0x00] + 0x03, NULL, 0);
-			if (TempLng == 0x01)
+			TempLng = strtoul(argv[argbase] + 3, NULL, 0);
+			if (TempLng == 1)
 			{
 				printf("This doesn't make any sense.\n");
 				goto EndProgram;
@@ -109,7 +115,7 @@ int main(int argc, char* argv[])
 				MAX_VGMS = (UINT16)TempLng;
 			argbase ++;
 		}
-		else if (! strcmp(argv[argbase + 0x00], "-nodual"))
+		else if (! strcmp(argv[argbase], "-nodual"))
 		{
 			NO_DUAL_MIXING = true;
 			argbase ++;
@@ -126,7 +132,7 @@ int main(int argc, char* argv[])
 		printf("File #%u:\t", FileNo + 1);
 		if (argc <= argbase + FileNo)
 		{
-			gets_s(FileName, sizeof(FileName));
+			ReadFilename(FileName, sizeof(FileName));
 		}
 		else
 		{
@@ -157,7 +163,7 @@ int main(int argc, char* argv[])
 		strcpy(FileName, argv[argbase + MAX_VGMS]);
 	else
 		strcpy(FileName, "");
-	if (! FileName[0x00])
+	if (FileName[0] == '\0')
 	{
 		strcpy(FileName, FileBase);
 		strcat(FileName, "_merged.vgm");
@@ -165,13 +171,11 @@ int main(int argc, char* argv[])
 	WriteVGMFile(FileName);
 	
 	for (FileNo = 0x00; FileNo < MAX_VGMS; FileNo ++)
-	{
 		free(SrcVGM[FileNo].Data);
-	}
 	free(DstData);
 	
 EndProgram:
-	waitkey(argv[0]);
+	DblClickWait(argv[0]);
 	
 	return ErrVal;
 }
@@ -317,6 +321,7 @@ static void MergeVGMHeader(VGM_HEADER* DstHead, VGM_HEADER* SrcHead, CHIP_MAPS* 
 	}
 	
 	// merge chip clocks
+	memset(SrcChpMap, 0x00, sizeof(CHIP_MAPS));
 	TempMap = &SrcChpMap->SN76496;
 	for (CurChip = 0x00; CurChip < 0x15; CurChip ++)
 	{
@@ -1214,18 +1219,3 @@ INLINE UINT16 GetCmdLen(UINT8 Command)
 		return 0x01;
 	}
 }
-
-#ifdef WIN32
-static void PrintMinSec(const UINT32 SamplePos, char* TempStr)
-{
-	float TimeSec;
-	UINT16 TimeMin;
-	
-	TimeSec = (float)SamplePos / (float)44100.0;
-	TimeMin = (UINT16)TimeSec / 60;
-	TimeSec -= TimeMin * 60;
-	sprintf(TempStr, "%02u:%05.2f", TimeMin, TimeSec);
-	
-	return;
-}
-#endif

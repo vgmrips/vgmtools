@@ -1,23 +1,41 @@
 // vgm_tag.c - VGM Tagger
 //
 
-#include "vgmtools.h"
-#include <wchar.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <ctype.h>	// for toupper()
 #include <wctype.h>
+#include <wchar.h>
+#include <limits.h>	// for MB_LEN_MAX
+#include <zlib.h>
 
-typedef struct system_name_shorts SYSTEM_SHORT;
+#include "stdtype.h"
+#include "stdbool.h"
+#include "VGMFile.h"
+#include "common.h"
+
+
+typedef struct system_name_shorts
+{
+	char* Abbr;
+	char* NameE;
+	char* NameJ;
+} SYSTEM_SHORT;
+
+typedef union filePtr
+{
+	gzFile gz;
+	FILE* f;
+} FGZ_PTR;
+
 
 int main(int argc, char* argv[]);
-static INT8 stricmp_u(const char *string1, const char *string2);
 static bool OpenVGMFile(const char* FileName, bool* Compressed);
 static wchar_t* ReadWStrFromFile(gzFile hFile, UINT32* FilePos, const UINT32 EOFPos);
 static UINT8 ConvertUnicode2UTF8(char* Buffer, const UINT16 UnicodeChr);
 static bool WriteVGMFile(const char* FileName, const bool Compress);
-union filePtr {
-	gzFile gz;
-	FILE *f;
-};
-static UINT32 WriteWStrToFile(const union filePtr hFile, const wchar_t* WString);
+static UINT32 WriteWStrToFile(const FGZ_PTR hFile, const wchar_t* WString);
 static void Copy2TagStr(wchar_t** TagStr, const char* DataStr);
 static void CopySys2TagStr(wchar_t** TagStr, const SYSTEM_SHORT* DataStr, bool Mode,
 						   const char* CmdStr);
@@ -35,13 +53,6 @@ static wchar_t* wcscap(wchar_t* string);
 #define SYSMODE_ENG	false
 #define SYSMODE_JAP	true
 
-
-struct system_name_shorts
-{
-	char* Abbr;
-	char* NameE;
-	char* NameJ;
-};
 
 const SYSTEM_SHORT SYSTEM_NAMES[] =
 //	short		long (english)			long (japanese)
@@ -119,7 +130,7 @@ int main(int argc, char* argv[])
 		printf("Use argument -help for command list.\n");
 		goto EndProgram;
 	}
-	else if (! stricmp_u(argv[1], "-Help"))
+	else if (! stricmp(argv[1], "-Help"))
 	{
 		printf("Help\n----\n");
 		printf("Usage: vgm_tag [-command1] [-command2] file1.vgm file2.vgz\n");
@@ -160,7 +171,7 @@ int main(int argc, char* argv[])
 		printf("Command names are case insensitive.\n\n");
 		goto EndProgram;
 	}
-	else if (! stricmp_u(argv[1], "-SysList"))
+	else if (! stricmp(argv[1], "-SysList"))
 	{
 		printf("System List\n-----------\n");
 		CurArg = 0x00;
@@ -220,39 +231,9 @@ int main(int argc, char* argv[])
 	}
 	
 EndProgram:
-	waitkey(argv[0]);
+	DblClickWait(argv[0]);
 	
 	return ErrVal;
-}
-
-static INT8 stricmp_u(const char *string1, const char *string2)
-{
-	// my own stricmp, because VC++6 doesn't find _stricmp when compiling without
-	// standard libraries
-	const char* StrPnt1;
-	const char* StrPnt2;
-	char StrChr1;
-	char StrChr2;
-	
-	StrPnt1 = string1;
-	StrPnt2 = string2;
-	while(true)
-	{
-		StrChr1 = toupper(*StrPnt1);
-		StrChr2 = toupper(*StrPnt2);
-		
-		if (StrChr1 < StrChr2)
-			return -1;
-		else if (StrChr1 > StrChr2)
-			return +1;
-		if (StrChr1 == 0x00)
-			return 0;
-		
-		StrPnt1 ++;
-		StrPnt2 ++;
-	}
-	
-	return 0;
 }
 
 static bool OpenVGMFile(const char* FileName, bool* Compressed)
@@ -398,8 +379,8 @@ static UINT8 ConvertUnicode2UTF8(char* Buffer, const UINT16 UnicodeChr)
 
 static bool WriteVGMFile(const char* FileName, const bool Compress)
 {
-	union filePtr hFile;
-
+	FGZ_PTR hFile;
+	
 	FileCompression = Compress;
 	if (! FileCompression)
 		hFile.f = fopen(FileName, "wb");
@@ -459,7 +440,7 @@ static bool WriteVGMFile(const char* FileName, const bool Compress)
 	return true;
 }
 
-static UINT32 WriteWStrToFile(union filePtr hFile, const wchar_t* WString)
+static UINT32 WriteWStrToFile(const FGZ_PTR hFile, const wchar_t* WString)
 {
 	const wchar_t* TextStr;
 	UINT32 WrittenChars;
@@ -788,23 +769,23 @@ static UINT8 TagVGM(const int ArgCount, char* ArgList[])
 			CmdData ++;
 		}
 		
-		if (! stricmp_u(CmdStr, "ShowTag"))
+		if (! stricmp(CmdStr, "ShowTag"))
 		{
 			ShowTag(0x00);
 			continue;
 		}
-		else if (! stricmp_u(CmdStr, "ShowTagU"))
+		else if (! stricmp(CmdStr, "ShowTagU"))
 		{
 			ShowTag(0x01);
 			continue;
 		}
-		else if (! stricmp_u(CmdStr, "ShowTag8"))
+		else if (! stricmp(CmdStr, "ShowTag8"))
 		{
 			ShowTag(0x02);
 			continue;
 		}
 		
-		if (! stricmp_u(CmdStr, "RmvEqual"))
+		if (! stricmp(CmdStr, "RmvEqual"))
 		{
 			if (CmdData != NULL)
 				TempByt = (toupper(CmdData[0x00]) == 'J') ? 1 : 0;
@@ -834,7 +815,7 @@ static UINT8 TagVGM(const int ArgCount, char* ArgList[])
 			printf("\n");
 			continue;
 		}
-		else if (! stricmp_u(CmdStr, "RmvUnknown"))
+		else if (! stricmp(CmdStr, "RmvUnknown"))
 		{
 			printf("Removing \"Unknown Author\" tag: ");
 			
@@ -855,7 +836,7 @@ static UINT8 TagVGM(const int ArgCount, char* ArgList[])
 		}
 		
 		RetVal = 0x00;
-		if (! stricmp_u(CmdStr, "RemoveTag"))
+		if (! stricmp(CmdStr, "RemoveTag"))
 		{
 			printf("Tag removed.\n");
 			if (VGMHead.lngGD3Offset)
@@ -894,7 +875,7 @@ static UINT8 TagVGM(const int ArgCount, char* ArgList[])
 			Copy2TagStr(&VGMTag.strNotes, "");
 		}
 		
-		if (! stricmp_u(CmdStr, "ClearTag"))
+		if (! stricmp(CmdStr, "ClearTag"))
 		{
 			printf("Tag cleared.\n");
 			Copy2TagStr(&VGMTag.strTrackNameE, "");
@@ -915,40 +896,40 @@ static UINT8 TagVGM(const int ArgCount, char* ArgList[])
 				printf("Set %s = %s\n", CmdStr, CmdData);
 			else
 				printf("Set %s\n", CmdStr);
-			if (! stricmp_u(CmdStr, "Title"))
+			if (! stricmp(CmdStr, "Title"))
 			{
 				Copy2TagStr(&VGMTag.strTrackNameE, CmdData);
 			}
-			else if (! stricmp_u(CmdStr, "TitleJ"))
+			else if (! stricmp(CmdStr, "TitleJ"))
 			{
 				Copy2TagStr(&VGMTag.strTrackNameJ, CmdData);
 			}
-			else if (! stricmp_u(CmdStr, "TitleNorm"))
+			else if (! stricmp(CmdStr, "TitleNorm"))
 			{
 				// secret, undocumented command
 				wcscap(VGMTag.strTrackNameE);
 			}
-			else if (! stricmp_u(CmdStr, "TitleJNorm"))
+			else if (! stricmp(CmdStr, "TitleJNorm"))
 			{
 				wcscap(VGMTag.strTrackNameJ);
 			}
-			else if (! stricmp_u(CmdStr, "Author"))
+			else if (! stricmp(CmdStr, "Author"))
 			{
 				Copy2TagStr(&VGMTag.strAuthorNameE, CmdData);
 			}
-			else if (! stricmp_u(CmdStr, "AuthorJ"))
+			else if (! stricmp(CmdStr, "AuthorJ"))
 			{
 				Copy2TagStr(&VGMTag.strAuthorNameJ, CmdData);
 			}
-			else if (! stricmp_u(CmdStr, "Game"))
+			else if (! stricmp(CmdStr, "Game"))
 			{
 				Copy2TagStr(&VGMTag.strGameNameE, CmdData);
 			}
-			else if (! stricmp_u(CmdStr, "GameJ"))
+			else if (! stricmp(CmdStr, "GameJ"))
 			{
 				Copy2TagStr(&VGMTag.strGameNameJ, CmdData);
 			}
-			else if (! stricmp_u(CmdStr, "System"))
+			else if (! stricmp(CmdStr, "System"))
 			{
 				CurSys = GetSystemString(CmdData);
 				if (CurSys == 0xFFFF)
@@ -963,7 +944,7 @@ static UINT8 TagVGM(const int ArgCount, char* ArgList[])
 					CopySys2TagStr(&VGMTag.strSystemNameJ, TempSys, SYSMODE_JAP, CmdData);
 				}
 			}
-			else if (! stricmp_u(CmdStr, "SystemE"))
+			else if (! stricmp(CmdStr, "SystemE"))
 			{
 				CurSys = GetSystemString(CmdData);
 				if (CurSys == 0xFFFF)
@@ -972,7 +953,7 @@ static UINT8 TagVGM(const int ArgCount, char* ArgList[])
 					CopySys2TagStr(&VGMTag.strSystemNameE, &SYSTEM_NAMES[CurSys], SYSMODE_ENG,
 									CmdData);
 			}
-			else if (! stricmp_u(CmdStr, "SystemJ"))
+			else if (! stricmp(CmdStr, "SystemJ"))
 			{
 				CurSys = GetSystemString(CmdData);
 				if (CurSys == 0xFFFF)
@@ -981,19 +962,19 @@ static UINT8 TagVGM(const int ArgCount, char* ArgList[])
 					CopySys2TagStr(&VGMTag.strSystemNameJ, &SYSTEM_NAMES[CurSys], SYSMODE_JAP,
 									CmdData);
 			}
-			else if (! stricmp_u(CmdStr, "Year"))
+			else if (! stricmp(CmdStr, "Year"))
 			{
 				Copy2TagStr(&VGMTag.strReleaseDate, CmdData);
 			}
-			else if (! stricmp_u(CmdStr, "Creator"))
+			else if (! stricmp(CmdStr, "Creator"))
 			{
 				Copy2TagStr(&VGMTag.strCreator, CmdData);
 			}
-			else if (! stricmp_u(CmdStr, "Notes"))
+			else if (! stricmp(CmdStr, "Notes"))
 			{
 				Copy2TagStr(&VGMTag.strNotes, CmdData);
 			}
-			else if (! stricmp_u(CmdStr, "NotesB"))
+			else if (! stricmp(CmdStr, "NotesB"))
 			{
 				// copy old Notes-Tag
 				StrLen = wcslen(VGMTag.strNotes);	// +0x01 = Null-Terminator
@@ -1012,7 +993,7 @@ static UINT8 TagVGM(const int ArgCount, char* ArgList[])
 				wcscat(VGMTag.strNotes, NoteStr);
 				free(TempStr);
 			}
-			else if (! stricmp_u(CmdStr, "NotesE"))
+			else if (! stricmp(CmdStr, "NotesE"))
 			{
 				// copy old Notes-Tag
 				StrLen = wcslen(VGMTag.strNotes);	// +0x01 = Null-Terminator
@@ -1227,7 +1208,7 @@ char* ConvertWStr2ASCII_NCR(const wchar_t* WideStr)
 	while(*SrcStr)
 	{
 		UnicodeChr = (UINT16)(*SrcStr);
-		if((UnicodeChr >= 0x20 && UnicodeChr < 0x80) || UnicodeChr == '\n')
+		if ((UnicodeChr >= 0x20 && UnicodeChr < 0x80) || UnicodeChr == '\n')
 		{
 			*DstStr = (UINT8)UnicodeChr;
 			DstStr ++;

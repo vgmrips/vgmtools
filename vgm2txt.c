@@ -1,29 +1,22 @@
 // vgm2txt.c - VGM Text Writer
 //
 
-#include "compat.h"
 #include <stdio.h>
 #include <stdlib.h>
-#include "stdbool.h"
 #include <string.h>
 #include <math.h>	// for pow()
-
-#ifdef WIN32
-#include <conio.h>
-#include <windows.h>	// for GetTickCount
-#endif
-
-#include "zlib.h"
+#include <zlib.h>
 
 #include "stdtype.h"
+#include "stdbool.h"
 #include "VGMFile.h"
+#include "common.h"
 
 
 static bool OpenVGMFile(const char* FileName);
 static void WriteVGM2Txt(const char* FileName);
 static void WriteClockText(char* Buffer, UINT32 Clock, char* ChipName);
 static void WriteVGMData2Txt(FILE* hFile);
-static void PrintMinSec(const UINT32 SamplePos, char* TempStr);
 
 
 void InitChips(UINT32* ChipCounts);
@@ -80,6 +73,7 @@ char FileBase[0x100];
 
 int main(int argc, char* argv[])
 {
+	int argbase;
 	int ErrVal;
 	UINT32 TimeMin;
 	UINT32 TimeSec;
@@ -89,14 +83,15 @@ int main(int argc, char* argv[])
 	printf("VGM Text Writer\n---------------\n\n");
 	
 	ErrVal = 0;
+	argbase = 1;
 	printf("File Name:\t");
-	if (argc <= 0x01)
+	if (argc <= argbase + 0)
 	{
-		gets_s(FileName, sizeof(FileName));
+		ReadFilename(FileName, sizeof(FileName));
 	}
 	else
 	{
-		strcpy(FileName, argv[0x01]);
+		strcpy(FileName, argv[argbase + 0]);
 		printf("%s\n", FileName);
 	}
 	if (! strlen(FileName))
@@ -112,19 +107,19 @@ int main(int argc, char* argv[])
 	
 	TimeMin = TimeSec = TimeMS = 0;
 	printf("Start Time:\t");
-	if (argc <= 0x02)
-		gets_s(FileName, sizeof(FileName));
+	if (argc <= argbase + 1)
+		fgets(FileName, sizeof(FileName), stdin);
 	else
-		strcpy(FileName, argv[0x02]);
+		strcpy(FileName, argv[argbase + 1]);
 	sscanf(FileName, "%02u:%02u.%02u", &TimeMin, &TimeSec, &TimeMS);
 	VGMWriteFrom = (TimeMin * 6000 + TimeSec * 100 + TimeMS) * 441;
 	
 	TimeMin = TimeSec = TimeMS = 0;
 	printf("End Time:\t");
-	if (argc <= 0x03)
-		gets_s(FileName, sizeof(FileName));
+	if (argc <= argbase + 2)
+		fgets(FileName, sizeof(FileName), stdin);
 	else
-		strcpy(FileName, argv[0x03]);
+		strcpy(FileName, argv[argbase + 2]);
 	sscanf(FileName, "%02u:%02u.%02u", &TimeMin, &TimeSec, &TimeMS);
 	VGMWriteTo = (TimeMin * 6000 + TimeSec * 100 + TimeMS) * 441;
 	//if (! VGMWriteTo)
@@ -137,8 +132,8 @@ int main(int argc, char* argv[])
 	free(VGMData);
 	
 EndProgram:
-	waitkey(argv[0]);
-
+	DblClickWait(argv[0]);
+	
 	return ErrVal;
 }
 
@@ -1468,20 +1463,6 @@ static void WriteVGMData2Txt(FILE* hFile)
 #endif
 	}
 	printf("\t\t\t\t\t\t\t\t\r");
-	
-	return;
-}
-
-static void PrintMinSec(const UINT32 SamplePos, char* TempStr)
-{
-	double TimeSec;
-	UINT16 TimeMin;
-	
-	TimeSec = (double)SamplePos / 44100.0f;
-	TimeMin = (UINT16)TimeSec / 60;
-	TimeSec -= TimeMin * 60;
-	TimeSec = (UINT32)(TimeSec * 100.0f) / 100.0f;
-	sprintf(TempStr, "%02u:%05.2f", TimeMin, TimeSec);
 	
 	return;
 }

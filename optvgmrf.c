@@ -5,8 +5,16 @@
 //	- implement UnOpt
 //	- optimize output (smaller blocks, expand block writes)
 
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <zlib.h>
 
-#include "vgmtools.h"
+#include "stdtype.h"
+#include "stdbool.h"
+#include "VGMFile.h"
+#include "common.h"
+
 
 static bool OpenVGMFile(const char* FileName);
 static void WriteVGMFile(const char* FileName);
@@ -16,9 +24,6 @@ static void EnumeratePCMData(void);
 static bool CompareData(UINT32 DataLen, const UINT8* DataA,
 						const UINT8* DataB);
 static void RewriteVGMData(void);
-#ifdef WIN32
-static void PrintMinSec(const UINT32 SamplePos, char* TempStr);
-#endif
 
 
 #define RF5C68_MODE		0x00
@@ -86,20 +91,23 @@ IN_FILE_LIST* InFileList;
 
 int main(int argc, char* argv[])
 {
+	int argbase;
 	int ErrVal;
 	char FileName[0x100];
 	
 	printf("VGM RF-PCM Optimizer\n--------------------\n\n");
 	
 	ErrVal = 0;
+	argbase = 1;
+	
 	printf("File Name:\t");
-	if (argc <= 0x01)
+	if (argc <= argbase + 0)
 	{
-		gets_s(FileName, sizeof(FileName));
+		ReadFilename(FileName, sizeof(FileName));
 	}
 	else
 	{
-		strcpy(FileName, argv[0x01]);
+		strcpy(FileName, argv[argbase + 0]);
 		printf("%s\n", FileName);
 	}
 	if (! strlen(FileName))
@@ -161,11 +169,11 @@ int main(int argc, char* argv[])
 	
 	if (DataSizeB < DataSizeA)
 	{
-		if (argc > 0x02)
-			strcpy(FileName, argv[0x02]);
+		if (argc > argbase + 1)
+			strcpy(FileName, argv[argbase + 1]);
 		else
 			strcpy(FileName, "");
-		if (! FileName[0x00])
+		if (FileName[0] == '\0')
 		{
 			strcpy(FileName, FileBase);
 			strcat(FileName, "_optimized.vgm");
@@ -178,7 +186,7 @@ BreakProgress:
 	free(DstData);
 	
 EndProgram:
-	waitkey(argv[0]);
+	DblClickWait(argv[0]);
 	
 	return ErrVal;
 }
@@ -792,7 +800,7 @@ static UINT32 ReadConsecutiveMemWrites(UINT8 RFMode)
 					BlkLen -= 0x04;
 				}
 				if (PCMPos == 0xFFFFFFFF)
-					PCMPos = TempSht;
+					PCMPos = TempLng;
 				if (TempLng != PCMPos)
 				{
 					StopVGM = true;
@@ -1662,18 +1670,3 @@ static void RewriteVGMData(void)
 	
 	return;
 }
-
-#ifdef WIN32
-static void PrintMinSec(const UINT32 SamplePos, char* TempStr)
-{
-	float TimeSec;
-	UINT16 TimeMin;
-	
-	TimeSec = (float)SamplePos / (float)44100.0;
-	TimeMin = (UINT16)TimeSec / 60;
-	TimeSec -= TimeMin * 60;
-	sprintf(TempStr, "%02u:%05.2f", TimeMin, TimeSec);
-	
-	return;
-}
-#endif
