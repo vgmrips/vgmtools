@@ -1920,6 +1920,10 @@ bool nes_psg_write(UINT8 Register, UINT8 Data)
 		if (Data & 0x10)	 // DPCM Enable?
 			chip->RegFirst[Register] = 0x01;	// *always* have to rewrite this
 	}
+	else if (Register == 0x17)	// Frame Counter
+	{
+		return true;	// writing to this affects envelopes
+	}
 	else if (Register >= 0x20 && Register < 0x40)
 	{
 		switch(0x60 + Register)

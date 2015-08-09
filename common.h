@@ -8,7 +8,9 @@
 //INLINE void DblClickWait(const char* argv0);
 //static void PrintMinSec(const UINT32 SamplePos, char* TempStr); [WIN32 only]
 
+#ifdef __GNUC__
 #pragma GCC diagnostic ignored "-Wunused-function"
+#endif
 
 
 #include <string.h>

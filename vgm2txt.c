@@ -11,6 +11,7 @@
 #include "stdbool.h"
 #include "VGMFile.h"
 #include "common.h"
+#include "chiptext.h"
 
 
 static bool OpenVGMFile(const char* FileName);
@@ -19,48 +20,6 @@ static void WriteClockText(char* Buffer, UINT32 Clock, char* ChipName);
 static void WriteVGMData2Txt(FILE* hFile);
 
 
-void InitChips(UINT32* ChipCounts);
-void SetChip(UINT8 ChipID);
-void GetFullChipName(char* TempStr, UINT8 ChipType);
-void GGStereo(char* TempStr, UINT8 Data);
-void sn76496_write(char* TempStr, UINT8 Command);
-void ym2413_write(char* TempStr, UINT8 Register, UINT8 Data);
-void ym2612_write(char* TempStr, UINT8 Port, UINT8 Register, UINT8 Data);
-void ym2151_write(char* TempStr, UINT8 Register, UINT8 Data);
-void segapcm_mem_write(char* TempStr, UINT16 Offset, UINT8 Data);
-void rf5c68_reg_write(char* TempStr, UINT8 Register, UINT8 Data);
-void rf5c68_mem_write(char* TempStr, UINT16 Offset, UINT8 Data);
-void ym2203_write(char* TempStr, UINT8 Register, UINT8 Data);
-void ym2608_write(char* TempStr, UINT8 Port, UINT8 Register, UINT8 Data);
-void ym2610_write(char* TempStr, UINT8 Port, UINT8 Register, UINT8 Data);
-void ym3812_write(char* TempStr, UINT8 Register, UINT8 Data);
-void ym3526_write(char* TempStr, UINT8 Register, UINT8 Data);
-void y8950_write(char* TempStr, UINT8 Register, UINT8 Data);
-void ymf262_write(char* TempStr, UINT8 Port, UINT8 Register, UINT8 Data);
-void ymz280b_write(char* TempStr, UINT8 Register, UINT8 Data);
-void ymf278b_write(char* TempStr, UINT8 Port, UINT8 Register, UINT8 Data);
-void ymf271_write(char* TempStr, UINT8 Port, UINT8 Register, UINT8 Data);
-void rf5c164_reg_write(char* TempStr, UINT8 Register, UINT8 Data);
-void rf5c164_mem_write(char* TempStr, UINT16 Offset, UINT8 Data);
-void ay8910_reg_write(char* TempStr, UINT8 Register, UINT8 Data);
-void pwm_write(char* TempStr, UINT16 Port, UINT16 Data);
-void gb_sound_write(char* TempStr, UINT8 Register, UINT8 Data);
-void nes_psg_write(char* TempStr, UINT8 Register, UINT8 Data);
-void c140_write(char* TempStr, UINT8 Port, UINT8 Register, UINT8 Data);
-void c6280_write(char* TempStr, UINT8 Register, UINT8 Data);
-void qsound_write(char* TempStr, UINT8 Offset, UINT16 Value);
-void k053260_write(char* TempStr, UINT8 Register, UINT8 Data);
-void pokey_write(char* TempStr, UINT8 Register, UINT8 Data);
-void k051649_write(char* TempStr, UINT8 Port, UINT8 Register, UINT8 Data);
-void okim6295_write(char* TempStr, UINT8 Port, UINT8 Data);
-void okim6258_write(char* TempStr, UINT8 Port, UINT8 Data);
-void multipcm_write(char* TempStr, UINT8 Port, UINT8 Data);
-void multipcm_bank_write(char* TempStr, UINT8 Port, UINT8 Data);
-void upd7759_write(char* TempStr, UINT8 Port, UINT8 Data);
-void vsu_write(char* TempStr, UINT16 Register, UINT8 Data);
-void saa1099_write(char* TempStr, UINT8 Register, UINT8 Data);
-void c352_write(char* TempStr, UINT16 Offset, UINT16 val);
-void es5503_write(char* TempStr, UINT8 Register, UINT8 Data);
 
 VGM_HEADER VGMHead;
 UINT32 VGMDataLen;
@@ -288,11 +247,11 @@ static void WriteVGM2Txt(const char* FileName)
 	WriteClockText(TempStr, VGMHead.lngHzYM2151, "YM2151");
 	fprintf(hFile, "YM2151 Clock:\t\t%s\n", TempStr);
 	
-	WriteClockText(TempStr, VGMHead.lngHzSPCM & 0x3FFFFFFF, NULL);
+	WriteClockText(TempStr, VGMHead.lngHzSPCM, NULL);
 	fprintf(hFile, "SegaPCM Clock:\t\t%s\n", TempStr);
 	fprintf(hFile, "SegaPCM Interface:\t0x%08X\n", VGMHead.lngSPCMIntf);
 	
-	WriteClockText(TempStr, VGMHead.lngHzRF5C68 & 0x3FFFFFFF, NULL);
+	WriteClockText(TempStr, VGMHead.lngHzRF5C68 & ~0x40000000, NULL);
 	fprintf(hFile, "RF5C68 Clock:\t\t%s\n", TempStr);
 	
 	WriteClockText(TempStr, VGMHead.lngHzYM2203, "YM2203");
@@ -303,7 +262,7 @@ static void WriteVGM2Txt(const char* FileName)
 	fprintf(hFile, "YM2608 Clock:\t\t%s\n", TempStr);
 	fprintf(hFile, "YM2608 AY8910 Flags:\t0x%02X\n", VGMHead.bytAYFlagYM2608);
 	
-	sprintf(TempStr, "%u Hz", VGMHead.lngHzYM2610 & 0x3FFFFFF);
+	sprintf(TempStr, "%u Hz", VGMHead.lngHzYM2610 & ~0xC0000000);
 	if (VGMHead.lngHzYM2610 & 0x80000000)
 		sprintf(TempStr, "%s (YM2610B Mode)", TempStr);
 	if (VGMHead.lngHzYM2610 & 0x40000000)
@@ -333,10 +292,10 @@ static void WriteVGM2Txt(const char* FileName)
 	WriteClockText(TempStr, VGMHead.lngHzYMZ280B, "YMZ280B");
 	fprintf(hFile, "YMZ280B Clock:\t\t%s\n", TempStr);
 	
-	WriteClockText(TempStr, VGMHead.lngHzRF5C164 & 0x3FFFFFFF, "RF5C164");
+	WriteClockText(TempStr, VGMHead.lngHzRF5C164 & ~0x40000000, "RF5C164");
 	fprintf(hFile, "RF5C164 Clock:\t\t%s\n", TempStr);
 	
-	WriteClockText(TempStr, VGMHead.lngHzPWM & 0x3FFFFFFF, "PWM");
+	WriteClockText(TempStr, VGMHead.lngHzPWM & ~0x40000000, "PWM");
 	fprintf(hFile, "PWM Clock:\t\t%s\n", TempStr);
 	
 	WriteClockText(TempStr, VGMHead.lngHzAY8910, "AY8910");
@@ -361,12 +320,16 @@ static void WriteVGM2Txt(const char* FileName)
 	fprintf(hFile, "Reserved (0x7D):\t0x%02X\n", VGMHead.bytReserved2);
 	
 	if (VGMHead.bytLoopBase > 0)
-		TempStr[0x00] = '+';
+		strcpy(TempStr, "+");
 	else if (VGMHead.bytLoopBase < 0)
-		TempStr[0x00] = '-';
+		strcpy(TempStr, "-");
 	else
-		TempStr[0x00] = '±';	// 0xF1
-	fprintf(hFile, "Loop Base:\t\t0x%02X = %c%d\n", VGMHead.bytLoopBase, TempStr[0x00],
+#ifdef WIN32
+		strcpy(TempStr, "\xB1");		// plus-minus character (CP 1252)
+#else
+		strcpy(TempStr, "\xC2\xB1");	// plus-minus character (UTF-8)
+#endif
+	fprintf(hFile, "Loop Base:\t\t0x%02X = %s%d\n", VGMHead.bytLoopBase, TempStr,
 			VGMHead.bytLoopBase);
 	
 	TempDbl = TempSSht / 16.0;
@@ -376,8 +339,10 @@ static void WriteVGM2Txt(const char* FileName)
 	WriteClockText(TempStr, VGMHead.lngHzGBDMG, "GB DMG");
 	fprintf(hFile, "GB DMG Clock:\t\t%s\n", TempStr);
 	
-	//WriteClockText(TempStr, VGMHead.lngHzNESAPU & 0x3FFFFFFF, NULL);
-	WriteClockText(TempStr, VGMHead.lngHzNESAPU, "NES APU");
+	if (VGMHead.lngHzNESAPU & 0x80000000)
+		WriteClockText(TempStr, VGMHead.lngHzNESAPU, "NES APU + FDS");
+	else
+		WriteClockText(TempStr, VGMHead.lngHzNESAPU, "NES APU");
 	fprintf(hFile, "NES APU Clock:\t\t%s\n", TempStr);
 	
 	WriteClockText(TempStr, VGMHead.lngHzMultiPCM, "MultiPCM");
@@ -413,7 +378,7 @@ static void WriteVGM2Txt(const char* FileName)
 	WriteClockText(TempStr, VGMHead.lngHzPokey, "Pokey");
 	fprintf(hFile, "Pokey Clock:\t\t%s\n", TempStr);
 	
-	WriteClockText(TempStr, VGMHead.lngHzQSound, "QSound");
+	WriteClockText(TempStr, VGMHead.lngHzQSound & ~0x40000000, "QSound");
 	fprintf(hFile, "QSound Clock:\t\t%s\n", TempStr);
 	
 	WriteClockText(TempStr, VGMHead.lngHzSCSP, "SCSP");
@@ -431,7 +396,10 @@ static void WriteVGM2Txt(const char* FileName)
 	WriteClockText(TempStr, VGMHead.lngHzES5503, "ES5503");
 	fprintf(hFile, "ES5503 Clock:\t\t%s\n", TempStr);
 	
-	WriteClockText(TempStr, VGMHead.lngHzES5506, "ES5506");
+	if (VGMHead.lngHzNESAPU & 0x80000000)
+		WriteClockText(TempStr, VGMHead.lngHzES5506, "ES5506");
+	else
+		WriteClockText(TempStr, VGMHead.lngHzES5506, "ES5505");
 	fprintf(hFile, "ES5506 Clock:\t\t%s\n", TempStr);
 	
 	WriteClockText(TempStr, VGMHead.lngHzX1_010, "X1-010");
@@ -613,6 +581,18 @@ static void WriteVGMData2Txt(FILE* hFile)
 		ChipCounters[TempByt] = TempLng;
 	}
 	InitChips(ChipCounters);
+	if (VGMHead.lngHzES5506)
+	{
+		SetChip(0);
+		TempByt = (VGMHead.lngHzES5506 >> 31) & 0x01;
+		es5506_w(NULL, 0xFF, TempByt);
+		if (VGMHead.lngHzES5506 & 0x40000000)
+		{
+			SetChip(1);
+			TempByt = (VGMHead.lngHzES5506 >> 31) & 0x01;
+			es5506_w(NULL, 0xFF, TempByt);
+		}
+	}
 	
 #ifdef WIN32
 	CmdTimer = 0;
@@ -1297,6 +1277,31 @@ static void WriteVGMData2Txt(FILE* hFile)
 				{
 					SetChip((VGMPnt[0x01] & 0x80) >> 7);
 					es5503_write(TempStr, VGMPnt[0x02], VGMPnt[0x03]);
+				}
+				CmdLen = 0x04;
+				break;
+			case 0xBE:	// ES5506 write (8-bit data)
+				if (WriteEvents)
+				{
+					SetChip((VGMPnt[0x01] & 0x80) >> 7);
+					es5506_w(TempStr, VGMPnt[0x01] & 0x7F, VGMPnt[0x02]);
+				}
+				CmdLen = 0x03;
+				break;
+			case 0xD6:	// ES5506 write (16-bit data)
+				if (WriteEvents)
+				{
+					SetChip((VGMPnt[0x01] & 0x80) >> 7);
+					es5506_w16(TempStr, VGMPnt[0x01] & 0x7F,
+								(VGMPnt[0x02] << 8) | (VGMPnt[0x03] << 0));
+				}
+				CmdLen = 0x04;
+				break;
+			case 0xC8:	// X1-010 write
+				if (WriteEvents)
+				{
+					SetChip((VGMPnt[0x01] & 0x80) >> 7);
+					//x1_010_write(TempStr, VGMPnt[0x01] & 0x7F, VGMPnt[0x02], VGMPnt[0x03]);
 				}
 				CmdLen = 0x04;
 				break;

@@ -102,6 +102,10 @@ SOURCE=..\vgm2txt.c
 # PROP Default_Filter "h;hpp;hxx;hm;inl"
 # Begin Source File
 
+SOURCE=..\chiptext.h
+# End Source File
+# Begin Source File
+
 SOURCE=..\common.h
 # End Source File
 # Begin Source File

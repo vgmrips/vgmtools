@@ -224,6 +224,15 @@ typedef struct upd7759_chip
 {
 	bool HasROM;
 } UPD7759_DATA;
+typedef struct es5506_chip
+{
+	UINT8 Mode;	// 00 = ES5505, 01 - ES5506
+	union
+	{
+		UINT8 d8[4];
+		UINT32 d32;
+	} latch;
+} ES5506_DATA;
 
 
 static void opn_write(char* TempStr, UINT8 Mode, UINT8 Port, UINT8 Register,
@@ -249,6 +258,7 @@ static YMF271_DATA CacheYMF271[0x02];
 static OKIM6295_DATA CacheOKI6295[0x02];
 static MULTIPCM_DATA CacheMultiPCM[0x02];
 static UPD7759_DATA CacheUPD7759[0x02];
+static ES5506_DATA CacheES5506[0x02];
 
 void InitChips(UINT32* ChipCounts)
 {
@@ -258,6 +268,7 @@ void InitChips(UINT32* ChipCounts)
 	memset(CacheOKI6295, 0x00, sizeof(OKIM6295_DATA) * 0x02);
 	memset(CacheMultiPCM, 0x00, sizeof(MULTIPCM_DATA) * 0x02);
 	memset(CacheUPD7759, 0x00, sizeof(UPD7759_DATA) * 0x02);
+	memset(CacheES5506, 0x00, sizeof(ES5506_DATA) * 0x02);
 	CacheOKI6295[0].Command = 0xFF;
 	CacheOKI6295[1].Command = 0xFF;
 	ChpCur = 0x00;
@@ -3550,5 +3561,54 @@ void es5503_write(char* TempStr, UINT8 Register, UINT8 Data)
 	
 	sprintf(TempStr, "%s%s", ChipStr, WriteStr);
 	
+	return;
+}
+
+void es5506_w(char* TempStr, UINT8 offset, UINT8 data)
+{
+	if (offset == 0xFF)
+	{
+		CacheES5506[ChpCur].Mode = data;
+		return;
+	}
+	
+	WriteChipID(0x25);
+	//opn_write(RedirectStr, OPN_YM2203, 0x00, Register, Data);
+	
+	if (offset < 0x40)
+	{
+		/*if (! CacheES5506[ChpCur].Mode)
+			es5505_w(chip, offset, data);
+		else
+			es5506_w(chip, offset, data);*/
+	}
+	else
+	{
+		sprintf(RedirectStr, "Set Voice %u Bank: 0x%06X", offset & 0x1F, data << 20);
+	}
+	sprintf(TempStr, "%s%s", ChipStr, RedirectStr);
+	
+	return;
+}
+
+void es5506_w16(char* TempStr, UINT8 offset, UINT16 data)
+{
+	if (offset < 0x40)
+	{
+		/*if (! CacheES5506[ChpCur].Mode)
+		{
+			es5505_w(chip, offset | 0, (data & 0xFF00) >> 8);
+			es5505_w(chip, offset | 1, (data & 0x00FF) >> 0);
+		}
+		else
+		{
+			es5506_w(chip, offset | 0, (data & 0xFF00) >> 8);
+			es5506_w(chip, offset | 1, (data & 0x00FF) >> 0);
+		}*/
+	}
+	else
+	{
+		sprintf(RedirectStr, "Set Voice %u Bank: 0x%06X", offset & 0x1F, data << 20);
+	}
 	return;
 }
