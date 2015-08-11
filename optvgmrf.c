@@ -297,7 +297,6 @@ static void WritePCMDataBlk(UINT32* DstPos, const UINT8 BlkType, const UINT32 Da
 		
 		memcpy(&DstData[*DstPos + 0x07], &DataStart, 0x02);
 		memcpy(&DstData[*DstPos + 0x09], Data, DataLen);
-		*DstPos += 0x07 + DBlkLen;
 	}
 	else
 	{
@@ -306,8 +305,8 @@ static void WritePCMDataBlk(UINT32* DstPos, const UINT8 BlkType, const UINT32 Da
 		
 		memcpy(&DstData[*DstPos + 0x07], &DataStart, 0x04);
 		memcpy(&DstData[*DstPos + 0x0B], Data, DataLen);
-		*DstPos += 0x09 + DBlkLen;
 	}
+	*DstPos += 0x07 + DBlkLen;
 	
 	return;
 }
@@ -450,9 +449,17 @@ static void MergePCMData(void)
 					if (TempRFD->DataLen > 0x01)
 					{
 						TempRFD->RAMSkip = TempRFD->DataLen;
-						memcpy(&TempSht, &VGMData[VGMPos + 0x07], 0x02);
-						TempSht += TempRFD->BankReg;
-						TempRFD->RAMStart = TempSht;
+						if (! (TempByt & 0x20))
+						{
+							memcpy(&TempSht, &VGMData[VGMPos + 0x07], 0x02);
+							TempSht += TempRFD->BankReg;
+							TempLng = TempSht;
+						}
+						else
+						{
+							memcpy(&TempLng, &VGMData[VGMPos + 0x07], 0x04);
+						}
+						TempRFD->RAMStart = TempLng;
 						
 						if (BLOCK_POS == BP_FRONT)
 						{
@@ -463,8 +470,8 @@ static void MergePCMData(void)
 								else
 									WriteLen = TempRFD->DataLen;
 								
-								WritePCMDataBlk(&DstPos, BlkType, WriteLen, TempSht);
-								TempSht += (UINT16)WriteLen;
+								WritePCMDataBlk(&DstPos, BlkType, WriteLen, TempLng);
+								TempLng += WriteLen;
 								TempRFD->DataLen -= WriteLen;
 							}
 						}
@@ -472,7 +479,10 @@ static void MergePCMData(void)
 				}
 				if (TempRFD->RAMSkip)
 				{
-					DataLen = BlockLen - 0x02;
+					if (! (TempByt & 0x20))
+						DataLen = BlockLen - 0x02;
+					else
+						DataLen = BlockLen - 0x04;
 					
 					if ((BLOCK_POS == BP_BACK && ! TempRFD->RAMSkip) ||
 						(BLOCK_POS == BP_MIDDLE &&

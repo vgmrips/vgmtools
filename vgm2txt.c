@@ -912,8 +912,17 @@ static void WriteVGMData2Txt(FILE* hFile)
 						}
 						break;
 					case 0xC0:	// RAM Write
-						memcpy(&TempSht, &VGMPnt[0x07], 0x02);
-						DataLen = TempLng - 0x02;
+						if (TempByt & 0x20)
+						{
+							memcpy(&DataStart, &VGMPnt[0x07], 0x04);
+							DataLen = TempLng - 0x04;
+						}
+						else
+						{
+							DataStart = 0x00;
+							memcpy(&DataStart, &VGMPnt[0x07], 0x02);
+							DataLen = TempLng - 0x02;
+						}
 						switch(TempByt)
 						{
 						case 0xC0:	// RF5C68 PCM Data
@@ -924,6 +933,9 @@ static void WriteVGMData2Txt(FILE* hFile)
 							break;
 						case 0xC2:	// NES APU DPCM Data
 							strcpy(MinSecStr, "NES APU RAM Data");
+							break;
+						case 0xE0:	// SCSP PCM Data
+							strcpy(MinSecStr, "SCSP RAM Data");
 							break;
 						default:
 							strcpy(MinSecStr, "Unknown RAM Data");
@@ -947,8 +959,8 @@ static void WriteVGMData2Txt(FILE* hFile)
 								TempStr, ROMSize, DataStart);
 						break;
 					case 0xC0:	// RAM Write
-						sprintf(TempStr, "%s\t\tWrite to Address: 0x%04X",
-								TempStr, TempSht);
+						sprintf(TempStr, "%s\t\tWrite to Address: 0x%0*X",
+								TempStr, (TempByt & 0x20) ? 6 : 4, DataStart);
 						break;
 					}
 				}

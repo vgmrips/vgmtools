@@ -2512,6 +2512,8 @@ bool scsp_write(UINT8 Port, UINT8 Register, UINT8 Data)
 	
 	if (Port == 0x04 && (Register >= 0x1A && Register <= 0x29))
 		return false;
+	if (Port == 0x04 && Register == 0x08)
+		return false;	// TODO: mainly used for reading?
 	
 	return true;
 }
