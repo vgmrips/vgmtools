@@ -19,7 +19,7 @@
 
 
 //#define SHOW_PROGRESS
-#if defined(SHOW_PROGRESS) && ! defined(WIN32)
+#if defined(SHOW_PROGRESS) && ! defined(_WIN32)
 #undef SHOW_PROGRESS	// no progress for Unix users for now
 #endif
 

@@ -16,7 +16,7 @@
 #include <string.h>
 #include <stdio.h>		// for sprintf()
 
-#ifdef WIN32
+#ifdef _WIN32
 #include <conio.h>		// for _getch()
 #include <windows.h>	// for OemToChar()
 #else
@@ -33,7 +33,7 @@
 #define stricmp		strcasecmp
 #define strnicmp	strncasecmp
 #endif
-#ifdef WIN32
+#ifdef _WIN32
 // Note: Both, MS VC++ and MinGW use _wcsicmp.
 #define wcsicmp 	_wcsicmp
 #else
@@ -42,7 +42,7 @@
 
 
 // Console Quotation Mark (Windows: ", Linux: ')
-#ifdef WIN32
+#ifdef _WIN32
 #define QMARK_CHR	'\"'
 #else
 #define QMARK_CHR	'\''
@@ -88,7 +88,7 @@ static void ReadFilename(char* buffer, size_t bufsize)
 	if (retStr == NULL)
 		buffer[0] = '\0';
 	
-#ifdef WIN32
+#ifdef _WIN32
 	if (GetConsoleCP() == GetOEMCP())
 		OemToChar(buffer, buffer);	// OEM -> ANSI conversion
 #endif
@@ -101,7 +101,7 @@ static void ReadFilename(char* buffer, size_t bufsize)
 
 INLINE void DblClickWait(const char* argv0)
 {
-#ifdef WIN32
+#ifdef _WIN32
 	char* msystem;
 	
 	if (argv0[1] != ':')

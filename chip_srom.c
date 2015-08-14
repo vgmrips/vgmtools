@@ -2507,6 +2507,19 @@ void es5503_write(UINT8 Register, UINT8 Data)
 					if (! chip->ROMData[CurAddr])
 						break;
 				}
+				if ((TempOsc->control & 0x06) == 0x06)	// 'swap' mode
+				{
+					TempOsc = &chip->oscillators[(Register & 0x1F) ^ 0x01];
+					
+					AddrSt = TempOsc->wavetblpointer & es5503_wavemasks[TempOsc->wavetblsize];
+					AddrEnd = AddrSt + TempOsc->wtsize;
+					for (CurAddr = AddrSt; CurAddr < AddrEnd; CurAddr ++)
+					{
+						chip->ROMUsage[CurAddr] |= 0x01;
+						if (! chip->ROMData[CurAddr])
+							break;
+					}
+				}
 			}
 			break;
 		case 0xC0:	// bank select / wavetable size / resolution
