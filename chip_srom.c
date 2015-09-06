@@ -175,8 +175,7 @@ typedef struct okim6295_data
 enum
 {
 	C140_TYPE_SYSTEM2,
-	C140_TYPE_SYSTEM21_A,
-	C140_TYPE_SYSTEM21_B,
+	C140_TYPE_SYSTEM21,
 	C140_TYPE_ASIC219
 };
 //static const INT16 asic219banks[4] = {0x07, 0x01, 0x03, 0x05};
@@ -1550,23 +1549,14 @@ static UINT32 c140_sample_addr(C140_DATA* chip, UINT8 adr_msb, UINT8 adr_lsb,
 	case C140_TYPE_SYSTEM2:
 		NewAddr = ((TempAddr & 0x200000) >> 2) | (TempAddr & 0x7FFFF);
 		break;
-	case C140_TYPE_SYSTEM21_A:
+	case C140_TYPE_SYSTEM21:
 		NewAddr = ((TempAddr & 0x300000) >> 1) | (TempAddr & 0x7FFFF);
-		break;
-	case C140_TYPE_SYSTEM21_B:
-		NewAddr = ((TempAddr & 0x100000) >> 2) | (TempAddr & 0x3FFFF);
-		
-		if (TempAddr & 0x40000)
-			NewAddr |= 0x80000;
-		if (TempAddr & 0x200000)
-			NewAddr |= 0x100000;
 		break;
 	case C140_TYPE_ASIC219:
 		// on the 219 asic, addresses are in words
 		TempAddr = (bank << 16) | (adr_msb << 9) | (adr_lsb << 1);
-		
-		BnkReg = ((voice >> 2) + 0x07) & 0x07;
-		NewAddr = ((chip->BankRegs[BnkReg] & 0x03) * 0x20000) | TempAddr;
+		BnkReg = (((voice & 12) >> 1) - 1) & 0x07;
+		NewAddr = ((chip->BankRegs[BnkReg] & 0x03) * 0x20000) | (TempAddr&0x1ffff);
 		break;
 	default:
 		NewAddr = 0x00;
@@ -1593,9 +1583,8 @@ void c140_write(UINT8 Port, UINT8 Offset, UINT8 Data)
 	if (RegVal >= 0x1F0)
 	{
 		// mirror the bank registers on the 219, fixes bkrtmaq
-		if (chip->banking_type == C140_TYPE_ASIC219)
-			RegVal &= 0x1F7;
-		
+		if ((RegVal >= 0x1f8) && (chip->banking_type == C140_TYPE_ASIC219))
+			RegVal -= 8;
 		chip->BankRegs[RegVal & 0x0F] = Data;
 	}
 	if (RegVal >= 0x180)
