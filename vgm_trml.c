@@ -805,6 +805,9 @@ static void SetImportantCommands(void)
 					TempReg->RegMask[CurReg] |= 0x80;
 				break;
 			case 0x1C:	// C140
+				// bank registers
+				for (CurReg = 0x1f0; CurReg < 0x1f8; CurReg ++)
+					TempReg->RegMask[CurReg] |= 0x80;
 				break;
 			case 0x1D:	// K053260
 				break;
@@ -1994,7 +1997,11 @@ static UINT32 ReadCommand(UINT8 Mask)
 		else if (Command == 0xD3)
 			TempChp = &RC[ChipID].K054539;
 		else if (Command == 0xD4)
+		{
 			TempChp = &RC[ChipID].C140;
+			if(CmdReg >= 0x1f8)
+				CmdReg -= 8;
+		}
 		else if (Command == 0xC5)
 			TempChp = &RC[ChipID].SCSP;
 		else if (Command == 0xC7)

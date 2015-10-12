@@ -1684,7 +1684,7 @@ void qsound_write(UINT8 Offset, UINT16 Value)
 			// Key off
 			TempChn->key = 0;
 		}
-		else if (TempChn->key == 0)
+		else // if (TempChn->key == 0)
 		{
 			// Key on
 			TempChn->key = 1;
@@ -2259,10 +2259,16 @@ void x1_010_write(UINT16 offset, UINT8 data)
 		reg = (X1_010_CHANNEL *)&(chip->m_reg[channel*sizeof(X1_010_CHANNEL)]);
 		
 		/* Key on and PCM mode set? */
-		if( (reg->status&1) && !(reg->status&2) )
+		
+		// check at key off (or next status write). Leaving this in case the other condition breaks something.
+		//if( (reg->status&1) && !(reg->status&2) )
+		
+		// Check at key on. should work better for guardians.
+		if((data&1) && !(data&02))
 		{
 			startpos = reg->start*0x1000;
 			endpos = ((0x100-reg->end)*0x1000)&0xfffff;
+			
 			for (addr = startpos; addr < endpos; addr ++)
 				chip->ROMUsage[addr] |= 0x01;
 		}

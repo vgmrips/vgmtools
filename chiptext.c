@@ -3440,6 +3440,75 @@ void saa1099_write(char* TempStr, UINT8 Register, UINT8 Data)
 	return;
 }
 
+void x1_010_write(char* TempStr, UINT16 Offset, UINT8 val)
+{
+	UINT8 chan, pos;
+	
+	WriteChipID(0x26);
+	
+	if (Offset < 0x80)
+	{
+		chan = (Offset >> 3) & 0xfff;
+		switch(Offset & 0x7)
+		{
+		case 0x0:
+			sprintf(WriteStr, "Ch %u, Flags %02x", chan, val);
+			if(val & 0x80)
+				sprintf(WriteStr, "%s, Divide Frequency", WriteStr);
+			if(val & 0x04)
+				sprintf(WriteStr, "%s, Loop", WriteStr);	
+			if(val & 0x02)
+				sprintf(WriteStr, "%s, Waveform", WriteStr);	
+			else
+				sprintf(WriteStr, "%s, PCM", WriteStr);
+			if(val & 0x01)
+				sprintf(WriteStr, "%s, Key On", WriteStr);	
+			else
+				sprintf(WriteStr, "%s, Key Off", WriteStr);	
+			break;
+		case 0x1:
+			sprintf(WriteStr, "Ch %u, Volume: %02X", chan, val);
+			break;
+		case 0x2:
+			sprintf(WriteStr, "Ch %u, PCM Frequency/Waveform Pitch Lo: %02X", chan, val);
+			break;
+		case 0x3:
+			sprintf(WriteStr, "Ch %u, Waveform Pitch Hi: %02X", chan, val);
+			break;
+		case 0x4:
+			sprintf(WriteStr, "Ch %u, PCM Start/Envelope Time: %02X", chan, val);
+			break;
+		case 0x5:
+			sprintf(WriteStr, "Ch %u, PCM End/Envelope No: %02X", chan, val);
+			break;
+		default:
+			sprintf(WriteStr, "Ch %d, Register %02X: %02X", chan, Offset&0x07, val);
+			break;
+		}
+	}
+	else
+	{
+		chan = (Offset>>7)&0x1f;
+		pos = Offset&0x7f;
+		
+		if(Offset < 0x1000)
+		{
+			sprintf(WriteStr, "Envelope %u, position %02x: %02X", chan, pos, val);
+		}
+		else if(Offset < 0x2000)
+		{
+			sprintf(WriteStr, "Waveform %u, position %02x: %02X", chan, pos, val);
+		}
+		else
+			sprintf(WriteStr, "Offset 0x%04X, Data 0x%2X", Offset, val);
+			
+		
+	}
+	sprintf(TempStr, "%s%s", ChipStr, WriteStr);
+	
+	return;
+}
+
 void c352_write(char* TempStr, UINT16 Offset, UINT16 val)
 {
 	UINT16 address = Offset* 2;
