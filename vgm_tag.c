@@ -256,6 +256,7 @@ static bool OpenVGMFile(const char* FileName, bool* Compressed)
 	
 	gzseek(hFile, 0x00, SEEK_SET);
 	gzread(hFile, &VGMHead, 0x40);	// I don't need more data
+	ZLIB_SEEKBUG_CHECK(VGMHead);
 	
 	// relative -> absolute addresses
 	VGMHead.lngEOFOffset += 0x00000004;

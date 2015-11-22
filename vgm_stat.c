@@ -166,6 +166,7 @@ static bool OpenVGMFile(const char* FileName)
 		goto OpenErr;
 	}
 	gzread(hFile, &VGMHead, sizeof(VGM_HEADER));
+	ZLIB_SEEKBUG_CHECK(VGMHead);
 	
 	// relative -> absolute addresses
 	VGMHead.lngEOFOffset += 0x00000004;

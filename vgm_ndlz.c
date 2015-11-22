@@ -108,6 +108,7 @@ static bool OpenVGMFile(const char* FileName)
 	
 	gzseek(hFile, 0x00, SEEK_SET);
 	gzread(hFile, &SrcHead, sizeof(VGM_HEADER));
+	ZLIB_SEEKBUG_CHECK(SrcHead);
 	
 	// Header preperations
 	if (SrcHead.lngVersion < 0x00000150)

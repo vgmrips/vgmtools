@@ -335,6 +335,7 @@ static bool OpenVGMFile(const char* FileName, bool* Compressed)
 	
 	gzseek(hFile, 0x00, SEEK_SET);
 	gzread(hFile, &VGMHead, sizeof(VGM_HEADER));
+	ZLIB_SEEKBUG_CHECK(VGMHead);
 	
 	// I skip the Header preperations. I'll deal with that later
 	

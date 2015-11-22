@@ -49,6 +49,16 @@
 #endif
 
 
+#define ZLIB_SEEKBUG_CHECK(vgmhdr) \
+	if (vgmhdr.fccVGM != FCC_VGM) \
+	{ \
+		printf("VGM signature matched on the first read, but not on the second one!\n"); \
+		printf("This is a known zlib bug where gzseek fails. Please install a fixed zlib.\n"); \
+		goto OpenErr; \
+	}
+
+
+
 static void RemoveNewLines(char* String)
 {
 	char* strPtr;
