@@ -82,6 +82,8 @@ UINT32 DstDataLen;
 INT32 DstSmplPos;
 char FileBase[0x100];
 
+UINT8 ErrMsgs;
+
 int main(int argc, char* argv[])
 {
 	int ErrVal;
@@ -602,6 +604,7 @@ static void MergeVGMData(void)
 #ifdef WIN32
 	CmdTimer = 0;
 #endif
+	ErrMsgs = 0x00;
 	WroteCmd80 = false;
 	while(VGMsRunning)
 	{
@@ -661,6 +664,16 @@ static void MergeVGMData(void)
 					case 0x80:
 						// Handling is done at WriteEvent
 						//WriteEvent = true;	// I still need to write it
+						if (TempVGM->ChipMap.YM2612.MapToDual)
+						{
+							if (! (ErrMsgs & 0x01))
+							{
+								ErrMsgs |= 0x01;
+								printf("Warning: VGM 1.50 DAC commands used by VGM #%u!\n", 1 + FileID);
+								printf("v1.50 DAC commands can only be used by the first YM2612 chip,\n");
+								printf("so the result will be wrong.\n");
+							}
+						}
 						break;
 					}
 				}
@@ -865,6 +878,15 @@ static void MergeVGMData(void)
 						CmdLen = 0x06;
 						break;
 					case 0x93:	// DAC Ctrl: Play from Start Pos
+						TempByt = TempVGM->Data[TempVGM->Pos + 0x01];
+						if (TempVGM->StrmMap[TempByt] != 0xFF && TempVGM->StrmMap[TempByt] != TempByt)
+						{
+							if (! (ErrMsgs & 0x02))
+							{
+								ErrMsgs |= 0x02;
+								printf("Warning: Remapping of 0x93 Stream Commands not yet implemented!\n");
+							}
+						}
 						CmdLen = 0x0B;
 						break;
 					case 0x94:	// DAC Ctrl: Stop immediately
@@ -889,7 +911,7 @@ static void MergeVGMData(void)
 				}
 				switch(Command & 0xF0)
 				{
-				case 0x4F:
+				case 0x40:
 					if (Command == 0x4F)
 					{
 						TempMap = &TempVGM->ChipMap.SN76496;
