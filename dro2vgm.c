@@ -366,8 +366,6 @@ static void ConvertDRO2VGM(void)
 			if (VGMSmplL < VGMSmplC)
 			{
 				SmplVal = VGMSmplC - VGMSmplL;
-				if (VGMSmplC < VGMSmplL)
-					*((char*)NULL) = 0x00;
 				while(SmplVal)
 				{
 					if (SmplVal <= 0xFFFF)

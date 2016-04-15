@@ -102,6 +102,7 @@ const SYSTEM_SHORT SYSTEM_NAMES[] =
 	{"TG16",	"TurboGrafx-16", "PC&#x30a8;&#x30f3;&#x30b8;&#x30f3;"},
 	{"TGCD",	"TurboGrafx-CD", "PC&#x30a8;&#x30f3;&#x30b8;&#x30f3; CD-ROM2"},
 	{"Tp?",		"Toaplan ?", "&#x6771;&#x4e9c;&#x30d7;&#x30e9;&#x30f3; ?"},
+	{"VB",		"Virtual Boy", "&#x30d0;&#x30fc;&#x30c1;&#x30e3;&#x30eb;&#x30dc;&#x30fc;&#x30a4;"},
 	{NULL, NULL, NULL}};
 
 

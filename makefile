@@ -9,8 +9,9 @@
 #	- link -lm only to vgm_cnt, vgm_ptch, vgm_vol, vgm2txt
 
 CC = gcc
-CFLAGS = -O2 -g0 -Wall -Wno-maybe-uninitialized -Wno-unused-but-set-variable
-LDFLAGS = -lm -lz
+CFLAGS := -O2 -g0 -Wall
+CFLAGS += -Wno-maybe-uninitialized -Wno-unused-but-set-variable -Wno-unused-result
+LDFLAGS := -lm -lz
 
 SRC = .
 OBJ = obj

@@ -96,6 +96,7 @@ DRUM_TABLE DrumTbl;
 UINT32 MaxDrumDelay;
 bool DumpDrums;
 UINT8 Skip80Sample;
+UINT8 Smpl80Value;
 bool SplitCmd;
 bool EarlyDataWrt;
 
@@ -113,6 +114,7 @@ int main(int argc, char* argv[])
 	MaxDrumDelay = 500;
 	DumpDrums = false;
 	Skip80Sample = 1;
+	Smpl80Value = 0x80;	// can be 0x80, 0x88 or 0x08
 	EarlyDataWrt = false;
 	SplitCmd = 0x00;
 	ErrVal = 0;
@@ -722,7 +724,8 @@ static void MakeDrumTable(void)
 				}
 				
 				printdbg("new drum at SmplOfs %u (buffer %u bytes)\n", SmplLastWrt, DrmBufSize);
-				if (Skip80Sample == 1 && DrmBufSize > 1 && VGMWrite[CurChip][LastWrt].Value == 0x80)
+				if (Skip80Sample == 1 && DrmBufSize > 1 &&
+					VGMWrite[CurChip][LastWrt].Value == Smpl80Value)
 				{
 					// Castlevania sends a 0x80 byte when stopping a sound
 					
@@ -739,7 +742,8 @@ static void MakeDrumTable(void)
 					DrmBufSize = 0x00;
 					continue;
 				}
-				else if (Skip80Sample == 2 && DrumEnd == 0x01 && DrmBufSize >= 2 && VGMWrite[CurChip][LastWrt].Value == 0x80)
+				else if (Skip80Sample == 2 && DrumEnd == 0x01 && DrmBufSize >= 2 &&
+					VGMWrite[CurChip][LastWrt].Value == Smpl80Value)
 				{
 					// Chase H.Q. sends 2x 0x88 before playing ANYTHING
 					
@@ -757,7 +761,8 @@ static void MakeDrumTable(void)
 					DrmBufSize = 0x00;
 					continue;
 				}
-				else if (Skip80Sample == 2 && DrumEnd == 0x02 && DrmBufSize > 1 && VGMWrite[CurChip][LastWrt].Value == 0x88)
+				else if (Skip80Sample == 2 && DrumEnd == 0x02 && DrmBufSize > 1 &&
+					VGMWrite[CurChip][LastWrt].Value == Smpl80Value)
 				{
 					// add drum without last data write
 					DrumPlay.WriteEnd = LastWrt - 1;
@@ -990,8 +995,8 @@ static void MakeDataStream(void)
 				for (CurPlay = 0; CurPlay < 6; CurPlay ++)
 				{
 					BaseFreq = (VGMHead.lngHzOKIM6258 + dividers[CurPlay] / 2) / dividers[CurPlay];
-					if ((FreqVal < BaseFreq && FreqVal >= BaseFreq - 800) ||
-						abs((int)FreqVal - (int)BaseFreq) < 120)
+					if (abs(FreqVal - BaseFreq) < 120 ||
+						(FreqVal < BaseFreq && FreqVal >= BaseFreq - 800))
 					{
 						FreqVal = BaseFreq;
 						CmdDiff = 1;

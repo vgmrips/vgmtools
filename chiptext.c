@@ -864,9 +864,13 @@ static void opn_write(char* TempStr, UINT8 Mode, UINT8 Port, UINT8 Register,
 			{
 			case 0x00:	// 0xb0-0xb2 : FB,ALGO
 				TempByt = (Data & 0x38) >> 3;
-				if (TempByt)
-					TempByt += 6;
-				sprintf(WriteStr, "Feedback: %u, Algorithm: %u", TempByt, Data & 0x07);
+				if (TempByt == 0)
+					strcpy(TempStr, "none");
+				else if (TempByt < 5)	// 1 = PI/16, 4 = PI/2
+					sprintf(TempStr, "PI / %u", 32 >> TempByt);
+				else
+					sprintf(TempStr, "%u x PI", 1 << (TempByt - 5));
+				sprintf(WriteStr, "Feedback: %s, Algorithm: %u", TempStr, Data & 0x07);
 				break;
 			case 0x04:	// 0xb4-0xb6 : L , R , AMS , PMS (YM2612/YM2610B/YM2610/YM2608)
 				if (! (FMOPN_TYPES[Mode] & OPN_TYPE_LFOPAN))
@@ -1837,7 +1841,7 @@ static void ay8910_part_write(char* TempStr, UINT8 Register, UINT8 Data)
 	case 0x08:	// AY_AVOL
 	case 0x09:	// AY_BVOL
 	case 0x0A:	// AY_CVOL
-		sprintf(TempStr, "Chn %c Volume %u%%, Enelope Mode: %u", 'A' + (Register & 0x03),
+		sprintf(TempStr, "Chn %c Volume %u%%, Envelope Mode: %u", 'A' + (Register & 0x03),
 				100 * (Data & 0x0F) / 0x0F, (Data & 0x10) >> 1);
 		break;
 	case 0x0B:	// AY_EFINE

@@ -20,6 +20,7 @@
 #include <conio.h>		// for _getch()
 #include <windows.h>	// for OemToChar()
 #else
+#include <limits.h>
 #define MAX_PATH	PATH_MAX
 #endif
 

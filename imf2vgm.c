@@ -10,7 +10,7 @@
 #include "common.h"
 
 
-static UINT8 OpenDROFile(const char* FileName);
+static UINT8 OpenIMFFile(const char* FileName);
 static void WriteVGMFile(const char* FileName);
 static void ConvertIMF2VGM(void);
 
@@ -39,6 +39,7 @@ int main(int argc, char* argv[])
 	
 	printf("IMF to VGM Converter\n--------------------\n\n");
 	
+	ErrVal = 0;
 	argbase = 1;
 	ForceHz = 0;
 	ForceType = 0xFF;
@@ -95,7 +96,7 @@ int main(int argc, char* argv[])
 	if (! strlen(FileName))
 		return 0;
 	
-	if (OpenDROFile(FileName))
+	if (OpenIMFFile(FileName))
 	{
 		printf("Error opening the file!\n");
 		ErrVal = 1;
@@ -129,7 +130,7 @@ EndProgram:
 	return ErrVal;
 }
 
-static UINT8 OpenDROFile(const char* FileName)
+static UINT8 OpenIMFFile(const char* FileName)
 {
 	FILE* hFile;
 	UINT16 TempSht;
@@ -256,8 +257,6 @@ static void ConvertIMF2VGM(void)
 		if (VGMSmplL < VGMSmplC)
 		{
 			SmplVal = VGMSmplC - VGMSmplL;
-			if (VGMSmplC < VGMSmplL)
-				*((char*)NULL) = 0x00;
 			while(SmplVal)
 			{
 				if (SmplVal <= 0xFFFF)

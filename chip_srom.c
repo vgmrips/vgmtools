@@ -1804,7 +1804,7 @@ void k054539_write(UINT8 Port, UINT8 Offset, UINT8 Data)
 		{
 			TempChn->mode_reg = Data;
 			if (Data & 0x20)
-				printf("K054539 #%lu, Ch %u: reverse play (Reg 0x%03X, Data 0x%02X)\n",
+				printf("K054539 #%u, Ch %u: reverse play (Reg 0x%03X, Data 0x%02X)\n",
 						ChDat - ChipData, (RegVal & 0x0F) >> 1,
 						RegVal, Data);
 		}

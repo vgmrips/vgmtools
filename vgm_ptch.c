@@ -981,9 +981,6 @@ static UINT8 PatchVGM(int ArgCount, char* ArgList[])
 			
 			if (OldVal != NewVal)
 			{
-				VGMHead.lngVersion = NewVal;
-				RetVal |= 0x10;
-				
 				if (! stricmp(CmdStr, "UpdateVer"))
 				{
 					// Up- and downdate to new version
@@ -1053,6 +1050,26 @@ static UINT8 PatchVGM(int ArgCount, char* ArgList[])
 							VGMHead.lngRate = 0;
 						}
 					}
+					
+					VGMHead.lngVersion = NewVal;
+					RetVal |= 0x10;
+				}
+				else //if (! stricmp(CmdStr, "SetVer"))
+				{
+					RetVal |= 0x10;
+					if (NewVal >= 0x150 && ! VGMHead.lngDataOffset)
+					{
+						printf("The VGM has no data offset, but you're changing the Version to >= 1.50.\n");
+						printf("This will create bad VGMs. Please use -UpdateVer instead!\n");
+					}
+					else if (NewVal < 0x150 && VGMHead.lngDataOffset)
+					{
+						printf("The VGM has a data offset set, but you're changing the Version to < 1.50.\n");
+						printf("This will create bad VGMs. Please use -UpdateVer instead!\n");
+					}
+					
+					if (RetVal & 0x10)
+						VGMHead.lngVersion = NewVal;
 				}
 			}
 		}
