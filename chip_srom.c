@@ -428,6 +428,53 @@ typedef struct ymf278b_data
 	INT8 memmode;
 } YMF278B_DATA;
 
+#define ES6CTRL_BS1				0x8000
+#define ES6CTRL_BS0				0x4000
+#define ES6CTRL_CMPD			0x2000
+#define ES6CTRL_CA2				0x1000
+#define ES6CTRL_CA1				0x0800
+#define ES6CTRL_CA0				0x0400
+#define ES6CTRL_LP4				0x0200
+#define ES6CTRL_LP3				0x0100
+#define ES6CTRL_IRQ				0x0080
+#define ES6CTRL_DIR				0x0040
+#define ES6CTRL_IRQE			0x0020
+#define ES6CTRL_BLE				0x0010
+#define ES6CTRL_LPE				0x0008
+#define ES6CTRL_LEI				0x0004
+#define ES6CTRL_STOP1			0x0002
+#define ES6CTRL_STOP0			0x0001
+
+#define ES6CTRL_BSMASK			(ES6CTRL_BS1 | ES6CTRL_BS0)
+#define ES6CTRL_CAMASK			(ES6CTRL_CA2 | ES6CTRL_CA1 | ES6CTRL_CA0)
+#define ES6CTRL_LPMASK			(ES6CTRL_LP4 | ES6CTRL_LP3)
+#define ES6CTRL_LOOPMASK		(ES6CTRL_BLE | ES6CTRL_LPE)
+#define ES6CTRL_STOPMASK		(ES6CTRL_STOP1 | ES6CTRL_STOP0)
+typedef struct es5506_voice
+{
+	UINT32	control;	// control register
+	UINT32	start;		// start register
+	UINT32	end;		// end register
+	UINT32	accum;		// accumulator register
+	UINT32	exbank;		// external address bank
+} ES5506_VOICE;
+typedef struct es5506_rom
+{
+	UINT32 ROMSize;
+	UINT8* ROMData;
+	UINT8* ROMUsage;
+} ES5506_ROM;
+typedef struct es5506_data
+{
+	ES5506_ROM Rgn[4];	// ROM regions
+	
+	UINT32 writeLatch;
+	UINT8 chipType;		// 0 - ES5505, 1 - ES5506
+	UINT8 curPage;
+	UINT8 voiceCount;
+	ES5506_VOICE voice[32];
+} ES5506_DATA;
+
 typedef struct all_chips
 {
 	SEGAPCM_DATA SegaPCM;
@@ -448,6 +495,7 @@ typedef struct all_chips
 	K053260_DATA K053260;
 	QSOUND_DATA QSound;
 	ES5503_DATA ES5503;
+	ES5506_DATA ES5506;
 	X1_010_DATA X1_010;
 	C352_DATA C352;
 	GA20_DATA GA20;
@@ -484,6 +532,8 @@ void c352_write(UINT16 Offset, UINT16 Value);
 void ga20_write(UINT8 Register, UINT8 Data);
 void es5503_write(UINT8 Register, UINT8 Data);
 void ymf278b_write(UINT8 Port, UINT8 Register, UINT8 Data);
+void es550x_w(UINT8 Offset, UINT8 Data);
+void es550x_w16(UINT8 Offset, UINT16 Data);
 void write_rom_data(UINT8 ROMType, UINT32 ROMSize, UINT32 DataStart, UINT32 DataLength,
 					const UINT8* ROMData);
 UINT32 GetROMMask(UINT8 ROMType, UINT8** MaskData);
@@ -539,6 +589,7 @@ void InitAllChips(void)
 		ChDat->OKIM6295.command = 0xFF;
 		ChDat->K054539.flags = K054539_RESET_FLAGS;
 		ChDat->C140.banking_type = 0x00;
+		ChDat->ES5506.voiceCount = 32;
 		
 		for (CurChn = 0; CurChn < 28; CurChn ++)
 			ChDat->MultiPCM.slot[CurChn].SmplID = 0xFFFF;
@@ -1805,7 +1856,7 @@ void k054539_write(UINT8 Port, UINT8 Offset, UINT8 Data)
 			TempChn->mode_reg = Data;
 			if (Data & 0x20)
 				printf("K054539 #%u, Ch %u: reverse play (Reg 0x%03X, Data 0x%02X)\n",
-						ChDat - ChipData, (RegVal & 0x0F) >> 1,
+						(UINT32)(ChDat - ChipData), (RegVal & 0x0F) >> 1,
 						RegVal, Data);
 		}
 	}
@@ -2673,6 +2724,197 @@ void ymf278b_write(UINT8 Port, UINT8 Register, UINT8 Data)
 	return;
 }
 
+static void es550x_do_ctrl(ES5506_DATA* chip, ES5506_VOICE* voice)
+{
+	ES5506_ROM* romBase = &chip->Rgn[(voice->control >> 14) & 0x03];
+	UINT32 baseOfs = voice->exbank;
+	UINT32 AddrSt;
+	UINT32 AddrEnd;
+	UINT32 CurAddr;
+	
+	if ((chip->curPage & 0x1F) >= chip->voiceCount)
+		return;
+	if (voice->control & ES6CTRL_STOPMASK)
+		return;
+	
+	if (voice->start == voice->end)
+		return;
+	if (voice->start > voice->end)
+		return;
+	
+	CurAddr = voice->accum >> 11;
+	AddrSt = voice->start >> 11;
+	AddrEnd = voice->end >> 11;
+	if (! (voice->control & ES6CTRL_DIR))
+	{
+		// playing forwards
+		if (CurAddr < AddrSt)
+			AddrSt = CurAddr;
+	}
+	else
+	{
+		// playing backwards
+		if (CurAddr > AddrEnd)
+			AddrEnd = CurAddr;
+	}
+	AddrEnd ++;	// turn <= into <
+	
+	// Offsets are indices into 16-Bit data.
+	baseOfs *= 2;
+	AddrSt *= 2;	AddrEnd *= 2;
+	for (CurAddr = AddrSt; CurAddr < AddrEnd; CurAddr ++)
+		romBase->ROMUsage[baseOfs + CurAddr] |= 0x01;
+	
+	return;
+}
+
+static void es5505_w(ES5506_DATA* chip, UINT8 Offset, UINT8 Data)
+{
+}
+
+static void es5506_w(ES5506_DATA* chip, UINT8 Offset, UINT8 Data)
+{
+	ES5506_VOICE* voice = &chip->voice[chip->curPage & 0x1F];
+	int shift = 8 * (Offset & 0x03);
+	Offset >>= 2;
+	
+	// build a 32-Bit Big Endian value
+	chip->writeLatch &= ~(0xFF000000 >> shift);
+	chip->writeLatch |= (Data << (24 - shift));
+	if (shift != 24)
+		return;
+	
+	if (Offset >= 0x68/8)	// PAGE
+	{
+		switch(Offset)
+		{
+		case 0x68/8:	// PAR - read only
+		case 0x70/8:	// IRQV - read only
+			break;
+		case 0x78/8:	// PAGE
+			chip->curPage = chip->writeLatch & 0x7F;
+			break;
+		}
+	}
+	else if (chip->curPage < 0x20)
+	{
+		// es5506_reg_write_low
+		switch(Offset)
+		{
+		case 0x00/8:	// CR
+			voice->control = chip->writeLatch & 0x0000FFFF;
+			es550x_do_ctrl(chip, voice);
+			break;
+		case 0x08/8:	// Sample Step (Frequency Count)
+		case 0x10/8:	// Volume L
+		case 0x18/8:	// Volume Ramp L
+		case 0x20/8:	// Volume R
+		case 0x28/8:	// Volume Ramp R
+		case 0x30/8:	// Envelope Length (Envelope Count)
+		case 0x38/8:	// K2 Filter
+		case 0x40/8:	// K2 Filter Ramp
+		case 0x48/8:	// K1 Filter
+		case 0x50/8:	// K1 Filter Ramp
+			break;
+		case 0x58/8:	// ACTV
+			chip->voiceCount = 1 + (chip->writeLatch & 0x1F);
+			break;
+		case 0x60/8:	// MODE
+			//chip->mode = chip->writeLatch & 0x1f;
+			break;
+		}
+	}
+	else if (chip->curPage < 0x40)
+	{
+		// es5506_reg_write_high
+		switch(Offset)
+		{
+		case 0x00/8:	// CR
+			voice->control = chip->writeLatch & 0x0000FFFF;
+			es550x_do_ctrl(chip, voice);
+			break;
+		case 0x08/8:	// START
+			voice->start = chip->writeLatch & 0xFFFFF800;
+			break;
+		case 0x10/8:	// END
+			voice->end = chip->writeLatch & 0xFFFFFF80;
+			break;
+		case 0x18/8:	// ACCUM
+			voice->accum = chip->writeLatch;
+			break;
+		case 0x20/8:	// O4(n-1)
+		case 0x28/8:	// O3(n-1)
+		case 0x30/8:	// O3(n-2)
+		case 0x38/8:	// O2(n-1)
+		case 0x40/8:	// O2(n-2)
+		case 0x48/8:	// O1(n-1)
+			break;
+		case 0x50/8:	// W_ST
+		case 0x58/8:	// W_END
+		case 0x60/8:	// LR_END
+			break;
+		}
+	}
+	else
+	{
+		// es5506_reg_write_test
+		// nothing important here
+	}
+	
+	chip->writeLatch = 0;
+	
+	return;
+}
+
+
+void es550x_w(UINT8 Offset, UINT8 Data)
+{
+	ES5506_DATA* chip = &ChDat->ES5506;
+	
+	if (Offset == 0xFF)
+	{
+		chip->chipType = Data;
+		return;
+	}
+	
+	if (Offset < 0x40)
+	{
+		if (! chip->chipType)
+			es5505_w(chip, Offset, Data);
+		else
+			es5506_w(chip, Offset, Data);
+	}
+	else
+	{
+		chip->voice[Offset & 0x1F].exbank = Data << 20;
+	}
+	return;
+}
+
+void es550x_w16(UINT8 Offset, UINT16 Data)
+{
+	ES5506_DATA* chip = &ChDat->ES5506;
+	
+	if (Offset < 0x40)
+	{
+		if (! chip->chipType)
+		{
+			es5505_w(chip, Offset | 0, (Data & 0xFF00) >> 8);
+			es5505_w(chip, Offset | 1, (Data & 0x00FF) >> 0);
+		}
+		else
+		{
+			es5506_w(chip, Offset | 0, (Data & 0xFF00) >> 8);
+			es5506_w(chip, Offset | 1, (Data & 0x00FF) >> 0);
+		}
+	}
+	else
+	{
+		chip->voice[Offset & 0x1F].exbank = Data << 20;
+	}
+	return;
+}
+
 #define ROM_BORDER_CHECK					\
 	if (DataStart > ROMSize)				\
 		return;								\
@@ -2699,6 +2941,7 @@ void write_rom_data(UINT8 ROMType, UINT32 ROMSize, UINT32 DataStart, UINT32 Data
 	K053260_DATA* k053260;
 	QSOUND_DATA* qsound;
 	ES5503_DATA* es5503;
+	ES5506_DATA* es5506;
 	X1_010_DATA* x1_010;
 	C352_DATA* c352;
 	GA20_DATA* ga20;
@@ -2992,6 +3235,35 @@ void write_rom_data(UINT8 ROMType, UINT32 ROMSize, UINT32 DataStart, UINT32 Data
 		memset(qsound->ROMUsage + DataStart, 0x00, DataLength);
 		break;
 	case 0x90:	// ES5506 ROM
+		{
+			UINT8 curRgn;
+			UINT8 is8Bit;	// 8-bit ROM mapped to 16-bit address space
+			ES5506_ROM* esRgn;
+			
+			es5506 = &ChDat->ES5506;
+			curRgn = (DataStart >> 28) & 0x03;
+			is8Bit = (DataStart >> 31) & 0x01;
+			DataStart &= 0x0FFFFFFF;
+			if (is8Bit)
+			{
+				printf("Error! ES5506 using 8-Bit Sample ROM!\n");
+				return;
+			}
+			
+			esRgn = &es5506->Rgn[curRgn];
+			if (esRgn->ROMSize != ROMSize)
+			{
+				esRgn->ROMData = (UINT8*)realloc(esRgn->ROMData, ROMSize);
+				esRgn->ROMUsage = (UINT8*)realloc(esRgn->ROMUsage, ROMSize);
+				esRgn->ROMSize = ROMSize;
+				memset(esRgn->ROMData, 0xFF, ROMSize);
+				memset(esRgn->ROMUsage, 0x02, ROMSize);
+			}
+			
+			ROM_BORDER_CHECK
+			memcpy(esRgn->ROMData + DataStart, ROMData, DataLength);
+			memset(esRgn->ROMUsage + DataStart, 0x00, DataLength);
+		}
 		break;
 	case 0x91:	// X1-010 ROM
 		x1_010 = &ChDat->X1_010;
@@ -3114,6 +3386,7 @@ UINT32 GetROMMask(UINT8 ROMType, UINT8** MaskData)
 	K053260_DATA* k053260;
 	QSOUND_DATA* qsound;
 	ES5503_DATA* es5503;
+	ES5506_DATA* es5506;
 	X1_010_DATA* x1_010;
 	C352_DATA* c352;
 	GA20_DATA* ga20;
@@ -3202,7 +3475,10 @@ UINT32 GetROMMask(UINT8 ROMType, UINT8** MaskData)
 		*MaskData = qsound->ROMUsage;
 		return qsound->ROMSize;
 	case 0x90:	// ES5506 ROM
-		break;
+		es5506 = &ChDat->ES5506;
+		
+		*MaskData = es5506->Rgn->ROMUsage;
+		return es5506->Rgn->ROMSize;
 	case 0x91:	// X1-010 ROM
 		x1_010 = &ChDat->X1_010;
 		
@@ -3262,6 +3538,7 @@ UINT32 GetROMData(UINT8 ROMType, UINT8** ROMData)
 	K053260_DATA* k053260;
 	QSOUND_DATA* qsound;
 	ES5503_DATA* es5503;
+	ES5506_DATA* es5506;
 	X1_010_DATA* x1_010;
 	C352_DATA* c352;
 	GA20_DATA* ga20;
@@ -3349,7 +3626,10 @@ UINT32 GetROMData(UINT8 ROMType, UINT8** ROMData)
 		*ROMData = qsound->ROMData;
 		return qsound->ROMSize;
 	case 0x90:	// ES5506 ROM
-		break;
+		es5506 = &ChDat->ES5506;
+		
+		*ROMData = es5506->Rgn->ROMData;
+		return es5506->Rgn->ROMSize;
 	case 0x91:	// X1-010 ROM
 		x1_010 = &ChDat->X1_010;
 		

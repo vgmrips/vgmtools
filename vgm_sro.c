@@ -45,6 +45,8 @@ void c352_write(UINT16 Offset, UINT16 Value);
 void ga20_write(UINT8 Register, UINT8 Data);
 void es5503_write(UINT8 Register, UINT8 Data);
 void ymf278b_write(UINT8 Port, UINT8 Register, UINT8 Data);
+void es550x_w(UINT8 Offset, UINT8 Data);
+void es550x_w16(UINT8 Offset, UINT16 Data);
 void write_rom_data(UINT8 ROMType, UINT32 ROMSize, UINT32 DataStart, UINT32 DataLength,
 					const UINT8* ROMData);
 UINT32 GetROMMask(UINT8 ROMType, UINT8** MaskData);
@@ -64,11 +66,11 @@ typedef struct rom_region_list
 } ROM_RGN_LIST;
 
 
-#define ROM_TYPES	0x16
+#define ROM_TYPES	0x17
 const UINT8 ROM_LIST[ROM_TYPES] =
 {	0x80, 0x81, 0x82, 0x83, 0x84, 0x85, 0x86,
 	0x88, 0x89, 0x8A, 0x8B, 0x8C, 0x8D, 0x8E,
-	0x8F, 0x91, 0x92, 0x93,
+	0x8F, 0x90, 0x91, 0x92, 0x93,
 	0xC0, 0xC1, 0xC2, 0xE1};
 
 
@@ -127,7 +129,7 @@ int main(int argc, char* argv[])
 		! VGMHead.lngHzRF5C164 && ! VGMHead.lngHzYMF271 && ! VGMHead.lngHzOKIM6295 &&
 		! VGMHead.lngHzK054539 && ! VGMHead.lngHzC140 && ! VGMHead.lngHzK053260 &&
 		! VGMHead.lngHzQSound && ! VGMHead.lngHzUPD7759 && ! VGMHead.lngHzMultiPCM &&
-		! VGMHead.lngHzNESAPU && ! VGMHead.lngHzES5503 && /*! VGMHead.lngHzES5506 &&*/
+		! VGMHead.lngHzNESAPU && ! VGMHead.lngHzES5503 && ! VGMHead.lngHzES5506 &&
 		! VGMHead.lngHzGA20 && ! VGMHead.lngHzX1_010 && ! VGMHead.lngHzC352 &&
 		! VGMHead.lngHzYMF278B)
 	{
@@ -323,6 +325,16 @@ static void FindUsedROMData(void)
 		{
 			SetChipSet(0x01);
 			c140_write(0xFF, 0x00, VGMHead.bytC140Type);
+		}
+	}
+	if (VGMHead.lngHzES5506)
+	{
+		SetChipSet(0x00);
+		es550x_w(0xFF, VGMHead.lngHzES5506 >> 31);
+		if (VGMHead.lngHzES5506 & 0x40000000)
+		{
+			SetChipSet(0x01);
+			es550x_w(0xFF, VGMHead.lngHzES5506 >> 31);
 		}
 	}
 	
@@ -572,13 +584,12 @@ static void FindUsedROMData(void)
 				break;
 			case 0xBE:	// ES5506 write (8-bit data)
 				SetChipSet((VGMPnt[0x01] & 0x80) >> 7);
-				//es5506_write(VGMPnt[0x01] & 0x7F, VGMPnt[0x02]);
+				es550x_w(VGMPnt[0x01] & 0x7F, VGMPnt[0x02]);
 				CmdLen = 0x03;
 				break;
 			case 0xD6:	// ES5506 write (16-bit data)
 				SetChipSet((VGMPnt[0x01] & 0x80) >> 7);
-				//es5506_write((VGMPnt[0x01] & 0x7F) + 0x00, VGMPnt[0x02]);
-				//es5506_write((VGMPnt[0x01] & 0x7F) + 0x01, VGMPnt[0x03]);
+				es550x_w16(VGMPnt[0x01] & 0x7F, (VGMPnt[0x02] << 8) | (VGMPnt[0x03] << 0));
 				CmdLen = 0x04;
 				break;
 			case 0xC8:	// X1-010 write

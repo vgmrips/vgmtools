@@ -255,6 +255,11 @@ typedef struct es5503_data
 	UINT8 RegData[0xE2];
 	UINT8 RegFirst[0xE2];
 } ES5503_DATA;
+typedef struct vsu_data
+{
+	UINT8 RegData[0x160];
+	UINT8 RegFirst[0x160];
+} VSU_DATA;
 
 typedef struct all_chips
 {
@@ -293,6 +298,7 @@ typedef struct all_chips
 	ES5503_DATA ES5503;
 	C352_DATA C352;
 	X1_010_DATA X1_010;
+	VSU_DATA VSU;
 } ALL_CHIPS;
 
 
@@ -339,6 +345,7 @@ bool okim6258_write(UINT8 Port, UINT8 Data);
 bool c352_write(UINT16 Offset, UINT16 Value);
 bool x1_010_write(UINT16 Offset, UINT8 Value);
 bool es5503_write(UINT8 Register, UINT8 Data);
+bool vsu_write(UINT16 Register, UINT8 Data);
 
 // Function Prototypes from vgm_cmp.c
 bool GetNextChipCommand(void);
@@ -391,6 +398,7 @@ void ResetAllChips(void)
 	ALL_CHIPS* TempChp;
 	UINT8 RegBak[0x05];
 	UINT8 ClkBak[0x05];
+	UINT8 VSUBak[0x60];
 	
 	for (CurChip = 0x00; CurChip < ChipCount; CurChip ++)
 	{
@@ -402,7 +410,9 @@ void ResetAllChips(void)
 		//RegBak[0x03] = TempChp->YM2608.RegData[0x010];
 		//RegBak[0x04] = TempChp->YM2610.RegData[0x100];
 		memcpy(ClkBak, &TempChp->OKIM6258.RegData[0x08], 0x05);
+		memcpy(VSUBak, &TempChp->VSU.RegData[0x100], 0x60);
 		
+		// TODO: reset RegFist for each chip separately
 		memset(TempChp, 0xFF, sizeof(ALL_CHIPS));
 		
 		TempChp->GGSt = 0x00;
@@ -420,6 +430,7 @@ void ResetAllChips(void)
 		//TempChp->YM2608.RegData[0x010] = RegBak[0x03];
 		//TempChp->YM2610.RegData[0x100] = RegBak[0x04];
 		memcpy(&TempChp->OKIM6258.RegData[0x08], ClkBak, 0x05);
+		memcpy(&TempChp->VSU.RegData[0x100], VSUBak, 0x60);
 	}
 	
 	VGM_Loops = true;
@@ -2673,6 +2684,68 @@ bool es5503_write(UINT8 Register, UINT8 Data)
 		return true;
 	if ((Register & 0xE0) == 0xA0)
 		return true;	// don't strip Control register (can be changed by sound chip itself)
+	
+	if (! chip->RegFirst[Register] && Data == chip->RegData[Register])
+		return false;
+	
+	chip->RegFirst[Register] = JustTimerCmds;
+	chip->RegData[Register] = Data;
+	return true;
+}
+
+bool vsu_write(UINT16 Register, UINT8 Data)
+{
+	VSU_DATA* chip = &ChDat->VSU;
+	UINT8 CurChn;
+	UINT16 ChnBaseReg;
+	
+	if (Register == 0x160)
+	{
+		// All Channels Off register
+		for (CurChn = 0; CurChn < 6; CurChn ++)
+			chip->RegFirst[CurChn] = 0x01;
+		return true;
+	}
+	else if (Register >= 0x160)
+	{
+		return true;
+	}
+	else if (Register >= 0x100)
+	{
+		CurChn = (Register >> 4) & 0x07;
+		ChnBaseReg = Register & ~0x00F;
+		switch(Register & 0x0F)
+		{
+		case 0x00:	// Mode
+			if (Data & 0x80)	// Key On
+				chip->RegFirst[Register] = 0x01;
+			break;
+		case 0x01:	// Volume
+			break;
+		case 0x02:	// Frequency LSB
+		case 0x03:	// Frequency MSB
+			if (chip->RegData[ChnBaseReg | 0x05] & 0x40)	// Sweeo On
+				chip->RegFirst[Register] = 0x01;
+			break;
+		case 0x04:	// Envelope
+			if (chip->RegData[ChnBaseReg | 0x05] & 0x01)	// Volume Envelope On
+				chip->RegFirst[Register] = 0x01;
+			break;
+		case 0x05:	// Envelope Control
+			if (Data & 0x01)	// Volume Envelope On
+			{
+				chip->RegFirst[ChnBaseReg | 0x04] = 0x01;
+				chip->RegFirst[Register] = 0x01;
+			}
+			if (Data & 0x40)	// Sweep On
+			{
+				chip->RegFirst[ChnBaseReg | 0x02] = 0x01;
+				chip->RegFirst[ChnBaseReg | 0x03] = 0x01;
+				chip->RegFirst[Register] = 0x01;
+			}
+			break;
+		}
+	}
 	
 	if (! chip->RegFirst[Register] && Data == chip->RegData[Register])
 		return false;

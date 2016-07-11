@@ -713,7 +713,7 @@ static void MakeDrumTable(void)
 				if (EarlyDataWrt && DrmBufSize >= 2 && DrumEnd == 0x01)
 				{
 					// Add the very last sample BEFORE the split command to the actual sample
-					if (VGMWrite[CurChip][LastWrt].Value == 0x80)
+					if (VGMWrite[CurChip][LastWrt].Value == Smpl80Value)
 					{
 						SkippedWrt = LastWrt;
 						LastWrt --;
@@ -739,6 +739,35 @@ static void MakeDrumTable(void)
 					DrumPlay.WriteSt = LastWrt | (CurChip << 31);
 					DrumPlay.WriteEnd = LastWrt;
 					AddDrum(1, DrumBuf + DrmBufSize - 1, &DrumPlay);
+					DrmBufSize = 0x00;
+					continue;
+				}
+				else if (Skip80Sample == 11 && DrmBufSize > 2 &&
+					VGMWrite[CurChip][LastWrt].Value == Smpl80Value)
+				{
+					// Star Mobile sends one or two 0x08 bytes before starting any sound
+					UINT32 splitWrites;
+					
+					// add drum without last data write
+					DrumPlay.WriteEnd = LastWrt - 1;
+					while(DrumPlay.WriteEnd && VGMWrite[CurChip][DrumPlay.WriteEnd].Port != 0x01)
+						DrumPlay.WriteEnd --;
+					splitWrites = 1;
+					if (DrumEnd == 0x01 && DrumBuf[DrmBufSize - splitWrites - 1] == Smpl80Value)
+					{
+						splitWrites ++;
+						SkippedWrt = LastWrt;
+						LastWrt = DrumPlay.WriteEnd;
+						DrumPlay.WriteEnd --;
+						while(DrumPlay.WriteEnd && VGMWrite[CurChip][DrumPlay.WriteEnd].Port != 0x01)
+							DrumPlay.WriteEnd --;
+					}
+					AddDrum(DrmBufSize - splitWrites, DrumBuf, &DrumPlay);
+					
+					// add that write seperately
+					DrumPlay.WriteSt = LastWrt | (CurChip << 31);
+					DrumPlay.WriteEnd = LastWrt;
+					AddDrum(1, DrumBuf + DrmBufSize - splitWrites, &DrumPlay);
 					DrmBufSize = 0x00;
 					continue;
 				}
@@ -807,6 +836,23 @@ static void MakeDrumTable(void)
 				SmplLastWrt = TempWrt->SmplPos;
 				LastWrt = CurWrt;
 			}
+		}
+		if (Skip80Sample == 1 && DrmBufSize > 1 &&
+			VGMWrite[CurChip][LastWrt].Value == Smpl80Value)
+		{
+			// Castlevania sends a 0x80 byte when stopping a sound
+			
+			// add drum without last data write
+			DrumPlay.WriteEnd = LastWrt - 1;
+			while(DrumPlay.WriteEnd && VGMWrite[CurChip][DrumPlay.WriteEnd].Port != 0x01)
+				DrumPlay.WriteEnd --;
+			AddDrum(DrmBufSize - 1, DrumBuf, &DrumPlay);
+			
+			// add that write seperately
+			DrumPlay.WriteSt = LastWrt | (CurChip << 31);
+			DrumPlay.WriteEnd = LastWrt;
+			AddDrum(1, DrumBuf + DrmBufSize - 1, &DrumPlay);
+			DrmBufSize = 0x00;
 		}
 		if (DrmBufSize)
 		{

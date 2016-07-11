@@ -1,5 +1,6 @@
 // vgm_cmp.c - VGM Compressor
 //
+// TODO: fix ResetAllChips
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -57,6 +58,7 @@ bool okim6258_write(UINT8 Port, UINT8 Data);
 bool c352_write(UINT16 Register, UINT16 Data);
 bool x1_010_write(UINT16 Offset, UINT8 Value);
 bool es5503_write(UINT8 Register, UINT8 Data);
+bool vsu_write(UINT16 Register, UINT8 Data);
 
 VGM_HEADER VGMHead;
 UINT32 VGMDataLen;
@@ -767,6 +769,12 @@ static void CompressVGMData(void)
 			case 0xC6:	// WonderSwan memory write
 				SetChipSet((VGMPnt[0x01] & 0x80) >> 7);
 				WriteEvent = true;
+				CmdLen = 0x04;
+				break;
+			case 0xC7:	// WonderSwan memory write
+				SetChipSet((VGMPnt[0x01] & 0x80) >> 7);
+				TempSht = ((VGMPnt[0x01] & 0x7F) << 8) | (VGMPnt[0x02] << 0);
+				WriteEvent = vsu_write(TempSht, VGMPnt[0x03]);
 				CmdLen = 0x04;
 				break;
 			case 0xC8:	// X1-010 write
