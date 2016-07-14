@@ -26,7 +26,10 @@ INT32 VGMSmplPos;
 //UINT32 DstDataLen;
 char FileBase[0x100];
 
-bool OPL3to2;
+#define CONV_3toDUAL2	0x00
+#define CONV_DUAL2to3	0x01
+#define CONV_DUAL2to2	0x02
+UINT8 ConvMode;
 #define OPL3_LEFT	0x10
 #define OPL3_RIGHT	0x20
 UINT8 OPL2ChipMap[0x02] = {0x01, 0x00};
@@ -39,17 +42,28 @@ int main(int argc, char* argv[])
 	bool NeedProcessing;
 	UINT32 NewClk_OPL2;
 	UINT32 NewClk_OPL3;
+	int OPLout;
 	
 	printf("OPL 2<->3 Converter\n-------------------\n");
 	
 	ErrVal = 0;
 	argbase = 1;
-	OPL3to2 = true;
+	ConvMode = 0xFF;
 	while(argbase < argc && argv[argbase][0] == '-')
 	{
-		if (! stricmp(argv[argbase], "-toopl3"))
+		if (! stricmp(argv[argbase], "-3d2"))
 		{
-			OPL3to2 = false;
+			ConvMode = CONV_3toDUAL2;
+			argbase ++;
+		}
+		else if (! stricmp(argv[argbase], "-d23"))
+		{
+			ConvMode = CONV_DUAL2to3;
+			argbase ++;
+		}
+		else if (! stricmp(argv[argbase], "-d22"))
+		{
+			ConvMode = CONV_DUAL2to2;
 			argbase ++;
 		}
 		else
@@ -57,17 +71,19 @@ int main(int argc, char* argv[])
 			break;
 		}
 	}
+	if (argc < argbase + 1 || ConvMode == 0xFF)
+	{
+		printf("Usage: opl_23 -mode input.vgm [output.vgm]\n");
+		printf("Modes:\n");
+		printf("    3d2 - OPL3 -> Dual OPL2\n");
+		printf("    d23 - Dual OPL2 -> OPL3\n");
+		printf("    d22 - Dual OPL2 -> Single OPL2\n");
+		return 0;
+	}
 	
 	printf("File Name:\t");
-	if (argc <= argbase + 0)
-	{
-		ReadFilename(FileName, 0x100);
-	}
-	else
-	{
-		strcpy(FileName, argv[argbase + 0]);
-		printf("%s\n", FileName);
-	}
+	strcpy(FileName, argv[argbase + 0]);
+	printf("%s\n", FileName);
 	if (! strlen(FileName))
 		return 0;
 	
@@ -79,9 +95,11 @@ int main(int argc, char* argv[])
 	}
 	printf("\n");
 	
+	OPLout = 0;
 	NeedProcessing = false;
-	if (OPL3to2)
+	switch(ConvMode)
 	{
+	case CONV_3toDUAL2:
 		if (VGMHead.lngHzYMF262)
 		{
 			if (VGMHead.lngHzYMF262 & 0x40000000)
@@ -95,9 +113,9 @@ int main(int argc, char* argv[])
 				NewClk_OPL3 = 0x00;
 			}
 		}
-	}
-	else
-	{
+		OPLout = 2;
+		break;
+	case CONV_DUAL2to3:
 		if (VGMHead.lngHzYM3812)
 		{
 			if (~VGMHead.lngHzYM3812 & 0xC0000000)
@@ -108,9 +126,27 @@ int main(int argc, char* argv[])
 			{
 				NeedProcessing = true;
 				NewClk_OPL2 = 0x00;
-				NewClk_OPL3 = VGMHead.lngHzYM3812 * 4;
+				NewClk_OPL3 = (VGMHead.lngHzYM3812 & ~0xC0000000) * 4;
 			}
 		}
+		OPLout = 3;
+		break;
+	case CONV_DUAL2to2:
+		if (VGMHead.lngHzYM3812)
+		{
+			if (~VGMHead.lngHzYM3812 & 0x40000000)
+			{
+				printf("Sorry, but I need DualOPL2!\n");
+			}
+			else
+			{
+				NeedProcessing = true;
+				NewClk_OPL2 = VGMHead.lngHzYM3812 & ~0xC0000000;
+				NewClk_OPL3 = VGMHead.lngHzYMF262;
+			}
+		}
+		OPLout = 2;
+		break;
 	}
 	if (NeedProcessing)
 	{
@@ -123,7 +159,7 @@ int main(int argc, char* argv[])
 		else
 			strcpy(FileName, "");
 		if (FileName[0] == '\0')
-			sprintf(FileName, "%s_opl%u.vgm", FileBase, (OPL3to2 ? 2 : 3));
+			sprintf(FileName, "%s_opl%u.vgm", FileBase, OPLout);
 		WriteVGMFile(FileName);
 	}
 	
@@ -242,22 +278,36 @@ static void CompressVGMData(void)
 	UINT8 TempByt;
 	UINT16 TempSht;
 	UINT32 TempLng;
-	UINT32 ROMSize;
+	//UINT32 ROMSize;
 	//UINT32 DataStart;
 	//UINT32 DataLen;
 	UINT32 CmdLen;
 	bool StopVGM;
 	UINT8* VGMPnt;
+	UINT32 VGMPosN;
+	bool UsePosN;
+	bool SkipCmdCopy;
+	UINT16 LastOPLCmd;
+	UINT32 LoopPosN;
+	
+	UsePosN = false;
+	if (ConvMode == CONV_DUAL2to2)
+		UsePosN = true;
 	
 	//DstData = (UINT8*)malloc(VGMDataLen + 0x100);
 	VGMPos = VGMHead.lngDataOffset;
+	VGMPosN = VGMPos;
 	//DstPos = VGMHead.lngDataOffset;
 	VGMSmplPos = 0;
 	//memcpy(DstData, VGMData, VGMPos);	// Copy Header
 	
 	StopVGM = false;
+	SkipCmdCopy = false;
+	LastOPLCmd = 0xFFFF;
 	while(VGMPos < VGMHead.lngEOFOffset)
 	{
+		if (VGMPos == VGMHead.lngLoopOffset)
+			LoopPosN = VGMPosN;
 		CmdLen = 0x00;
 		Command = VGMData[VGMPos + 0x00];
 		
@@ -337,8 +387,9 @@ static void CompressVGMData(void)
 				CmdLen = 0x03;
 				break;
 			case 0x5A:	// YM3812 write
-				if (! OPL3to2)
+				switch(ConvMode)
 				{
+				case CONV_DUAL2to3:
 					switch(VGMPnt[0x01] & 0xF0)
 					{
 					case 0xC0:
@@ -358,13 +409,28 @@ static void CompressVGMData(void)
 						VGMPnt[0x00] = 0x5E;
 					else
 						VGMPnt[0x00] = 0x5E + OPL2ChipMap[ChipID];
+					break;
+				case CONV_DUAL2to2:
+					TempSht = (VGMPnt[0x01] << 8) | (VGMPnt[0x02] << 0);
+					if (! ChipID)
+					{
+						LastOPLCmd = TempSht;
+					}
+					else
+					{
+						if (LastOPLCmd != TempSht)
+							printf("Warning at Pos 0x%04X: different OPL writes (%04X != %04X)\n",
+									VGMPos, LastOPLCmd, TempSht);
+						SkipCmdCopy = true;
+					}
+					break;
 				}
 				CmdLen = 0x03;
 				break;
 			case 0x5E:	// YMF262 write port 0
 			case 0x5F:	// YMF262 write port 1
 				TempByt = Command & 0x01;
-				if (OPL3to2)
+				if (ConvMode == CONV_3toDUAL2)
 				{
 					switch(VGMPnt[0x01] & 0xF0)
 					{
@@ -460,11 +526,43 @@ static void CompressVGMData(void)
 			}
 		}
 		
+		if (UsePosN)
+		{
+			if (SkipCmdCopy)
+			{
+				SkipCmdCopy = false;
+			}
+			else
+			{
+				memcpy(&VGMData[VGMPosN], &VGMData[VGMPos], CmdLen);
+				VGMPosN += CmdLen;
+			}
+		}
 		VGMPos += CmdLen;
 		if (StopVGM)
 			break;
 	}
 	printf("\t\t\t\t\t\t\t\t\r");
+	
+	if (UsePosN)
+	{
+		if (LoopPosN)
+		{
+			LoopPosN -= 0x1C;
+			memcpy(&VGMData[0x1C], &LoopPosN, 0x04);
+		}
+		if (VGMPos < VGMHead.lngEOFOffset)
+		{
+			TempLng = VGMHead.lngEOFOffset - VGMPos;
+			memmove(&VGMData[VGMPosN], &VGMData[VGMPos], TempLng);
+		}
+		if (VGMHead.lngGD3Offset)
+		{
+			TempLng = VGMHead.lngGD3Offset - 0x14;
+			TempLng -= (VGMPos - VGMPosN);
+			memcpy(&VGMData[0x14], &TempLng, 0x04);
+		}
+	}
 	
 	return;
 }

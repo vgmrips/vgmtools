@@ -19,6 +19,7 @@ OBJ = obj
 TOOLS = \
 	dro2vgm \
 	imf2vgm \
+	opl_23 \
 	optvgmrf \
 	raw2vgm \
 	vgm2txt \
@@ -52,6 +53,7 @@ all: $(OBJ) $(TOOLS)
 .SECONDEXPANSION:
 dro2vgm_OBJS = dro2vgm.o
 imf2vgm_OBJS = imf2vgm.o
+opl_23_OBJS = opl_23.o
 opt_oki_OBJS = opt_oki.o
 optdac_OBJS = optdac.o
 optvgm32_OBJS = optvgm32.o
