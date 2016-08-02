@@ -2429,6 +2429,10 @@ bool k051649_write(UINT8 Port, UINT8 Register, UINT8 Data)
 		DataPtr = &chip->WaveData[Register];
 		break;*/
 		return true;
+	case 0x05:	// k051649_test_w
+		return true;
+	default:
+		return true;
 	}
 	
 	if (! *DataFirst && Data == *DataPtr)

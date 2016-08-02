@@ -340,10 +340,9 @@ static void WriteVGM2Txt(const char* FileName)
 	WriteClockText(TempStr, VGMHead.lngHzGBDMG, "GB DMG");
 	fprintf(hFile, "GB DMG Clock:\t\t%s\n", TempStr);
 	
+	WriteClockText(TempStr, VGMHead.lngHzNESAPU, "NES APU");
 	if (VGMHead.lngHzNESAPU & 0x80000000)
-		WriteClockText(TempStr, VGMHead.lngHzNESAPU, "NES APU + FDS");
-	else
-		WriteClockText(TempStr, VGMHead.lngHzNESAPU, "NES APU");
+		sprintf(TempStr, "%s (with FDS channel)", TempStr);
 	fprintf(hFile, "NES APU Clock:\t\t%s\n", TempStr);
 	
 	WriteClockText(TempStr, VGMHead.lngHzMultiPCM, "MultiPCM");
@@ -362,6 +361,8 @@ static void WriteVGM2Txt(const char* FileName)
 	fprintf(hFile, "OKIM6295 Clock:\t\t%s\n", TempStr);
 	
 	WriteClockText(TempStr, VGMHead.lngHzK051649, "K051649");
+	if (VGMHead.lngHzK051649 & 0x80000000)
+		sprintf(TempStr, "%s (SCC+ mode)", TempStr);
 	fprintf(hFile, "K051649 Clock:\t\t%s\n", TempStr);
 	
 	WriteClockText(TempStr, VGMHead.lngHzK054539, "K054539");

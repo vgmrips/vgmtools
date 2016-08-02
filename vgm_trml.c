@@ -455,8 +455,8 @@ static void PrepareChipMemory(void)
 		{
 			if (! CurCSet || (VGMHead.lngHzK051649 & 0x40000000))
 			{
-				// 5 Chn * (2 Regs + 0x20 Waveform) + CurOfs + ChnMask
-				TempRC->K051649.Regs.RegCount = 0xA6;
+				// 5 Chn * (3 Regs + 0x20 Waveform) + ChnMask + Deform
+				TempRC->K051649.Regs.RegCount = 0xB1;
 				TempRC->K051649.Chns.ChnCount = 0x05;
 			}
 		}
@@ -790,6 +790,7 @@ static void SetImportantCommands(void)
 				// NMK112 Bank Base (10-13) can be enforced with -state parameter
 				break;
 			case 0x19:	// K051649
+				TempReg->RegMask[0xB0] |= 0x80;	// deformation register
 				break;
 			case 0x1A:	// K054539
 				TempReg->RegMask[0x22E] |= 0x80;
@@ -1328,7 +1329,49 @@ static void InitializeVGM(UINT8** DstDataRef, UINT32* DstPosRef)
 				break;
 			case 0x19:	// K051649
 				ChipCmd = 0xD2;
-				CmdType = 0x20;
+				CmdType = 0xFF;
+				
+				CurReg = 0xB0;	// Deformation Register
+				if ((TempReg->RegMask[CurReg] & 0x7F) == 0x01)
+				{
+					DstData[DstPos + 0x00] = ChipCmd;
+					DstData[DstPos + 0x01] = (CurCSet << 7) | 0x05;
+					DstData[DstPos + 0x02] = 0x00;
+					DstData[DstPos + 0x03] = TempReg->RegData.R08[CurReg];
+					DstPos += 0x04;
+					TempReg->RegMask[CurReg] = 0x00;
+				}
+				
+				for (CurReg = 0x00; CurReg < 0xB0; CurReg ++)
+				{
+					if ((TempReg->RegMask[CurReg] & 0x6F) == 0x01)
+					{
+						DstData[DstPos + 0x00] = ChipCmd;
+						if (CurReg < 0xA0)	// waveform
+						{
+							TempByt = (TempReg->RegMask[CurReg] & 0x10) ? 0x04 : 0x00;
+							DstData[DstPos + 0x01] = (CurCSet << 7) | TempByt;
+							DstData[DstPos + 0x02] = CurReg - 0x00;
+						}
+						else if (CurReg < 0xAA)	// frequency
+						{
+							DstData[DstPos + 0x01] = (CurCSet << 7) | 0x01;
+							DstData[DstPos + 0x02] = CurReg - 0xA0;
+						}
+						else if (CurReg < 0xAF)	// volume
+						{
+							DstData[DstPos + 0x01] = (CurCSet << 7) | 0x02;
+							DstData[DstPos + 0x02] = CurReg - 0xAA;
+						}
+						else // Channel Mask
+						{
+							DstData[DstPos + 0x01] = (CurCSet << 7) | 0x03;
+							DstData[DstPos + 0x02] = CurReg & 0xFF;
+						}
+						DstData[DstPos + 0x03] = TempReg->RegData.R08[CurReg];
+						DstPos += 0x04;
+					}
+				}
 				break;
 			case 0x1A:	// K054539
 				ChipCmd = 0xD3;
@@ -1980,7 +2023,6 @@ static UINT32 ReadCommand(UINT8 Mask)
 		break;
 	case 0xD0:	// YMF278B write
 	case 0xD1:	// YMF271 write
-	case 0xD2:	// SCC1 write
 	case 0xD3:	// K054539 write
 	case 0xD4:	// C140 write
 	case 0xC5:	// SCSP write
@@ -1992,14 +2034,12 @@ static UINT32 ReadCommand(UINT8 Mask)
 			TempChp = &RC[ChipID].YMF278B;
 		else if (Command == 0xD1)
 			TempChp = &RC[ChipID].YMF271;
-		else if (Command == 0xD2)
-			TempChp = &RC[ChipID].K051649;
 		else if (Command == 0xD3)
 			TempChp = &RC[ChipID].K054539;
 		else if (Command == 0xD4)
 		{
 			TempChp = &RC[ChipID].C140;
-			if(CmdReg >= 0x1f8)
+			if (CmdReg >= 0x1F8)
 				CmdReg -= 8;
 		}
 		else if (Command == 0xC5)
@@ -2020,6 +2060,44 @@ static UINT32 ReadCommand(UINT8 Mask)
 				if (Mask == 0x01)
 					TempReg->RegData.R08[CmdReg] = VGMData[VGMPos + 0x03];
 				TempReg->RegMask[CmdReg] |= Mask;
+			}
+		}
+		
+		CmdLen = 0x04;
+		break;
+	case 0xD2:	// SCC1 write
+		ChipID = VGMData[VGMPos + 0x01] >> 7;
+		TempChp = &RC[ChipID].K051649;
+		TempReg = &TempChp->Regs;
+		
+		if (TempReg->RegCount)
+		{
+			CmdReg = VGMData[VGMPos + 0x01] & 0x7F;
+			ChnReg = VGMData[VGMPos + 0x02];
+			if (CmdReg == 0x00 || CmdReg == 0x04)
+				ChnReg = 0x00 + ChnReg;
+			else if (CmdReg == 0x01)
+				ChnReg = 0xA0 + ChnReg;
+			else if (CmdReg == 0x02)
+				ChnReg = 0xAA + ChnReg;
+			else if (CmdReg == 0x03)
+				ChnReg = 0xAF;
+			else if (CmdReg == 0x05)
+				ChnReg = 0xB0;
+			else
+				ChnReg = 0xFF;
+			if (ChnReg < TempReg->RegCount)
+			{
+				if (Mask == 0x01)
+					TempReg->RegData.R08[ChnReg] = VGMData[VGMPos + 0x03];
+				TempReg->RegMask[ChnReg] |= Mask;
+				if (ChnReg < 0xA0)
+				{
+					if (CmdReg == 0x04)
+						TempReg->RegMask[ChnReg] |= 0x10;	// mark SCC+ waveform write
+					else
+						TempReg->RegMask[ChnReg] &= ~0x10;	// mark SCC waveform write
+				}
 			}
 		}
 		

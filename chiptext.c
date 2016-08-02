@@ -2894,6 +2894,12 @@ void k051649_write(char* TempStr, UINT8 Port, UINT8 Register, UINT8 Data)
 		sprintf(WriteStr, "Ch %u: Write Waveform at %02X = %02X",
 				Register >> 5, Register & 0x1F, Data);
 		break;
+	case 0x05:	// k051649_test_w
+		sprintf(WriteStr, "Deformation Register = %02X", Data);
+		break;
+	default:
+		sprintf(WriteStr, "Port %x Reg 0x%02X Data 0x%02X", Port, Register, Data);
+		break;
 	}
 	
 	sprintf(TempStr, "%s%s", ChipStr, WriteStr);
