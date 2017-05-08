@@ -759,6 +759,8 @@ static void SetImportantCommands(void)
 					TempReg->RegMask[0x20 | CurReg] |= 0x80;
 				break;
 			case 0x14:	// NES APU
+				//TempReg->RegMask[0x15] |= 0x80;
+				TempReg->RegMask[0x17] |= 0x80;	// SOFTCLK register
 				break;
 			case 0x15:	// MultiPCM
 				break;
