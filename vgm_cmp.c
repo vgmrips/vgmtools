@@ -530,8 +530,9 @@ static void CompressVGMData(void)
 				WriteEvent = sn76496_write(VGMPnt[0x01]);
 				CmdLen = 0x02;
 				break;
-			case 0x51:	// YM2413 write
 			case 0xBD:	// SAA1099 write
+				SetChipSet((VGMPnt[0x01] & 0x80) >> 7);
+			case 0x51:	// YM2413 write
 				WriteEvent = ym2413_write(VGMPnt[0x01], VGMPnt[0x02]);
 				CmdLen = 0x03;
 				break;
