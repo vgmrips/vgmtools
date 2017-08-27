@@ -612,7 +612,7 @@ static void SplitVGMData(const UINT32 SplitDelay)
 		}
 		VGMPos += CmdLen;
 		
-		if (CmdDelay >= 200)
+		if ((INT32)CmdDelay >= 200)
 			LastCmdDly = VGMSmplPos;
 		if (! IsDelay)
 		{
@@ -644,7 +644,8 @@ static void SplitVGMData(const UINT32 SplitDelay)
 			}
 			else if (CmdDelay >= SplitDelay || StopVGM)
 			{
-				TempLng = VGMSmplPos - CmdDelay;
+				//TempLng = VGMSmplPos - CmdDelay;
+				TempLng = LastCmdDly;
 				if (TempLng > VGMSmplStart)	// prevent 0-sample files
 				{
 					TrimVGMData(VGMSmplStart, 0x00, TempLng, false, true);
@@ -657,7 +658,7 @@ static void SplitVGMData(const UINT32 SplitDelay)
 				CmdTimer = 0;
 #endif
 				
-				VGMSmplStart = VGMSmplPos;
+				VGMSmplStart = LastCmdDly;
 				CmdDelay = 0x00;
 				EmptyFile = true;
 				AddMask = 0;

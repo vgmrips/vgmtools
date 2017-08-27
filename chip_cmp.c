@@ -1812,6 +1812,7 @@ bool gameboy_write_reg(UINT8 Register, UINT8 Data)
 	}
 	if (Register < 0x20 && ! (chip->RegData[0x16] & 0x80))
 		return false;	// when the chip is off, writes have no effect (except Wave RAM)
+	return true;	// disable further optimization until I figure out what doesn't break actual GB hardware
 	
 	// uncomment these lines for sample-accurateness
 	// (otherwise the squares may change one sample too late)

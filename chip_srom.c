@@ -765,11 +765,21 @@ static void FM_ADPCMAWrite(YM2610_DATA *F2610, UINT8 r, UINT8 v)
 				{
 					// *** start adpcm ***
 					adpcm[c].flag = 1;
+					
+					adpcm[c].end &= (1 << 20) - 1;	// YM2610 checks only 20 bits while playing
+					adpcm[c].end |= adpcm[c].start & ~((1 << 20) - 1);
+					if (adpcm[c].end < adpcm[c].start)
+					{
+						printf("YM2610: ADPCM-A Start %06X > End %06X\n", adpcm[c].start, adpcm[c].end);
+						adpcm[c].end += (1 << 20);
+					}
+					adpcm[c].end ++;
 
 					if(adpcm[c].start >= F2610->AP_ROMSize)	// Check Start in Range
 					{
 						printf("YM2610: ADPCM-A start out of range: $%08x\n", adpcm[c].start);
 						adpcm[c].flag = 0;
+						continue;
 					}
 					if(adpcm[c].end > F2610->AP_ROMSize)	// Check End in Range
 					{
@@ -821,10 +831,6 @@ static void FM_ADPCMAWrite(YM2610_DATA *F2610, UINT8 r, UINT8 v)
 								F2610->ADPCMReg[0x20 + c]) << ADPCMA_ADDRESS_SHIFT);
 			adpcm[c].end   += (1<<ADPCMA_ADDRESS_SHIFT) - 1;
 			//adpcm[c].end   += (2<<ADPCMA_ADDRESS_SHIFT) - 1; // Puzzle De Pon-Patch
-			
-			adpcm[c].end &= (1 << 20) - 1;	// YM2610 checks only 20 bits while playing
-			adpcm[c].end |= adpcm[c].start & ~((1 << 20) - 1);
-			adpcm[c].end ++;
 			
 			if (adpcm[c].flag)
 			{
