@@ -24,6 +24,9 @@
 #include "common.h"
 
 
+//#define SHOW_FILE_STATS
+
+
 #ifdef WIN32
 #define DIR_SEP	'\\'
 #else
@@ -35,7 +38,9 @@ static bool OpenVGMFile(const char* FileName);
 static wchar_t* ReadWStrFromFile(gzFile hFile, UINT32* FilePos, UINT32 EOFPos);
 static void ReadDirectory(const char* DirName);
 static void ReadPlaylist(const char* FileName);
+#ifdef SHOW_FILE_STATS
 static void ShowFileStats(char* FileTitle);
+#endif
 static void PrintSampleTime(char* buffer, const UINT32 Samples, bool LoopMode);
 static void ShowStatistics(void);
 UINT32 GetTitleLines(UINT32* StrAlloc, char** String, const char* TitleStr);
@@ -138,8 +143,10 @@ int main(int argc, char* argv[])
 	if (TrkCntDigits < 2)
 		TrkCntDigits = 2;
 	
+#ifdef SHOW_FILE_STATS
 	ShowFileStats(NULL);
 	printf("\n\n");
+#endif
 	
 	ShowStatistics();
 	
@@ -372,8 +379,11 @@ static void ReadDirectory(const char* DirName)
 #endif
 	strcpy(FileName, FilePath);
 	TempPnt = FileName + strlen(FileName);
+	
+#ifdef SHOW_FILE_STATS
 	printf("\t\t    Sample\t    Time\n");
 	printf("File Title\tTotal\tLoop\tTotal\tLoop\n\n");
+#endif
 
 #ifdef WIN32
 	do
@@ -391,8 +401,10 @@ static void ReadDirectory(const char* DirName)
 		strcpy(TempPnt, FindFileData.cFileName);
 		if (! OpenVGMFile(FileName))
 			printf("%s\tError opening the file!\n", TempPnt);
+#ifdef SHOW_FILE_STATS
 		else
 			ShowFileStats(TempPnt);
+#endif
 SkipFile:
 		RetVal = FindNextFile(hFindFile, &FindFileData);
 	}
@@ -411,8 +423,10 @@ SkipFile:
 			strcpy(TempPnt, globbuf.gl_pathv[i]);
 			if (! OpenVGMFile(globbuf.gl_pathv[i]))
 				printf("%s\tError opening the file!\n", TempPnt);
+#ifdef SHOW_FILE_STATS
 			else
 				ShowFileStats(TempPnt);
+#endif
 		}
 	}
 #endif
@@ -457,8 +471,10 @@ static void ReadPlaylist(const char* FileName)
 	if (hFile == NULL)
 		return;
 	
+#ifdef SHOW_FILE_STATS
 	printf("\t\t    Sample\t    Time\n");
 	printf("File Title\tTotal\tLoop\tTotal\tLoop\n\n");
+#endif
 	LineNo = 0;
 	IsV2Fmt = false;
 	METASTR_LEN = strlen(M3UV2_META);
@@ -510,8 +526,10 @@ static void ReadPlaylist(const char* FileName)
 //printf("  Full File Path: %s\n", FileVGM);
 		if (! OpenVGMFile(FileVGM))
 			printf("%s\tError opening the file!\n", RetStr);
+#ifdef SHOW_FILE_STATS
 		else
 			ShowFileStats(RetStr);
+#endif
 		LineNo ++;
 	}
 	
@@ -520,6 +538,7 @@ static void ReadPlaylist(const char* FileName)
 	return;
 }
 
+#ifdef SHOW_FILE_STATS
 static void ShowFileStats(char* FileTitle)
 {
 	UINT32 SmplTotal;
@@ -552,6 +571,7 @@ static void ShowFileStats(char* FileTitle)
 	
 	return;
 }
+#endif
 
 static void PrintSampleTime(char* buffer, const UINT32 Samples, bool LoopMode)
 {
@@ -600,9 +620,8 @@ static void ShowStatistics(void)
 	TempStrAlloc = 0x00;
 	TempStr = NULL;
 	
-	printf("Song list, in approximate game order:\n");
-	printf("Song name                           Length:\n");
-	printf("                                    Total  Loop\n");
+	printf("Song                        Length |Total |Loop\n");
+	printf("-----------------------------------+------+----\n");
 	for (CurTL = 0; CurTL < TrackCount; CurTL ++)
 	{
 		char* TitleWithNumber;
