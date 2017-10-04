@@ -6,6 +6,7 @@
 //#error "Trimming broken"
 // TODO: Rethink concept of trimming. (start/end point trimming could be simplified?)
 // TODO: support "note" warnings for all chips, write modified warning for NES/GB/VSU ("possible left note on")
+// TODO: surpress "note" warnings when trimming with loop=-1, end=-2
 
 #include <stdio.h>
 #include <string.h>
