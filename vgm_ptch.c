@@ -1350,6 +1350,10 @@ static UINT8 PatchVGM(int ArgCount, char* ArgList[])
 			if (VGMHead.lngVersion >= OldVal)
 			{
 				NewVal = strtoul(CmdData, NULL, 0);
+
+				if(!(NewVal & 0x3fffffff))
+					NewVal |= *ChipHzPnt & 0x3fffffff;
+
 				if (ChipHzPnt != NULL && NewVal != *ChipHzPnt)
 				{
 					*ChipHzPnt = NewVal;
