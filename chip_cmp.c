@@ -1314,6 +1314,17 @@ bool ym3812_write(UINT8 Register, UINT8 Data)
 		if (! ChDat->YM3812.RegFirst[Register] && Data == ChDat->YM3812.RegData[Register])
 			return false;
 		
+		
+		if (Register == 0x01)
+		{
+			if ((ChDat->YM3812.RegData[Register] ^ Data) & 0x20)
+			{
+				UINT8 reg;
+				for (reg = 0xFF; reg >= 0xE0; reg ++)
+					ChDat->YM3812.RegFirst[Register] = 0x01;
+			}
+		}
+		
 		ChDat->YM3812.RegFirst[Register] = JustTimerCmds;
 		ChDat->YM3812.RegData[Register] = Data;
 		break;
@@ -1812,6 +1823,7 @@ bool gameboy_write_reg(UINT8 Register, UINT8 Data)
 	}
 	if (Register < 0x20 && ! (chip->RegData[0x16] & 0x80))
 		return false;	// when the chip is off, writes have no effect (except Wave RAM)
+	return true;	// disable further optimization until I figure out what doesn't break actual GB hardware
 	
 	// uncomment these lines for sample-accurateness
 	// (otherwise the squares may change one sample too late)

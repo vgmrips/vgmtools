@@ -16,6 +16,7 @@ static void ConvertIMF2VGM(void);
 
 
 UINT8 IMFType;
+UINT32 PITPeriod; // Counter value of 8254 Programmable Interval Timer
 UINT16 IMFRate;
 VGM_HEADER VGMHead;
 UINT32 IMFDataLen;
@@ -198,17 +199,22 @@ static void WriteVGMFile(const char* FileName)
 static void ConvertIMF2VGM(void)
 {
 	UINT16 CurDelay;
-	UINT32 CurTick;
-	UINT16 HalfRate;
-	UINT64 TempTick;
 	UINT32 VGMSmplL;
 	UINT32 VGMSmplC;
+	float  VGMSmplFraction;
 	UINT32 SmplVal;
 	
 	VGMDataLen = sizeof(VGM_HEADER) + IMFDataLen * 0x02;
 	VGMData = (UINT8*)malloc(VGMDataLen);
 	
-	printf("IMF Type: %u, IMF Playback Rate: %u Hz\n", IMFType, IMFRate);
+	switch (IMFRate) {
+		case 560: PITPeriod = 0x0850; break;
+		case 280: PITPeriod = 0x10A1; break;
+		case 700:
+		case 701: PITPeriod = 0x06A6; break;
+		default:  PITPeriod = 13125000 / (IMFRate * 11);
+	}
+	printf("IMF Type: %u, IMF Playback Rate: %u Hz (8254 PIT period 0x%04X)\n", IMFType, IMFRate, PITPeriod);
 	
 	memcpy(&CurDelay, &IMFData[0x00], 0x02);
 	if (IMFType == 0x00)
@@ -233,9 +239,13 @@ static void ConvertIMF2VGM(void)
 	// Convert data
 	IMFPos = IMFDataStart;
 	VGMPos = VGMHead.lngDataOffset;
-	CurTick = 0;
 	VGMSmplL = 0;
-	HalfRate = IMFRate / 2;	// for correct rounding
+	VGMSmplFraction =0;
+	
+	/* Add Waveform Select Enable write to beginning, as some files (e.g. from Commander Keen Episode 4) do not include it by themselves. */
+	VGMData[VGMPos++] = 0x5A;
+	VGMData[VGMPos++] = 0x01;
+	VGMData[VGMPos++] = 0x20;
 	while(IMFPos < IMFDataEnd)
 	{
 		if (VGMPos >= VGMDataLen - 0x08)
@@ -248,33 +258,34 @@ static void ConvertIMF2VGM(void)
 		VGMData[VGMPos + 0x02] = IMFData[IMFPos + 0x01];	// data
 		VGMPos += 0x03;
 		
-		memcpy(&CurDelay, &IMFData[IMFPos + 0x02], 0x02);
-		CurTick += CurDelay;
-		TempTick = (UINT64)CurTick * 44100 + HalfRate;
-		VGMSmplC = (UINT32)(TempTick / IMFRate);
+		UINT16 IMFDelayInIMFTicks = (IMFData[IMFPos + 2] | (IMFData[IMFPos + 3] << 8));
 		IMFPos += 0x04;
 		
-		if (VGMSmplL < VGMSmplC)
-		{
-			SmplVal = VGMSmplC - VGMSmplL;
-			while(SmplVal)
-			{
-				if (SmplVal <= 0xFFFF)
-					CurDelay = (UINT16)SmplVal;
-				else
-					CurDelay = 0xFFFF;
-				
-				if (VGMPos >= VGMDataLen - 0x08)
-				{
-					VGMDataLen += 0x8000;
-					VGMData = (UINT8*)realloc(VGMData, VGMDataLen);
-				}
-				VGMData[VGMPos + 0x00] = 0x61;
-				memcpy(&VGMData[VGMPos + 0x01], &CurDelay, 0x02);
-				VGMPos += 0x03;
-				SmplVal -= CurDelay;
+		/* Convert the delay time, specified relative to the IMF's rate (IMFDelayInIMFTicks)...
+		   - first to the number of ticks of the 8254 Programmable Interval Timer's master clock (IMFDelayInPitTicks);
+		   - from that to the number of milliseconds (IMFDelayInMilliseconds);
+		   - from that to the number of 44.1 kHz samples.
+		   Store the fractional component in VGMSmplFraction so that it is not lost between successive delays. */
+		UINT32 IMFDelayInPITTicks = IMFDelayInIMFTicks * PITPeriod;
+		float IMFDelayInMilliseconds = (float) IMFDelayInPITTicks * 11 / 13125;
+		float IMFDelayInVGMSamplesFloat = IMFDelayInMilliseconds * 44100 / 1000 + VGMSmplFraction;
+		UINT32 IMFDelayInVGMSamplesInt = IMFDelayInVGMSamplesFloat;
+		VGMSmplFraction = IMFDelayInVGMSamplesFloat - IMFDelayInVGMSamplesInt;
+		
+		VGMSmplL += IMFDelayInVGMSamplesInt; // Add the delay in 44.1 kHz samples to the total VGM file length in samples
+		
+		/* Store the delay, specified as the number of 44.1 kHz samples. */
+		while (IMFDelayInVGMSamplesInt) {
+			UINT32 ThisCommandDelay = (IMFDelayInVGMSamplesInt > 65535) ? 65535 : IMFDelayInVGMSamplesInt;
+			VGMData[VGMPos++] = 0x61; // Wait n samples
+			VGMData[VGMPos++] = ThisCommandDelay & 0xFF;
+			VGMData[VGMPos++] = ThisCommandDelay >> 8;
+			/* Enlarge output buffer, if necessary */
+			if (VGMPos >= VGMDataLen - 0x10) {
+				VGMDataLen += 0x8000;
+				VGMData = (UINT8*)realloc(VGMData, VGMDataLen);
 			}
-			VGMSmplL = VGMSmplC;
+			IMFDelayInVGMSamplesInt -= ThisCommandDelay;
 		}
 	}
 	VGMData[VGMPos] = 0x66;

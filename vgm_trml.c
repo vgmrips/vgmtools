@@ -4,7 +4,9 @@
 //		- rewrite FNum regs for Ch 7/8 for OPL chips (-> drum fix)
 //		- rewrite NES RAM (DPCM) data block
 //#error "Trimming broken"
-// TODO: Rethink concept of trimming.
+// TODO: Rethink concept of trimming. (start/end point trimming could be simplified?)
+// TODO: support "note" warnings for all chips, write modified warning for NES/GB/VSU ("possible left note on")
+// TODO: surpress "note" warnings when trimming with loop=-1, end=-2
 
 #include <stdio.h>
 #include <string.h>
@@ -70,6 +72,7 @@ typedef struct chip_state_channels
 	UINT16 ChnCount2;
 	UINT32 ChnMask;
 	UINT32 ChnMask2;
+	bool unsafeKey;	// set to true if Key On/Off aren't 'safe' (i.e. note might be off while channel is on)
 } CHIP_CHNS;
 typedef struct chip_data
 {
@@ -160,7 +163,7 @@ static void WriteVGMHeader(UINT8* DstData, const UINT8* SrcData, const UINT32 EO
 						   const UINT32 LoopSmpls);
 static void VGMReadAhead(const UINT32 StartPos, const UINT32 Samples);
 static void DisplayPlayingNoteWarning(void);
-static void ShowPlayingNotes(const char* ChipStr, UINT16 ChnCount, UINT32 ChnMask, char* Buffer);
+static void ShowPlayingNotes(const char* ChipStr, UINT16 ChnCount, UINT32 ChnMask, char* Buffer, bool unsafe);
 
 INLINE UINT16 ReadLE16(const UINT8* Data);
 INLINE UINT32 ReadLE32(const UINT8* Data);
@@ -3424,9 +3427,9 @@ static void DisplayPlayingNoteWarning(void)
 					DidWarn = true;
 				}
 				
-				ShowPlayingNotes(CHIP_STRS[CurChip], TempChn->ChnCount, TempChn->ChnMask, ChnStr);
+				ShowPlayingNotes(CHIP_STRS[CurChip], TempChn->ChnCount, TempChn->ChnMask, ChnStr, TempChn->unsafeKey);
 				if (TempChn->ChnCount2)
-					ShowPlayingNotes(CHIP_STRS2[CurChip], TempChn->ChnCount2, TempChn->ChnMask2, ChnStr);
+					ShowPlayingNotes(CHIP_STRS2[CurChip], TempChn->ChnCount2, TempChn->ChnMask2, ChnStr, TempChn->unsafeKey);
 			}
 		}
 	}
@@ -3434,7 +3437,7 @@ static void DisplayPlayingNoteWarning(void)
 	return;
 }
 
-static void ShowPlayingNotes(const char* ChipStr, UINT16 ChnCount, UINT32 ChnMask, char* Buffer)
+static void ShowPlayingNotes(const char* ChipStr, UINT16 ChnCount, UINT32 ChnMask, char* Buffer, bool unsafe)
 {
 	char* ChnPtr;
 	UINT16 CurChn;
@@ -3454,7 +3457,7 @@ static void ShowPlayingNotes(const char* ChipStr, UINT16 ChnCount, UINT32 ChnMas
 		return;
 	ChnPtr[-2] = '\0';	// strip last ", "
 	
-	printf("%s: %u channel%s playing (%s)\n", ChipStr, PlayChnCnt, 
+	printf("%s: %u channel%s %splaying (%s)\n", ChipStr, PlayChnCnt, unsafe ? "possibly " : "",
 			(PlayChnCnt != 1) ? "s" : "", Buffer);
 	
 	return;
