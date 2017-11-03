@@ -1878,6 +1878,20 @@ void ay8910_reg_write(char* TempStr, UINT8 Register, UINT8 Data)
 	return;
 }
 
+static const char *ay8910_stereo_names [4] = { "off", "left", "right", "center" };
+void ay8910_stereo_mask_write(char* TempStr, UINT8 Data)
+{
+	WriteChipID((Data & 0x40)? 0x06: 0x12);
+	sprintf(TempStr, "%sSet %sStereo Mask: Ch A %s, Ch B %s, Ch C %s",
+		ChipStr,
+		(Data & 0x40)? "SSG ": "",
+		ay8910_stereo_names [(Data >>0) &3],
+		ay8910_stereo_names [(Data >>2) &3],
+		ay8910_stereo_names [(Data >>4) &3]
+	);	
+	return;
+}
+
 void pwm_write(char* TempStr, UINT16 Port, UINT16 Data)
 {
 	UINT8 PortVal;

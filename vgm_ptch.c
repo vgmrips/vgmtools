@@ -2554,7 +2554,7 @@ static UINT8 CheckVGMFile(UINT8 Mode)
 static bool ChipCommandIsUnknown(UINT8 Command)
 {
 	//return ((Command <= 0x4E && Command != 0x30) || /*(Command >= 0xA1 && Command <= 0xAF) ||*/
-	return ((Command >= 0x31 && Command <= 0x4E) || /*(Command >= 0xA1 && Command <= 0xAF) ||*/
+	return ((Command != 0x3F && Command >= 0x32 && Command <= 0x4E) || /*(Command >= 0xA1 && Command <= 0xAF) ||*/
 			(Command >= 0xBC && Command <= 0xBF) || (Command >= 0xC5 && Command <= 0xCF) ||
 			(Command >= 0xD5 && Command <= 0xDF) || Command >= 0xE1);
 }
@@ -2569,6 +2569,8 @@ static bool ChipCommandIsValid(UINT8 Command)
 	if ((Command & 0xF0) == 0x70)
 		return true;
 	if (Command == 0x67)
+		return true;
+	if (Command == 0x31 && (VGMHead.lngHzAY8910 || VGMHead.lngHzYM2203))
 		return true;
 	if (((Command == 0x50 || Command == 0x4F) && VGMHead.lngHzPSG) ||
 		((Command == 0x30 || Command == 0x3F) && (VGMHead.lngHzPSG & 0x40000000)))

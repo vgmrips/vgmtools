@@ -831,6 +831,9 @@ static void WriteVGMData2Txt(FILE* hFile)
 						case 0x02:	// RF5C164 PCM Database
 							strcpy(MinSecStr, "RF5C164 PCM Database");
 							break;
+						case 0x08:	// SN76489 PCM Database
+							strcpy(MinSecStr, "SN76489 PCM Database");
+							break;
 						default:
 							strcpy(MinSecStr, "Unknown Database Type");
 							break;
@@ -1146,6 +1149,14 @@ static void WriteVGMData2Txt(FILE* hFile)
 					ay8910_reg_write(TempStr, VGMPnt[0x01] & 0x7F, VGMPnt[0x02]);
 				}
 				CmdLen = 0x03;
+				break;
+			case 0x31:	// AY8910 stereo mask write
+				if (WriteEvents)
+				{
+					SetChip((VGMPnt[0x01] & 0x80) >> 7);
+					ay8910_stereo_mask_write(TempStr, VGMPnt[0x01] & 0x7F);
+				}
+				CmdLen = 0x02;
 				break;
 			case 0xB3:	// GameBoy DMG write
 				if (WriteEvents)

@@ -27,6 +27,7 @@ void ymf271_write(char* TempStr, UINT8 Port, UINT8 Register, UINT8 Data);
 void rf5c164_reg_write(char* TempStr, UINT8 Register, UINT8 Data);
 void rf5c164_mem_write(char* TempStr, UINT16 Offset, UINT8 Data);
 void ay8910_reg_write(char* TempStr, UINT8 Register, UINT8 Data);
+void ay8910_stereo_mask_write(char* TempStr, UINT8 Data);
 void pwm_write(char* TempStr, UINT16 Port, UINT16 Data);
 void gb_sound_write(char* TempStr, UINT8 Register, UINT8 Data);
 void nes_psg_write(char* TempStr, UINT8 Register, UINT8 Data);
