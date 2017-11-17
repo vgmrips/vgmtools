@@ -152,6 +152,7 @@ void SetTrimOptions(UINT8 TrimMode, UINT8 WarnMask);
 static void PrepareChipMemory(void);
 static void SetImportantCommands(void);
 static void InitializeVGM(UINT8** DstData, UINT32* DstPosRef);
+static void HandleDeltaTWrite(CHIP_DATA* ChipData, UINT8 ChipType, UINT16 BaseReg, UINT16 Reg, UINT8 Data);
 static UINT32 ReadCommand(UINT8 Mask);
 static void CommandCheck(UINT8 Mode, UINT8 Command, CHIP_DATA* ChpData, UINT16 CmdReg);
 static void CmdChk_OPL(CHIP_CHNS* ChnState, UINT8 OPLMode, UINT16 CmdReg, UINT8 Data);
@@ -694,11 +695,13 @@ static void SetImportantCommands(void)
 				TempReg->RegMask[0x029] |= 0x80;	// 3/6-Ch-Mode
 				TempReg->RegMask[0x02F] |= 0x80;	// Prescaler
 				TempReg->RegMask[0x011] |= 0x80;	// ADPCM Volume
+				TempReg->RegMask[0x101] |= 0x80;	// Delta-T memory configuration
 				TempReg->RegMask[0x10B] |= 0x80;	// Delta-T Volume
 				break;
 			case 0x08:	// YM2610
 				TempReg->RegMask[0x022] |= 0x80;	// LFO Frequency
 				TempReg->RegMask[0x027] |= 0x80;	// Ch 3 Special Mode
+				TempReg->RegMask[0x011] |= 0x80;	// Delta-T memory configuration
 				TempReg->RegMask[0x01B] |= 0x80;	// Delta-T Volume
 				TempReg->RegMask[0x101] |= 0x80;	// ADPCM Volume
 				break;
@@ -714,7 +717,7 @@ static void SetImportantCommands(void)
 				break;
 			case 0x0B:	// Y8950
 				TempReg->RegMask[0x01] |= 0x80;		// Wave Select
-				TempReg->RegMask[0x08] |= 0x80;		// CSM / KeySplit
+				TempReg->RegMask[0x08] |= 0x80;		// CSM / KeySplit / Delta-T memory configuration
 				TempReg->RegMask[0x12] |= 0x80;		// Delta-T Volume
 				TempReg->RegMask[0xBD] |= 0x80;		// Rhythm / AM / FM
 				break;
@@ -899,12 +902,64 @@ static void InitializeVGM(UINT8** DstDataRef, UINT32* DstPosRef)
 			switch(CurChip)
 			{
 			case 0x07:	// YM2608
+			case 0x08:	// YM2610
+			case 0x0B:	// Y8950
+			case 0x0D:	// YMF278B RAM
+				if (CurChip == 0x07)
+				{
+					ChipCmd = 0x56 + CurCSet * 0x50;
+					CurReg = 0x101;
+					CmdType = 0x81;
+				}
+				else if (CurChip == 0x08)
+				{
+					ChipCmd = 0x58 + CurCSet * 0x50;
+					CurReg = 0x011;
+					CmdType = 0x83;
+				}
+				else if (CurChip == 0x0B)
+				{
+					ChipCmd = 0x5C + CurCSet * 0x50;
+					CurReg = 0x08;
+					CmdType = 0x88;
+				}
+				else //if (CurChip == 0x0D)
+				{
+					//ChipCmd = 0xD0;
+					ChipCmd = 0x00;
+					//CurReg = 0x2??;
+					CmdType = 0x87;
+				}
+				
+				if (ChipCmd && (TempCD->Regs.RegMask[CurReg] & 0x7F) == 0x01)
+				{
+					// make sure that the memory configuration register is initialized before writing the data block
+					if (ChipCmd < 0xD0)
+					{
+						DstData[DstPos + 0x00] = ChipCmd | ((CurReg >> 8) & 0x01);
+						DstData[DstPos + 0x01] = (CurReg >> 0) & 0xFF;
+						DstData[DstPos + 0x02] = TempCD->Regs.RegData.R08[CurReg];
+						DstPos += 0x03;
+					}
+					else
+					{
+						DstData[DstPos + 0x00] = ChipCmd;
+						DstData[DstPos + 0x01] = (CurCSet << 7) | ((CurReg >> 8) & 0x7F);
+						DstData[DstPos + 0x02] = (CurReg >> 0) & 0xFF;
+						DstData[DstPos + 0x03] = TempCD->Regs.RegData.R08[CurReg];
+						DstPos += 0x04;
+					}
+
+					TempCD->Regs.RegMask[CurReg] = 0x00;
+				}
 				if (TempMem->MemPtr != NULL)
 				{
+					printf("Copying RAM to memptr!\n");
 					memcpy(TempMem->MemPtr, TempMem->MemData, TempMem->MemSize);
 				}
 				else
 				{
+					printf("Copying RAM to New data block!\n");
 					DstDataLen += TempMem->MemSize;
 					DstData = (UINT8*)realloc(DstData, DstDataLen);
 					
@@ -1094,7 +1149,7 @@ static void InitializeVGM(UINT8** DstDataRef, UINT32* DstPosRef)
 						else
 							TempByt = 0x08;
 						DstData[DstPos + 0x00] = ChipCmd;
-						DstData[DstPos + 0x01] = (CurCSet << 7) | CurReg;
+						DstData[DstPos + 0x01] = (CurCSet << 7) | TempByt;
 						DstData[DstPos + 0x02] = TempReg->RegData.R08[CurReg];
 						DstPos += 0x03;
 					}
@@ -1775,6 +1830,64 @@ static UINT16 GetChipCommand(UINT8 Command)
 	return (ChipID << 8) | (Command << 0);
 }
 
+static void HandleDeltaTWrite(CHIP_DATA* ChipData, UINT8 ChipType, UINT16 BaseReg, UINT16 Reg, UINT8 Data)
+{
+	CHIP_STATE* TempReg;
+	CHIP_MEMORY* TempMem;
+	const UINT8* RegData;
+	UINT8 AddrShift;
+	
+	if (Reg < BaseReg || Reg >= BaseReg + 0x10)
+		return;
+	// Handle RAM writes
+	TempReg = &ChipData->Regs;
+	TempMem = &ChipData->Mem;
+	RegData = &TempReg->RegData.R08[BaseReg];
+	Reg -= BaseReg;
+	
+	if ((RegData[0x00] & 0xE0) != 0x60)
+		return;
+	
+	if (Reg == 0x00)
+	{
+		if (TempMem->MemData == NULL || ! TempMem->MemSize)
+		{
+			if (ChipType == 0x0B)
+				TempMem->MemSize = 0x08000;	// 32 KB for Y8950
+			else
+				TempMem->MemSize = 0x40000;	// 256 KB for YM2608/YM2610
+			TempMem->MemData = (UINT8*)malloc(TempMem->MemSize);
+			memset(TempMem->MemData, 0x00, TempMem->MemSize);
+		}
+	}
+	else if (Reg >= 0x01 && Reg <= 0x05)	// offset registers
+	{
+		if (ChipType == 0x08)
+			AddrShift = 8;	// YM2610
+		else
+			AddrShift = (RegData[0x01] & 0x03) ? 5 : 2;	// RAM shift table is {5-3, 5-0, 5-0, 5-0}
+		TempMem->CurAddr =	(RegData[0x03] << 8) | (RegData[0x02] << 0);
+		TempMem->StopAddr =	(RegData[0x05] << 8) | (RegData[0x04] << 0);
+		TempMem->StopAddr ++;
+		TempMem->CurAddr <<= AddrShift;
+		TempMem->StopAddr <<= AddrShift;
+		if (TempMem->MemSize && TempMem->StopAddr > TempMem->MemSize)
+			TempMem->StopAddr = TempMem->MemSize;
+	}
+	else if (Reg == 0x08)	// data register
+	{
+		//if (TempMem->MemData != NULL && TempMem->CurAddr < TempMem->StopAddr)
+		if (TempMem->MemData != NULL && TempMem->CurAddr < TempMem->MemSize)
+		{
+			TempMem->MemData[TempMem->CurAddr] = Data;
+			TempMem->HadWrt = true;
+		}
+		TempMem->CurAddr ++;
+	}
+	
+	return;
+}
+
 static UINT32 ReadCommand(UINT8 Mask)
 {
 	UINT8 ChipID;
@@ -1862,6 +1975,8 @@ static UINT32 ReadCommand(UINT8 Mask)
 				if (Mask == 0x01)
 					TempReg->RegData.R08[CmdReg] = VGMData[VGMPos + 0x02];
 				TempReg->RegMask[CmdReg] |= Mask;
+				if (Command == 0x5C)	// Y8950 - DeltaT RAM writes
+					HandleDeltaTWrite(TempChp, 0x0B, 0x07, CmdReg, VGMData[VGMPos + 0x02]);
 			}
 		}
 		
@@ -1893,49 +2008,10 @@ static UINT32 ReadCommand(UINT8 Mask)
 				if (Mask == 0x01)
 					TempReg->RegData.R08[CmdReg] = VGMData[VGMPos + 0x02];
 				TempReg->RegMask[CmdReg] |= Mask;
-				if ((Command & 0xFE) == 0x56)	// YM2608 - external RAM write
-				{
-					// Handle RAM writes
-					if ((TempReg->RegData.R08[0x100] & 0xE0) == 0x60)
-					{
-						TempMem = &TempChp->Mem;
-						if (CmdReg == 0x100)
-						{
-							if (TempMem->MemData == NULL || ! TempMem->MemSize)
-							{
-								TempMem->MemSize = 0x100000;	// 1 MB
-								TempMem->MemData = (UINT8*)malloc(TempMem->MemSize);
-								memset(TempMem->MemData, 0x00, TempMem->MemSize);
-							}
-						}
-						else if (CmdReg >= 0x101 && CmdReg <= 0x105)
-						{
-							CmdLen = (TempReg->RegData.R08[0x101] & 0x03) ? 0 : 3;	// shift table is {3, 0, 0, 0}
-							TempMem->CurAddr =	(TempReg->RegData.R08[0x103] << 8) |
-												(TempReg->RegData.R08[0x102] << 0);
-							TempMem->StopAddr =	(TempReg->RegData.R08[0x105] << 8) |
-												(TempReg->RegData.R08[0x104] << 0);
-							TempMem->StopAddr ++;
-							TempMem->CurAddr <<= (5 - CmdLen);
-							TempMem->StopAddr <<= (5 - CmdLen);
-							if (TempMem->MemSize && TempMem->StopAddr > TempMem->MemSize)
-								TempMem->StopAddr = TempMem->MemSize;
-						}
-						else if (CmdReg == 0x108)
-						{
-							if (TempMem->MemData == NULL || TempMem->CurAddr < TempMem->StopAddr)
-							{
-								TempMem->MemData[TempMem->CurAddr] = VGMData[VGMPos + 0x02];
-								TempMem->CurAddr ++;
-								TempMem->HadWrt = true;
-							}
-							else
-							{
-								TempMem->CurAddr ++;
-							}
-						}
-					}
-				}
+				if ((Command & 0xFE) == 0x56)	// YM2608 - DeltaT RAM write
+					HandleDeltaTWrite(TempChp, 0x07, 0x100, CmdReg, VGMData[VGMPos + 0x02]);
+				else if ((Command & 0xFE) == 0x58)	// YM2610 - DeltaT RAM writes
+					HandleDeltaTWrite(TempChp, 0x08, 0x010, CmdReg, VGMData[VGMPos + 0x02]);
 			}
 		}
 		
@@ -2065,6 +2141,27 @@ static UINT32 ReadCommand(UINT8 Mask)
 				if (Mask == 0x01)
 					TempReg->RegData.R08[CmdReg] = VGMData[VGMPos + 0x03];
 				TempReg->RegMask[CmdReg] |= Mask;
+				if (Command == 0xD0 && CmdReg >= 0x200)	// YMF278B PCM write
+				{
+					if (CmdReg >= 0x203 && CmdReg <= 0x205)	// offset registers
+					{
+						ChnReg = 8 * (CmdReg - 0x203);
+						TempMem->CurAddr &= ~(0xFF << ChnReg);
+						TempMem->CurAddr |= VGMData[VGMPos + 0x03] << ChnReg;
+					//	TempMem->CurAddr =	(TempReg->RegData.R08[0x203] << 16) |
+					//						(TempReg->RegData.R08[0x204] <<  8) |
+					//						(TempReg->RegData.R08[0x205] <<  0);
+					}
+					else if (CmdReg == 0x206)
+					{
+						if (TempMem->MemData != NULL && TempMem->CurAddr < TempMem->StopAddr)
+						{
+							TempMem->MemData[TempMem->CurAddr] = VGMData[VGMPos + 0x03];
+							TempMem->HadWrt = true;
+						}
+						TempMem->CurAddr ++;
+					}
+				}
 			}
 		}
 		
@@ -2972,13 +3069,21 @@ void TrimVGMData(const INT32 StartSmpl, const INT32 LoopSmpl, const INT32 EndSmp
 					break;
 				case 0x80:	// ROM/RAM Dump
 					ForceCmdWrite = true;
-					if (TempByt == 0x81)	// YM2608 DeltaT RAM
+					if (TempByt == 0x81 || TempByt == 0x83 || TempByt == 0x88 || TempByt == 0x87)
 					{
 						UINT32 ROMSize;
 						UINT32 DataStart;
 						UINT32 DataLen;
 						
-						TempMem = &RC[ChipID].YM2608.Mem;
+						TempMem = NULL;
+						if (TempByt == 0x81)	// YM2608 DeltaT RAM
+							TempMem = &RC[ChipID].YM2608.Mem;
+						else if (TempByt == 0x83)	// YM2610 DeltaT RAM
+							TempMem = &RC[ChipID].YM2610.Mem;
+						else if (TempByt == 0x88)	// Y8950 DeltaT RAM
+							TempMem = &RC[ChipID].Y8950.Mem;
+						else if (TempByt == 0x87)	// YMF278B RAM
+							TempMem = &RC[ChipID].YMF278B.Mem;
 						ROMSize = ReadLE32(&VGMData[VGMPos + 0x07]);
 						DataStart = ReadLE32(&VGMData[VGMPos + 0x0B]);
 						DataLen = TempLng - 0x08;
@@ -2996,7 +3101,11 @@ void TrimVGMData(const INT32 StartSmpl, const INT32 LoopSmpl, const INT32 EndSmp
 							if (DataStart + CmdLen > TempMem->MemMaxOfs)
 								TempMem->MemMaxOfs = DataStart + CmdLen;
 						}
-						TempMem->MemPtr = &DstData[DstPos + 0x0F];
+						if (DataLen >= TempMem->MemSize)
+						{
+							TempMem->MemPtr = &DstData[DstPos + 0x0F];
+							printf("MemPtr == ofs 0x%06X\n", DstPos + 0x0F);
+						}
 					}
 					break;
 				case 0xC0:	// RAM Write
