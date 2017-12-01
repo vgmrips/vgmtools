@@ -954,18 +954,16 @@ static void InitializeVGM(UINT8** DstDataRef, UINT32* DstPosRef)
 				}
 				if (TempMem->MemPtr != NULL)
 				{
-					printf("Copying RAM to memptr!\n");
 					memcpy(TempMem->MemPtr, TempMem->MemData, TempMem->MemSize);
 				}
 				else
 				{
-					printf("Copying RAM to New data block!\n");
 					DstDataLen += TempMem->MemSize;
 					DstData = (UINT8*)realloc(DstData, DstDataLen);
 					
 					DstData[DstPos + 0x00] = 0x67;
 					DstData[DstPos + 0x01] = 0x66;
-					DstData[DstPos + 0x02] = 0x81;
+					DstData[DstPos + 0x02] = CmdType;
 					
 					TempLng = TempMem->MemSize + 0x08;
 					WriteLE32(&DstData[DstPos + 0x03], TempLng);
@@ -1880,6 +1878,7 @@ static void HandleDeltaTWrite(CHIP_DATA* ChipData, UINT8 ChipType, UINT16 BaseRe
 		if (TempMem->MemData != NULL && TempMem->CurAddr < TempMem->MemSize)
 		{
 			TempMem->MemData[TempMem->CurAddr] = Data;
+			TempReg->RegMask[BaseReg + Reg] &= ~0x01;
 			TempMem->HadWrt = true;
 		}
 		TempMem->CurAddr ++;
@@ -1926,9 +1925,9 @@ static UINT32 ReadCommand(UINT8 Mask)
 			
 			if (CmdReg < TempReg->RegCount)
 			{
+				TempReg->RegMask[CmdReg] |= Mask;
 				if (Mask == 0x01)
 					TempReg->RegData.R08[CmdReg] = VGMData[VGMPos + 0x01];
-				TempReg->RegMask[CmdReg] |= Mask;
 			}
 		}
 		
@@ -1940,9 +1939,9 @@ static UINT32 ReadCommand(UINT8 Mask)
 		if (TempReg->RegCount)
 		{
 			CmdReg = 0x10;
+			TempReg->RegMask[CmdReg] |= Mask;
 			if (Mask == 0x01)
 				TempReg->RegData.R08[CmdReg] = VGMData[VGMPos + 0x01];
-			TempReg->RegMask[CmdReg] |= Mask;
 		}
 		
 		CmdLen = 0x02;
@@ -1972,11 +1971,13 @@ static UINT32 ReadCommand(UINT8 Mask)
 			CmdReg = VGMData[VGMPos + 0x01];
 			if (CmdReg < TempReg->RegCount)
 			{
-				if (Mask == 0x01)
-					TempReg->RegData.R08[CmdReg] = VGMData[VGMPos + 0x02];
 				TempReg->RegMask[CmdReg] |= Mask;
-				if (Command == 0x5C)	// Y8950 - DeltaT RAM writes
-					HandleDeltaTWrite(TempChp, 0x0B, 0x07, CmdReg, VGMData[VGMPos + 0x02]);
+				if (Mask == 0x01)
+				{
+					TempReg->RegData.R08[CmdReg] = VGMData[VGMPos + 0x02];
+					if (Command == 0x5C)	// Y8950 - DeltaT RAM writes
+						HandleDeltaTWrite(TempChp, 0x0B, 0x07, CmdReg, VGMData[VGMPos + 0x02]);
+				}
 			}
 		}
 		
@@ -2005,13 +2006,15 @@ static UINT32 ReadCommand(UINT8 Mask)
 			CmdReg = ((Command & 0x01) << 8) | VGMData[VGMPos + 0x01];
 			if (CmdReg < TempReg->RegCount)
 			{
-				if (Mask == 0x01)
-					TempReg->RegData.R08[CmdReg] = VGMData[VGMPos + 0x02];
 				TempReg->RegMask[CmdReg] |= Mask;
-				if ((Command & 0xFE) == 0x56)	// YM2608 - DeltaT RAM write
-					HandleDeltaTWrite(TempChp, 0x07, 0x100, CmdReg, VGMData[VGMPos + 0x02]);
-				else if ((Command & 0xFE) == 0x58)	// YM2610 - DeltaT RAM writes
-					HandleDeltaTWrite(TempChp, 0x08, 0x010, CmdReg, VGMData[VGMPos + 0x02]);
+				if (Mask == 0x01)
+				{
+					TempReg->RegData.R08[CmdReg] = VGMData[VGMPos + 0x02];
+					if ((Command & 0xFE) == 0x56)	// YM2608 - DeltaT RAM write
+						HandleDeltaTWrite(TempChp, 0x07, 0x100, CmdReg, VGMData[VGMPos + 0x02]);
+					else if ((Command & 0xFE) == 0x58)	// YM2610 - DeltaT RAM writes
+						HandleDeltaTWrite(TempChp, 0x08, 0x010, CmdReg, VGMData[VGMPos + 0x02]);
+				}
 			}
 		}
 		
@@ -2030,9 +2033,9 @@ static UINT32 ReadCommand(UINT8 Mask)
 			
 			if (CmdReg < TempReg->RegCount)
 			{
+				TempReg->RegMask[CmdReg] |= Mask;
 				if (Mask == 0x01)
 					TempReg->RegData.R08[CmdReg] = VGMData[VGMPos + 0x02];
-				TempReg->RegMask[CmdReg] |= Mask;
 			}
 		}
 		
@@ -2046,9 +2049,9 @@ static UINT32 ReadCommand(UINT8 Mask)
 			CmdReg = ReadLE16(&VGMData[VGMPos + 0x01]);
 			if (CmdReg < TempReg->RegCount)
 			{
+				TempReg->RegMask[CmdReg] |= Mask;
 				if (Mask == 0x01)
 					TempReg->RegData.R08[CmdReg] = VGMData[VGMPos + 0x03];
-				TempReg->RegMask[CmdReg] |= Mask;
 			}
 		}
 		
@@ -2072,9 +2075,9 @@ static UINT32 ReadCommand(UINT8 Mask)
 			{
 				ChnReg = TempReg->RegData.R08[0x39] & 0x07;
 				CmdReg += ChnReg * 0x07;
+				TempReg->RegMask[CmdReg] |= Mask;
 				if (Mask == 0x01)
 					TempReg->RegData.R08[CmdReg] = VGMData[VGMPos + 0x02];
-				TempReg->RegMask[CmdReg] |= Mask;
 			}
 			else if (CmdReg == 0x07)
 			{
@@ -2082,9 +2085,9 @@ static UINT32 ReadCommand(UINT8 Mask)
 					CmdReg = 0x38;
 				else
 					CmdReg = 0x39;
+				TempReg->RegMask[CmdReg] |= Mask;
 				if (Mask == 0x01)
 					TempReg->RegData.R08[CmdReg] = VGMData[VGMPos + 0x02];
-				TempReg->RegMask[CmdReg] |= Mask;
 				
 				CmdReg ^= 0x01;	// force Chip Enable for both regs
 				TempReg->RegData.R08[CmdReg] |= VGMData[VGMPos + 0x02] & 0x80;
@@ -2092,9 +2095,9 @@ static UINT32 ReadCommand(UINT8 Mask)
 			else if (CmdReg == 0x08)
 			{
 				CmdReg = 0x3A;
+				TempReg->RegMask[CmdReg] |= Mask;
 				if (Mask == 0x01)
 					TempReg->RegData.R08[CmdReg] = VGMData[VGMPos + 0x02];
-				TempReg->RegMask[CmdReg] |= Mask;
 			}
 		}
 		
@@ -2138,28 +2141,30 @@ static UINT32 ReadCommand(UINT8 Mask)
 			CmdReg = ((VGMData[VGMPos + 0x01] & 0x7F) << 8) | VGMData[VGMPos + 0x02];
 			if (CmdReg < TempReg->RegCount)
 			{
-				if (Mask == 0x01)
-					TempReg->RegData.R08[CmdReg] = VGMData[VGMPos + 0x03];
 				TempReg->RegMask[CmdReg] |= Mask;
-				if (Command == 0xD0 && CmdReg >= 0x200)	// YMF278B PCM write
+				if (Mask == 0x01)
 				{
-					if (CmdReg >= 0x203 && CmdReg <= 0x205)	// offset registers
+					TempReg->RegData.R08[CmdReg] = VGMData[VGMPos + 0x03];
+					if (Command == 0xD0 && CmdReg >= 0x200)	// YMF278B PCM write
 					{
-						ChnReg = 8 * (CmdReg - 0x203);
-						TempMem->CurAddr &= ~(0xFF << ChnReg);
-						TempMem->CurAddr |= VGMData[VGMPos + 0x03] << ChnReg;
-					//	TempMem->CurAddr =	(TempReg->RegData.R08[0x203] << 16) |
-					//						(TempReg->RegData.R08[0x204] <<  8) |
-					//						(TempReg->RegData.R08[0x205] <<  0);
-					}
-					else if (CmdReg == 0x206)
-					{
-						if (TempMem->MemData != NULL && TempMem->CurAddr < TempMem->StopAddr)
+						if (CmdReg >= 0x203 && CmdReg <= 0x205)	// offset registers
 						{
-							TempMem->MemData[TempMem->CurAddr] = VGMData[VGMPos + 0x03];
-							TempMem->HadWrt = true;
+							ChnReg = 8 * (CmdReg - 0x203);
+							TempMem->CurAddr &= ~(0xFF << ChnReg);
+							TempMem->CurAddr |= VGMData[VGMPos + 0x03] << ChnReg;
+						//	TempMem->CurAddr =	(TempReg->RegData.R08[0x203] << 16) |
+						//						(TempReg->RegData.R08[0x204] <<  8) |
+						//						(TempReg->RegData.R08[0x205] <<  0);
 						}
-						TempMem->CurAddr ++;
+						else if (CmdReg == 0x206)
+						{
+							if (TempMem->MemData != NULL && TempMem->CurAddr < TempMem->StopAddr)
+							{
+								TempMem->MemData[TempMem->CurAddr] = VGMData[VGMPos + 0x03];
+								TempMem->HadWrt = true;
+							}
+							TempMem->CurAddr ++;
+						}
 					}
 				}
 			}
@@ -2190,9 +2195,9 @@ static UINT32 ReadCommand(UINT8 Mask)
 				ChnReg = 0xFF;
 			if (ChnReg < TempReg->RegCount)
 			{
+				TempReg->RegMask[ChnReg] |= Mask;
 				if (Mask == 0x01)
 					TempReg->RegData.R08[ChnReg] = VGMData[VGMPos + 0x03];
-				TempReg->RegMask[ChnReg] |= Mask;
 				if (ChnReg < 0xA0)
 				{
 					if (CmdReg == 0x04)
@@ -2213,10 +2218,10 @@ static UINT32 ReadCommand(UINT8 Mask)
 			CmdReg = VGMData[VGMPos + 0x01] >> 4;
 			if (CmdReg < TempReg->RegCount)
 			{
+				TempReg->RegMask[CmdReg] |= Mask;
 				if (Mask == 0x01)
 					TempReg->RegData.R16[CmdReg] =	(VGMData[VGMPos + 0x01] << 8) |
 													(VGMData[VGMPos + 0x02] << 0);
-				TempReg->RegMask[CmdReg] |= Mask;
 			}
 		}
 		
@@ -2266,9 +2271,9 @@ static UINT32 ReadCommand(UINT8 Mask)
 			CmdReg = VGMData[VGMPos + 0x01] & 0x7F;
 			if (CmdReg < TempReg->RegCount)
 			{
+				TempReg->RegMask[CmdReg] |= Mask;
 				if (Mask == 0x01)
 					TempReg->RegData.R08[CmdReg] = VGMData[VGMPos + 0x02];
-				TempReg->RegMask[CmdReg] |= Mask;
 			}
 		}
 		
@@ -2340,9 +2345,9 @@ static UINT32 ReadCommand(UINT8 Mask)
 			
 			if (CmdReg < TempReg->RegCount)
 			{
+				TempReg->RegMask[CmdReg] |= Mask;
 				if (Mask == 0x01)
 					TempReg->RegData.R08[CmdReg] = VGMData[VGMPos + 0x02];
-				TempReg->RegMask[CmdReg] |= Mask;
 			}
 		}
 		
@@ -2357,10 +2362,10 @@ static UINT32 ReadCommand(UINT8 Mask)
 			CmdReg = VGMData[VGMPos + 0x03];
 			if (CmdReg < TempReg->RegCount)
 			{
+				TempReg->RegMask[CmdReg] |= Mask;
 				if (Mask == 0x01)
 					TempReg->RegData.R16[CmdReg] = (VGMData[VGMPos + 0x01] << 8) |
 													(VGMData[VGMPos + 0x02] << 0);
-				TempReg->RegMask[CmdReg] |= Mask;
 			}
 		}
 		
@@ -3102,13 +3107,13 @@ void TrimVGMData(const INT32 StartSmpl, const INT32 LoopSmpl, const INT32 EndSmp
 								TempMem->MemMaxOfs = DataStart + CmdLen;
 						}
 						if (DataLen >= TempMem->MemSize)
-						{
 							TempMem->MemPtr = &DstData[DstPos + 0x0F];
-							printf("MemPtr == ofs 0x%06X\n", DstPos + 0x0F);
-						}
+						else
+							ForceCmdWrite = false;
 					}
 					break;
 				case 0xC0:	// RAM Write
+					ForceCmdWrite = false;
 					if (! (TempByt & 0x20))
 					{
 						DataStart = ReadLE16(&VGMData[VGMPos + 0x07]);
