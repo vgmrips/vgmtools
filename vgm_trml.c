@@ -734,6 +734,9 @@ static void SetImportantCommands(void)
 				TempReg->RegMask[0x0BD] |= 0x80;	// Rhythm / AM / FM
 				TempReg->RegMask[0x104] |= 0x80;	// 4-Ch-Mode
 				TempReg->RegMask[0x105] |= 0x80;	// OPL3/4 Mode Enable
+				TempReg->RegMask[0x202] |= 0x80;	// OPL4 memory mode
+				TempReg->RegMask[0x2F8] |= 0x80;	// OPL4 FM volume
+				TempReg->RegMask[0x2F9] |= 0x80;	// OPL4 PCM volume
 				break;
 			case 0x0E:	// YMZ280B
 				TempReg->RegMask[0x80] |= 0x80;		// DSP L/R Enable
@@ -2147,20 +2150,26 @@ static UINT32 ReadCommand(UINT8 Mask)
 					TempReg->RegData.R08[CmdReg] = VGMData[VGMPos + 0x03];
 					if (Command == 0xD0 && CmdReg >= 0x200)	// YMF278B PCM write
 					{
-						if (CmdReg >= 0x203 && CmdReg <= 0x205)	// offset registers
+						TempMem = &TempChp->Mem;
+						if (CmdReg == 0x205)	// offset LSB
 						{
-							ChnReg = 8 * (CmdReg - 0x203);
-							TempMem->CurAddr &= ~(0xFF << ChnReg);
-							TempMem->CurAddr |= VGMData[VGMPos + 0x03] << ChnReg;
-						//	TempMem->CurAddr =	(TempReg->RegData.R08[0x203] << 16) |
-						//						(TempReg->RegData.R08[0x204] <<  8) |
-						//						(TempReg->RegData.R08[0x205] <<  0);
+							TempMem->CurAddr =	(TempReg->RegData.R08[0x203] << 16) |
+												(TempReg->RegData.R08[0x204] <<  8) |
+												(TempReg->RegData.R08[0x205] <<  0);
+							TempMem->CurAddr &= 0x3FFFFF;
+							if (TempReg->RegData.R08[0x202] & 0x02)
+								printf("Warning: OPL4 in Mem Mode 1! Please report!\n");
+							
+							// subtract ROM size (results in intended overflow for ROM offsets)
+							TempMem->CurAddr -= TempMem->StopAddr;
 						}
-						else if (CmdReg == 0x206)
+						else if (CmdReg == 0x206 && (TempReg->RegData.R08[0x202] & 0x01))
 						{
-							if (TempMem->MemData != NULL && TempMem->CurAddr < TempMem->StopAddr)
+							// memory write register && must be in "write" mode
+							if (TempMem->MemData != NULL && TempMem->CurAddr < TempMem->MemSize)
 							{
 								TempMem->MemData[TempMem->CurAddr] = VGMData[VGMPos + 0x03];
+								TempReg->RegMask[CmdReg] &= ~0x01;
 								TempMem->HadWrt = true;
 							}
 							TempMem->CurAddr ++;
@@ -2856,6 +2865,7 @@ void TrimVGMData(const INT32 StartSmpl, const INT32 LoopSmpl, const INT32 EndSmp
 		{
 			DstDataLen += TempCD->Mem.MemSize;
 		}
+		RC[ChipID].YMF278B.Mem.StopAddr = 0x200000;	// default ROM size is 2 MB
 	}
 	
 	if (DstData == NULL)	// now allocate memory, if needed
@@ -3110,6 +3120,11 @@ void TrimVGMData(const INT32 StartSmpl, const INT32 LoopSmpl, const INT32 EndSmp
 							TempMem->MemPtr = &DstData[DstPos + 0x0F];
 						else
 							ForceCmdWrite = false;
+					}
+					else if (TempByt == 0x84)
+					{
+						TempMem = &RC[ChipID].YMF278B.Mem;
+						TempMem->StopAddr = ReadLE32(&VGMData[VGMPos + 0x07]);	// save ROM size
 					}
 					break;
 				case 0xC0:	// RAM Write
