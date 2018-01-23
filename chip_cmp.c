@@ -2508,7 +2508,7 @@ bool okim6295_write(UINT8 Port, UINT8 Data)
 		chip->RegData[Port] = Data;
 		chip->RegFirst[Port] = JustTimerCmds;
 		chip->RegFirst[0x0B] = 0x01;	// force Clock rewrite
-		break;
+		return true;
 	case 0x0B:	// Master Clock dd000000
 		Data &= 0x7F;	// fix a bug in MAME VGM logs
 	case 0x0C:	// Clock Divider
@@ -2521,8 +2521,8 @@ bool okim6295_write(UINT8 Port, UINT8 Data)
 		break;
 	}
 	
-	if (Port >= 0x14)
-		return true;
+	//if (Port >= 0x14)
+	//	return true;
 	
 	if (! chip->RegFirst[Port] && Data == chip->RegData[Port])
 		return false;

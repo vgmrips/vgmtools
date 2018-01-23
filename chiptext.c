@@ -3096,7 +3096,7 @@ static void FM_ADPCMAWrite(char* TempStr, UINT8 Register, UINT8 Data)
 			break;
 		case 0x20:
 		case 0x28:
-			sprintf(WriteStr, "Ch %u: Start Address %s 0x%02X", CurChn,
+			sprintf(WriteStr, "Ch %u: End Address %s 0x%02X", CurChn,
 					ADDR_2S_STR[(Register & 0x08) >> 3], Data);
 			break;
 		default:

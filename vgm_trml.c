@@ -3107,6 +3107,7 @@ void TrimVGMData(const INT32 StartSmpl, const INT32 LoopSmpl, const INT32 EndSmp
 						{
 							TempMem->MemSize = ROMSize;
 							TempMem->MemData = (UINT8*)realloc(TempMem->MemData, TempMem->MemSize);
+							memset(TempMem->MemData, 0x00, TempMem->MemSize);
 						}
 						if (DataStart + DataLen > TempMem->MemSize)
 							DataLen = TempMem->MemSize - DataStart;
