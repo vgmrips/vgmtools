@@ -306,6 +306,7 @@ void InitAllChips(void);
 void ResetAllChips(void);
 void FreeAllChips(void);
 void SetChipSet(UINT8 ChipID);
+bool dac_stream_control_freq(UINT8 strmID, UINT32 freq);
 bool GGStereo(UINT8 Data);
 bool sn76496_write(UINT8 Command/*, UINT8 NextCmd*/);
 bool ym2413_write(UINT8 Register, UINT8 Data);
@@ -354,6 +355,7 @@ bool GetNextChipCommand(void);
 UINT8 ChipCount = 0x02;
 ALL_CHIPS* ChipData = NULL;
 ALL_CHIPS* ChDat;
+UINT32 StreamFreqs[0x100];
 
 extern bool JustTimerCmds;
 extern bool DoOKI6258;
@@ -385,6 +387,7 @@ void InitAllChips(void)
 		
 		memset(&TempChp->OKIM6258.RegFirst[0x08], 0x00, 0x0D-0x08);
 	}
+	memset(StreamFreqs, 0xFF, sizeof(UINT32) * 0x100);
 	VGM_Loops = false;
 	
 	SetChipSet(0x00);
@@ -432,6 +435,7 @@ void ResetAllChips(void)
 		memcpy(&TempChp->OKIM6258.RegData[0x08], ClkBak, 0x05);
 		memcpy(&TempChp->VSU.RegData[0x100], VSUBak, 0x60);
 	}
+	memset(StreamFreqs, 0xFF, sizeof(UINT32) * 0x100);
 	
 	VGM_Loops = true;
 	
@@ -454,6 +458,18 @@ void SetChipSet(UINT8 ChipID)
 	ChDat = ChipData + ChipID;
 	
 	return;
+}
+
+bool dac_stream_control_freq(UINT8 strmID, UINT32 freq)
+{
+	if (JustTimerCmds)
+		return true;
+	
+	if (freq == StreamFreqs[strmID])
+		return false;
+	
+	StreamFreqs[strmID] = freq;
+	return true;
 }
 
 bool GGStereo(UINT8 Data)

@@ -26,6 +26,7 @@ TOOLS = \
 	vgm_cmp \
 	vgm_cnt \
 	vgm_dbc \
+	vgm_dso \
 	vgm_facc \
 	vgm_mono \
 	vgm_ndlz \
@@ -63,6 +64,7 @@ vgm2txt_OBJS = vgm2txt.o chiptext.o
 vgm_cmp_OBJS = vgm_cmp.o chip_cmp.o
 vgm_cnt_OBJS = vgm_cnt.o
 vgm_dbc_OBJS = vgm_dbc.o
+vgm_dso_OBJS = vgm_dso.o
 vgm_facc_OBJS = vgm_facc.o
 vgm_mono_OBJS = vgm_mono.o
 vgm_ndlz_OBJS = vgm_ndlz.o

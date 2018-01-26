@@ -24,6 +24,7 @@ void InitAllChips(void);
 void ResetAllChips(void);
 void FreeAllChips(void);
 void SetChipSet(UINT8 ChipID);
+bool dac_stream_control_freq(UINT8 strmID, UINT32 freq);
 bool GGStereo(UINT8 Data);
 bool sn76496_write(UINT8 Command/*, UINT8 NextCmd*/);
 bool ym2413_write(UINT8 Register, UINT8 Data);
@@ -664,12 +665,15 @@ static void CompressVGMData(void)
 				CmdLen = 0x03;
 				break;
 			case 0x90:	// DAC Ctrl: Setup Chip
+				dac_stream_control_freq(VGMPnt[0x01], (UINT32)-1);	// reset frequency state (due to re-initialization)
 				CmdLen = 0x05;
 				break;
 			case 0x91:	// DAC Ctrl: Set Data
 				CmdLen = 0x05;
 				break;
 			case 0x92:	// DAC Ctrl: Set Freq
+				memcpy(&TempLng, &VGMPnt[0x02], 0x04);
+				WriteEvent = dac_stream_control_freq(VGMPnt[0x01], TempLng);
 				CmdLen = 0x06;
 				break;
 			case 0x93:	// DAC Ctrl: Play from Start Pos
