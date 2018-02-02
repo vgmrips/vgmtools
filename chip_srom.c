@@ -418,6 +418,7 @@ typedef struct ymf278b_data
 	UINT32 ROMSize;
 	UINT8* ROMData;
 	UINT8* ROMUsage;
+	UINT32 RAMBase;
 	UINT32 RAMSize;
 	UINT8* RAMData;
 	UINT8* RAMUsage;
@@ -583,6 +584,7 @@ void InitAllChips(void)
 			TempYDT->control2  = 0;
 			TempYDT->DRAMportshift = dram_rightshift[TempYDT->control2 & 3];
 		
+		ChDat->YMF278B.RAMBase = 0x200000;	// default ROM size is 2 MB
 		//ChDat->UPD7759.state = STATE_IDLE;
 		ChDat->UPD7759.reset = 1;
 		ChDat->UPD7759.start = 1;
@@ -2609,6 +2611,7 @@ void ymf278b_write(UINT8 Port, UINT8 Register, UINT8 Data)
 	UINT32 AddrSt;
 	UINT32 AddrEnd;
 	UINT32 CurAddr;
+	UINT16 tblBaseSmpl;
 	
 	if (Port != 0x02)	// Port 0/1 = FM, Port 2 = PCM
 		return;
@@ -2623,66 +2626,138 @@ void ymf278b_write(UINT8 Port, UINT8 Register, UINT8 Data)
 			slot->SmplID |= Data;
 			
 			if (slot->SmplID < 384 || ! chip->wavetblhdr)
-				AddrSt = slot->SmplID * 0x0C;
+				tblBaseSmpl = 0;
 			else
-				AddrSt = chip->wavetblhdr * 0x80000 + (slot->SmplID - 384) * 0x0C;
+				tblBaseSmpl = 384;
 			
 			// --- mark Sample Table ---
 #if 0
 			// mark single sample
-			if (! (chip->SmplMask[TempChn->SmplID] & 0x80))
+			if (! (chip->SmplMask[slot->SmplID] & 0x80))
 			{
-				chip->SmplMask[TempChn->SmplID] |= 0x80;
+				chip->SmplMask[slot->SmplID] |= 0x80;
 				
-				AddrSt = TempChn->SmplID * 0x0C;
+				if (slot->SmplID < 384 || ! chip->wavetblhdr)
+					AddrSt = slot->SmplID * 0x0C;
+				else
+					AddrSt = chip->wavetblhdr * 0x80000 + (slot->SmplID - 384) * 0x0C;
 				AddrEnd = AddrSt + 0x0C;
-				for (CurAddr = AddrSt; CurAddr < AddrEnd; CurAddr ++)
-					chip->ROMUsage[CurAddr] |= 0x01;
+				if (AddrSt < chip->RAMBase)
+				{
+					for (CurAddr = AddrSt; CurAddr < AddrEnd; CurAddr ++)
+						chip->ROMUsage[CurAddr] |= 0x01;
+				}
+				else
+				{
+					AddrSt -= chip->RAMBase;
+					AddrEnd -= chip->RAMBase;
+					for (CurAddr = AddrSt; CurAddr < AddrEnd; CurAddr ++)
+						chip->RAMUsage[CurAddr] |= 0x01;
+				}
 			}
 #else
 			// mark whole sample table
-			if (! (chip->SmplMask[0x00] & 0x80))
+			if (! (chip->SmplMask[tblBaseSmpl] & 0x80))
 			{
-				chip->SmplMask[0x00] |= 0x80;
+				const UINT8* MemData;
+				UINT8* MemUsage;
 				
-				AddrEnd =	(chip->ROMData[0x00] << 16) |
-							(chip->ROMData[0x01] <<  8) |
-							(chip->ROMData[0x02] <<  0);
+				chip->SmplMask[tblBaseSmpl] |= 0x80;
+				
+				AddrSt = (tblBaseSmpl) ? (chip->wavetblhdr * 0x80000) : 0x00;
+				// get address of first sample
+				if (AddrSt < chip->RAMBase)
+				{
+					printf("mark Sample Headers, ROM offset 0x%06X\n", AddrSt);
+					if (AddrSt >= chip->ROMSize)
+						break;	// ROM not available
+					AddrEnd =	(chip->ROMData[AddrSt + 0x00] << 16) |
+								(chip->ROMData[AddrSt + 0x01] <<  8) |
+								(chip->ROMData[AddrSt + 0x02] <<  0);
+				}
+				else
+				{
+					printf("mark Sample Headers, RAM offset 0x%06X\n", AddrSt - chip->RAMBase);
+					if (AddrSt - chip->RAMBase >= chip->RAMSize)
+						break;	// RAM not available
+					AddrEnd =	(chip->RAMData[AddrSt - chip->RAMBase + 0x00] << 16) |
+								(chip->RAMData[AddrSt - chip->RAMBase + 0x01] <<  8) |
+								(chip->RAMData[AddrSt - chip->RAMBase + 0x02] <<  0);
+				}
 				AddrEnd &= 0x3FFFFF;
-				if (AddrEnd > 384 * 0x0C)
-					AddrEnd = 384 * 0x0C;
+				if (tblBaseSmpl)
+				{
+					if (AddrEnd > chip->RAMBase + 128 * 0x0C)
+						AddrEnd = chip->RAMBase + 128 * 0x0C;
+				}
+				else if (chip->wavetblhdr)
+				{
+					if (AddrEnd > 384 * 0x0C)
+						AddrEnd = 384 * 0x0C;
+				}
+				else
+				{
+					if (AddrEnd > 512 * 0x0C)
+						AddrEnd = 512 * 0x0C;
+				}
 				
-				AddrSt = 0x00;
+				if (AddrSt < chip->RAMBase)
+				{
+					MemData = chip->ROMData;
+					MemUsage = chip->ROMUsage;
+				}
+				else
+				{
+					AddrSt -= chip->RAMBase;
+					AddrEnd -= chip->RAMBase;
+					MemData = chip->RAMData;
+					MemUsage = chip->RAMUsage;
+				}
 				// find the real end of the sample table (assume padding with FF)
 				while(AddrEnd > AddrSt)
 				{
-					memcpy(&CurAddr, &chip->ROMData[AddrEnd - 0x04], 0x04);
+					memcpy(&CurAddr, &MemData[AddrEnd - 0x04], 0x04);
 					if (CurAddr != 0xFFFFFFFF && CurAddr != 0x00000000)
 						break;
 					AddrEnd -= 0x04;
 				}
-				AddrEnd = (AddrEnd + 0x0B) & ~0x0B;	// round up to 0x0C
+				AddrEnd = (AddrEnd + 0x0B) / 0x0C * 0x0C;	// round up to 0x0C
 				for (CurAddr = AddrSt; CurAddr < AddrEnd; CurAddr ++)
-					chip->ROMUsage[CurAddr] |= 0x01;
+					MemUsage[CurAddr] |= 0x01;
 			}
 #endif
 			
 			// --- mark actual Sample Data ---
 			if (! (chip->SmplMask[slot->SmplID] & 0x01))
 			{
+				const UINT8* MemData;
+				
 				chip->SmplMask[slot->SmplID] |= 0x01;
-		
+				
 				if (slot->SmplID < 384 || ! chip->wavetblhdr)
 					TOCAddr = slot->SmplID * 0x0C;
 				else
 					TOCAddr = chip->wavetblhdr * 0x80000 + (slot->SmplID - 384) * 0x0C;
-				SmplBits =	(chip->ROMData[TOCAddr + 0x00] & 0xC0) >> 6;
-				AddrSt =	(chip->ROMData[TOCAddr + 0x00] << 16) |
-							(chip->ROMData[TOCAddr + 0x01] <<  8) |
-							(chip->ROMData[TOCAddr + 0x02] <<  0);
+				if (TOCAddr < chip->RAMBase)
+				{
+					if (TOCAddr >= chip->ROMSize)
+						break;
+					MemData = chip->ROMData;
+				}
+				else
+				{
+					TOCAddr -= chip->RAMBase;
+					if (TOCAddr >= chip->RAMSize)
+						break;
+					MemData = chip->RAMData;
+				}
+				SmplBits =	(MemData[TOCAddr + 0x00] & 0xC0) >> 6;
+				AddrSt =	(MemData[TOCAddr + 0x00] << 16) |
+							(MemData[TOCAddr + 0x01] <<  8) |
+							(MemData[TOCAddr + 0x02] <<  0);
+				AddrEnd =	(MemData[TOCAddr + 0x05] <<  8) |
+							(MemData[TOCAddr + 0x06] <<  0);
 				AddrSt &= 0x3FFFFF;
-				AddrEnd =	(chip->ROMData[TOCAddr + 0x05] <<  8) |
-							(chip->ROMData[TOCAddr + 0x06] <<  0);
 				AddrEnd = (0x10000 - AddrEnd);
 				if (SmplBits == 0)	// 8-bit
 					AddrEnd = AddrEnd * 1;
@@ -2694,15 +2769,25 @@ void ymf278b_write(UINT8 Port, UINT8 Register, UINT8 Data)
 					AddrEnd = 0;
 				AddrEnd += AddrSt;
 				
-				if (AddrSt < chip->ROMSize)
+				if (AddrSt < chip->RAMBase)
 				{
+					printf("mark Sample %u, ROM offset 0x%06X\n", slot->SmplID, AddrSt);
+					if (AddrSt >= chip->ROMSize)
+						break;
+					if (AddrEnd >= chip->ROMSize)
+						AddrEnd = chip->ROMSize;
 					for (CurAddr = AddrSt; CurAddr < AddrEnd; CurAddr ++)
 						chip->ROMUsage[CurAddr] |= 0x01;
 				}
 				else
 				{
-					AddrSt -= chip->ROMSize;
-					AddrEnd -= chip->ROMSize;
+					AddrSt -= chip->RAMBase;
+					AddrEnd -= chip->RAMBase;
+					printf("mark Sample %u, RAM offset 0x%06X\n", slot->SmplID, AddrSt);
+					if (AddrSt >= chip->RAMSize)
+						break;
+					if (AddrEnd >= chip->RAMSize)
+						AddrEnd = chip->RAMSize;
 					for (CurAddr = AddrSt; CurAddr < AddrEnd; CurAddr ++)
 						chip->RAMUsage[CurAddr] |= 0x01;
 				}
@@ -2721,8 +2806,6 @@ void ymf278b_write(UINT8 Port, UINT8 Register, UINT8 Data)
 		case 0x02:
 			chip->wavetblhdr = (Data & 0x1C) >> 2;
 			chip->memmode = (Data & 0x01);
-			if (chip->wavetblhdr)
-				printf("Warning: RAM activated! This isn't handled yet!\n");
 			break;
 		}
 	}
@@ -3051,6 +3134,7 @@ void write_rom_data(UINT8 ROMType, UINT32 ROMSize, UINT32 DataStart, UINT32 Data
 			ymf278->ROMData = (UINT8*)realloc(ymf278->ROMData, ROMSize);
 			ymf278->ROMUsage = (UINT8*)realloc(ymf278->ROMUsage, ROMSize);
 			ymf278->ROMSize = ROMSize;
+			ymf278->RAMBase = ROMSize;
 			memset(ymf278->ROMData, 0xFF, ROMSize);
 			memset(ymf278->ROMUsage, 0x02, ROMSize);
 		}
