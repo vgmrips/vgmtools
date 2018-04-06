@@ -373,14 +373,12 @@ static void FindUsedROMData(void)
 				switch(TempByt & 0xC0)
 				{
 				case 0x00:	// Database Block
-				case 0x40:
-					if (TempByt == 0x7F)
-					{
-						printf("Unable to optimize data blocks that use a decompression table!\n");
-						StopVGM = true;
-						CancelFlag = true;
-					}
 					AddPCMData(TempByt, TempLng, &VGMPnt[0x07]);
+					break;
+				case 0x40:
+					printf("Unable to optimize DAC streams that use compreseed data blocks!\n");
+					StopVGM = true;
+					CancelFlag = true;
 					break;
 				case 0x80:	// ROM/RAM Dump
 				case 0xC0:	// RAM Write
@@ -483,8 +481,8 @@ static void FindUsedROMData(void)
 			PrintMinSec(VGMSmplPos, MinSecStr);
 			PrintMinSec(VGMHead.lngTotalSamples, TempStr);
 			TempLng = VGMPos - VGMHead.lngDataOffset;
-			ROMSize = VGMHead.lngEOFOffset - VGMHead.lngDataOffset;
-			printf("%04.3f %% - %s / %s (%08X / %08X) ...\r", (float)TempLng / ROMSize * 100,
+			CmdLen = VGMHead.lngEOFOffset - VGMHead.lngDataOffset;
+			printf("%04.3f %% - %s / %s (%08X / %08X) ...\r", (float)TempLng / CmdLen * 100,
 					MinSecStr, TempStr, VGMPos, VGMHead.lngEOFOffset);
 			CmdTimer = GetTickCount() + 200;
 		}
@@ -761,8 +759,8 @@ static void OptimizeVGMSampleROM(void)
 			PrintMinSec(VGMSmplPos, MinSecStr);
 			PrintMinSec(VGMHead.lngTotalSamples, TempStr);
 			TempLng = VGMPos - VGMHead.lngDataOffset;
-			ROMSize = VGMHead.lngEOFOffset - VGMHead.lngDataOffset;
-			printf("%04.3f %% - %s / %s (%08X / %08X) ...\r", (float)TempLng / ROMSize * 100,
+			CmdLen = VGMHead.lngEOFOffset - VGMHead.lngDataOffset;
+			printf("%04.3f %% - %s / %s (%08X / %08X) ...\r", (float)TempLng / CmdLen * 100,
 					MinSecStr, TempStr, VGMPos, VGMHead.lngEOFOffset);
 			CmdTimer = GetTickCount() + 200;
 		}
@@ -905,4 +903,3 @@ INLINE void WriteLE32(const UINT8* Data, UINT32 value)
 	*(UINT32*)Data = value;
 	return;
 }
-

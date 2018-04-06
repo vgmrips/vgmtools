@@ -57,8 +57,9 @@ INT32 VGMSmplPos;
 UINT32 DstDataLen;
 UINT8* DstData;
 char FileBase[0x100];
-VGM_PCM_BANK PCMBank[0x40];
-COMPRESS_TBL CmpTbl[0x40];
+#define PCM_BANK_COUNT	0x40
+VGM_PCM_BANK PCMBank[PCM_BANK_COUNT];
+COMPRESS_TBL CmpTbl[PCM_BANK_COUNT];
 
 int main(int argc, char* argv[])
 {
@@ -115,7 +116,7 @@ int main(int argc, char* argv[])
 	
 	free(VGMData);
 	free(DstData);
-	for (CurPCM = 0x00; CurPCM < 0x40; CurPCM ++)
+	for (CurPCM = 0x00; CurPCM < PCM_BANK_COUNT; CurPCM ++)
 	{
 		if (! CmpTbl[CurPCM].BankCount)
 			continue;
@@ -243,7 +244,7 @@ static void CompressVGMDataBlocks(void)
 	DstData = (UINT8*)malloc(VGMDataLen + 0x1000);
 	memcpy(DstData, VGMData, VGMHead.lngDataOffset);	// Copy Header
 	
-	for (TempByt = 0x00; TempByt < 0x40; TempByt ++)
+	for (TempByt = 0x00; TempByt < PCM_BANK_COUNT; TempByt ++)
 	{
 		PCMBank[TempByt].BankCount = 0x00;
 		PCMBank[TempByt].Bank = NULL;
@@ -256,7 +257,7 @@ static void CompressVGMDataBlocks(void)
 		if (PassNum)
 		{
 			MakeCompressionTable();
-			for (TempByt = 0x00; TempByt < 0x40; TempByt ++)
+			for (TempByt = 0x00; TempByt < PCM_BANK_COUNT; TempByt ++)
 			{
 				PCMBank[TempByt].BankCount = 0x00;
 			}
@@ -505,7 +506,7 @@ static void MakeCompressionTable(void)
 	
 	ValCount = 1 << 12;
 	ValueMask = (UINT8*)malloc(ValCount * 0x01);
-	for (CurPCM = 0x00; CurPCM < 0x40; CurPCM ++)
+	for (CurPCM = 0x00; CurPCM < PCM_BANK_COUNT; CurPCM ++)
 	{
 		if (! PCMBank[CurPCM].BankCount)
 			continue;
