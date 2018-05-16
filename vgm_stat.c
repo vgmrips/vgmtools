@@ -39,7 +39,7 @@ static wchar_t* ReadWStrFromFile(gzFile hFile, UINT32* FilePos, UINT32 EOFPos);
 static void ReadDirectory(const char* DirName);
 static void ReadPlaylist(const char* FileName);
 #ifdef SHOW_FILE_STATS
-static void ShowFileStats(char* FileTitle);
+static void ShowFileStats(const char* FileTitle);
 #endif
 static void PrintSampleTime(char* buffer, const UINT32 Samples, bool LoopMode);
 static void ShowStatistics(void);
@@ -163,6 +163,7 @@ static bool OpenVGMFile(const char* FileName)
 	UINT32 CurPos;
 	UINT32 TempLng;
 	char* TempPnt;
+	INT16 LoopCnt;
 	
 	hFile = gzopen(FileName, "rb");
 	if (hFile == NULL)
@@ -292,6 +293,12 @@ static bool OpenVGMFile(const char* FileName)
 	}
 	CurTrkEntry->SmplTotal = VGMHead.lngTotalSamples;
 	CurTrkEntry->SmplLoop = VGMHead.lngLoopSamples;
+	
+	AllTotal += CurTrkEntry->SmplTotal;
+	LoopCnt = (2 * VGMHead.bytLoopModifier + 0x08) / 0x10 - VGMHead.bytLoopBase;
+	if (LoopCnt < 1)
+		LoopCnt = 1;
+	AllLoop += CurTrkEntry->SmplLoop * (LoopCnt - 1);
 	
 	gzclose(hFile);
 	
@@ -539,24 +546,17 @@ static void ReadPlaylist(const char* FileName)
 }
 
 #ifdef SHOW_FILE_STATS
-static void ShowFileStats(char* FileTitle)
+static void ShowFileStats(const char* FileTitle)
 {
 	UINT32 SmplTotal;
 	UINT32 SmplLoop;
 	char TimeTotal[0x10];
 	char TimeLoop[0x10];
-	INT16 LoopCnt;
 	
 	if (FileTitle != NULL)
 	{
 		SmplTotal = VGMHead.lngTotalSamples;
 		SmplLoop = VGMHead.lngLoopSamples;
-		
-		AllTotal += SmplTotal;
-		LoopCnt = (2 * VGMHead.bytLoopModifier + 0x08) / 0x10 - VGMHead.bytLoopBase;
-		if (LoopCnt < 1)
-			LoopCnt = 1;
-		AllLoop += SmplLoop * (LoopCnt - 1);
 	}
 	else
 	{
