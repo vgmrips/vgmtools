@@ -2023,83 +2023,41 @@ bool c140_write(UINT8 Port, UINT8 Register, UINT8 Data)
 bool qsound_write(UINT8 Offset, UINT16 Value)
 {
 	QSOUND_DATA* chip = &ChDat->QSound;
-	UINT8 Reg;
-	UINT8 Chn;
 	
-	if (Offset < 0x80)
+	if (Offset < 0x80)	// PCM channels
 	{
-		Chn = Offset >> 3;
-		Reg = Offset & 0x07;
-	}
-	else if (Offset < 0x90)
-	{
-		Chn = Offset - 0x80;
-		Reg = 8;
-	}
-	else if (Offset >= 0xBA && Offset < 0xCA)
-	{
-		Chn = Offset - 0xBA;
-		Reg = 9;
-	}
-	else
-	{
-		Reg = 0x0F;
-	}
-	
-	switch(Reg)
-	{
-	case 0x01:	// Start Address (changed while playing)
-		if (chip->KeyOn[Chn])
+		switch(Offset & 0x07)
 		{
+		case 0x01:	// Current Address (changed while playing - never ever optimize)
 			chip->RegFirst[Offset] = 0x01;
-			return true;
+			break;
+		case 0x03:	// Current Address, 16 fractional bits
+			chip->RegFirst[Offset] = 0x01;
+			break;
+		default:
+			// no special treatment required
+			break;
 		}
-		break;
-		// with the latest MAME update, this code isn't required anymore
-	/*case 0x02:	// Pitch
-		// setting the Pitch to 0 causes a Key Off
-		// but setting the Pitch to nonzero does NOT cause a Key On
-		if (! Value)
-		{
-			if (chip->KeyOn[Chn])
-			{
-				//chip->KeyOn[Chn] = 0x00;
-				chip->RegFirst[Offset] = 0x01;
-				chip->RegFirst[(Chn << 3) | 0x01] = 0x01;	// CurAddr Reg changed
-			}
-		}
-		break;*/
-	case 0x03:	// Key On
-		chip->KeyOn[Chn] = (Value & 0x8000) >> 15;
-		if (chip->KeyOn[Chn])
-		{
-			chip->RegFirst[Offset] = 0x01;	// make sure to always keep the KeyOn
-			chip->RegFirst[(Chn << 3) | 0x01] = 0x01;	// CurAddr Reg changed
-		}
-		break;
-		// with the latest MAME update, this code isn't required anymore
-	/*case 0x06:	// Volume
-		// setting the Volume to 0 causes a Key Off
-		// setting the Volume to nonzero causes a Key On
-		if (! Value)
-		{
-			if (chip->KeyOn[Chn])
-			{
-				chip->KeyOn[Chn] = 0x00;
-				chip->RegFirst[Offset] = 0x01;
-				chip->RegFirst[(Chn << 3) | 0x01] = 0x01;	// CurAddr Reg changed
-			}
-		}
-		else
-		{
-			if (! chip->KeyOn[Chn])
-			{
-				chip->KeyOn[Chn] = 0x01;
-				chip->RegFirst[Offset] = 0x01;
-			}
-			chip->RegFirst[(Chn << 3) | 0x01] = 0x01;	// CurAddr Reg will change
-		}
-		break;*/
+	}
+	else if (Offset >= 0xCA && Offset < 0xD6)	// ADPCM channels
+	{
+		// no special treatment required
+	}
+	else if (Offset >= 0xD6 && Offset < 0xD9)	// ADPCM trigger
+	{
+		// writing a non-zero value starts ADPCM playback
+		if (Value != 0)
+			chip->RegFirst[Offset] = 0x01;
+	}
+	else if (Offset == 0xE2)	// recalculate delays
+	{
+		chip->RegFirst[Offset] = 0x01;
+	}
+	else if (Offset == 0xE3)	// set update routine
+	{
+		// This may or may not result in a chip reset
+		// so I'll just reset the state.
+		memset(chip->RegFirst, 0xFF, 0x100);
 	}
 	
 	if (! chip->RegFirst[Offset] && Value == chip->RegData[Offset])
