@@ -207,6 +207,10 @@ static const float OPX_PCM_DBVol[0x10] =
 
 static const char* ES5503_MODES[0x04] = {"Free-Run", "One-Shot", "Sync", "Swap"};
 
+typedef struct ymf278b_chip
+{
+	UINT8 smplH[24];	// high bit of the sample ID
+} YMF278B_DATA;
 typedef struct ymf271_chip
 {
 	UINT8 group_sync[12];
@@ -254,6 +258,7 @@ static char* ChipStr;
 static CHIP_CNT ChpCnt;
 static UINT8 ChpCur;
 
+static YMF278B_DATA CacheYMF278B[0x02];
 static YMF271_DATA CacheYMF271[0x02];
 static OKIM6295_DATA CacheOKI6295[0x02];
 static MULTIPCM_DATA CacheMultiPCM[0x02];
@@ -264,6 +269,7 @@ void InitChips(UINT32* ChipCounts)
 {
 	memset(&ChpCnt, 0x00, sizeof(CHIP_CNT));
 	memcpy(&ChpCnt, ChipCounts, sizeof(UINT32) * 0x20);
+	memset(CacheYMF278B, 0x00, sizeof(YMF278B_DATA) * 0x02);
 	memset(CacheYMF271, 0x00, sizeof(YMF271_DATA) * 0x02);
 	memset(CacheOKI6295, 0x00, sizeof(OKIM6295_DATA) * 0x02);
 	memset(CacheMultiPCM, 0x00, sizeof(MULTIPCM_DATA) * 0x02);
@@ -1719,7 +1725,7 @@ void ymz280b_write(char* TempStr, UINT8 Register, UINT8 Data)
 		case 0x84:		// ROM readback / RAM write (high)
 		case 0x85:		// ROM readback / RAM write (med)
 		case 0x86:		// ROM readback / RAM write (low)
-			sprintf(WriteStr, "ROM Readback / RAM Write Addres %s 0x%02X",
+			sprintf(WriteStr, "ROM Readback / RAM Write Address %s 0x%02X",
 					ADDR_3S_STR[Addr], Data);
 			break;
 		case 0x87:		// RAM write
@@ -1744,13 +1750,124 @@ void ymz280b_write(char* TempStr, UINT8 Register, UINT8 Data)
 
 void ymf278b_write(char* TempStr, UINT8 Port, UINT8 Register, UINT8 Data)
 {
+	YMF278B_DATA* TempYMF = &CacheYMF278B[ChpCur];
+	UINT8 Channel;
+	UINT8 ChnReg;
+	UINT16 TempSht;
+	INT8 TempSByt;
+	
 	WriteChipID(0x0D);
 	
 	if (Port <= 0x01)
 	{
 		opl_write(RedirectStr, OPL_YMF278, Port, Register, Data);
 		
-		sprintf(TempStr, "%sPort %X %s", ChipStr, Port, RedirectStr);
+		sprintf(TempStr, "%sFM Port %X %s", ChipStr, Port, RedirectStr);
+		return;
+	}
+	else if (Port == 0x02)
+	{
+		if (Register >= 0x08 && Register <= 0xF7)
+		{
+			Channel = (Register - 0x08) % 24;
+			ChnReg = (Register - 0x08) / 24;
+			
+			switch(ChnReg)
+			{
+			case 0x00:	// sample ID (bits 0-7) / load sample
+				TempSht = (TempYMF->smplH[Channel] << 8) | (Data << 0);
+				sprintf(WriteStr, "Load Sample 0x%02X", TempSht);
+				break;
+			case 0x01:	// f-num (bits 0-6), sample ID (bit 8)
+				TempYMF->smplH[Channel] = Data & 0x01;
+				sprintf(WriteStr, "F-Num LSB = 0x%02X, Sample MSB = 0x%02X",
+						(Data & 0xFE) >> 1, Data & 0x01);
+				break;
+			case 0x02:	// octave, pseudo-reverb, f-num (bits 7-9)
+				TempSByt = (Data & 0xF0) >> 4;
+				if (TempSByt & 0x08)
+					TempSByt |= 0xF0;
+				sprintf(WriteStr, "Octave %d, Pseudo-Reverb: %s, F-Num MSB = %01X",
+						TempSByt, OnOff(Data & 0x08), Data & 0x07);
+				break;
+			case 0x03:	// total level
+				sprintf(WriteStr, "Total Level: 0x%02X = %u%%, TL %s",
+						(Data & 0xFE) >> 1, GetLogVolPercent((Data & 0xFE) >> 1, 0x10, 0x7F),
+						(Data & 0x01) ? "Set" : "Interpolate");
+				break;
+			case 0x04:		// key on, damp, LFO reset, output pin, pan
+				TempSByt = (Data & 0x0F) >> 0;
+				if (TempSByt & 0x08)
+					TempSByt |= 0xF0;
+				sprintf(WriteStr, "Key %s, Damping %s, LFO Reset %s, Output Pin: %s, Pan 0x%02X = %d%%",
+						OnOff(Data & 0x80), OnOff(Data & 0x40), OnOff(Data & 0x20),
+						(Data & 0x10) ? "D02" : "D01", (Data & 0x0F) >> 0, 100 * TempSByt / 0x07);
+				break;
+			case 0x05:	// LFO speed, vibrato depth
+				sprintf(WriteStr, "LFO Speed: 0x%01X, Vibrato Depth: 0x%01X",
+						(Data & 0x38) >> 3, (Data & 0x07) >> 0);
+				break;
+			case 0x06:	// AR, D1R
+				sprintf(WriteStr, "Attack Rate: 0x%01X, Decay Rate: 0x%01X",
+						(Data & 0xF0) >> 4, (Data & 0x0F) >> 0);
+				break;
+			case 0x07:	// D1L, D2R
+				sprintf(WriteStr, "Sustain Level: 0x%01X, Sustain Rate: 0x%01X",
+						(Data & 0xF0) >> 4, (Data & 0x0F) >> 0);
+				break;
+			case 0x08:	// RC, RR
+				if ((Data & 0xF0) == 0xF0)
+					sprintf(WriteStr, "Rate Correction: %s, Release Rate: 0x%01X",
+							"off", (Data & 0x0F) >> 0);
+				else
+					sprintf(WriteStr, "Rate Correction: %u, Release Rate: 0x%01X",
+							(Data & 0xF0) >> 4, (Data & 0x0F) >> 0);
+				break;
+			case 0x09:	// AM
+				sprintf(WriteStr, "Amplitude Modulation: 0x%01X", (Data & 0x07) >> 0);
+				break;
+			default:
+				sprintf(WriteStr, "Unknown Register Write %02X = %02X", Register, Data);
+				break;
+			}
+			sprintf(TempStr, "%sCh %u %s", ChipStr, Channel, WriteStr);
+		}
+		else	// upper registers are special
+		{
+			switch(Register)
+			{
+			case 0x00:	// test
+			case 0x01:	// test
+				sprintf(WriteStr, "Test Register 0x%02X = 0x%02X", Register, Data);
+				break;
+			case 0x02:	// memory access mode
+				sprintf(WriteStr, "Wave Table Offset: 0x%06X, Memory Type %s, Access Mode: %s",
+						((Data & 0x1C) >> 2) * 0x080000,
+						(Data & 0x02) ? "SRAM+ROM" : "ROM",
+						(Data & 0x01) ? "CPU read/write" : "normal");
+				break;
+			case 0x03:	// memory address (high)
+			case 0x04:	// memory address (med)
+			case 0x05:	// memory address (low)
+				TempSht = 0x05 - Register;
+				sprintf(WriteStr, "Set Memory Address %s = 0x%02X", ADDR_3S_STR[TempSht], Data);
+				break;
+			case 0x06:	// memory read/write
+				sprintf(WriteStr, "Memory Write: Data 0x%02X", Data);
+				break;
+			case 0xF8:	// FM Mix Control
+			case 0xF9:	// PCM Mix Control
+				sprintf(WriteStr, "%S Mix L: 0x%01X = %u%%, 0x%01X = %u%%",
+						(Register == 0xF9) ? "PCM" : "FM",
+						(Data & 0x38) >> 3, GetLogVolPercent((Data & 0x38) >> 3, 0x02, 0xFF),
+						(Data & 0x07) >> 0, GetLogVolPercent((Data & 0x07) >> 0, 0x02, 0xFF));
+				break;
+			default:
+				sprintf(WriteStr, "Unknown Register Write %02X = %02X", Register, Data);
+				break;
+			}
+			sprintf(TempStr, "%s%s", ChipStr, WriteStr);
+		}
 	}
 	else
 	{
@@ -3211,7 +3328,7 @@ static void multipcm_WriteSlot(char* TempStr, INT8 Slot, UINT8 Register, UINT8 D
 		sprintf(WriteStr, "Pitch LSB = 0x%02X", Data);
 		break;
 	case 3:
-		TempSByt = (Data >> 4) - 1;
+		TempSByt = Data >> 4;
 		if (TempSByt & 0x08)
 			TempSByt |= 0xF0;
 		sprintf(WriteStr, "Pitch MSB = 0x%01X, Octave %d", Data & 0x0F, TempSByt);
