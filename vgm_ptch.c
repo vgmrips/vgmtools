@@ -138,26 +138,31 @@ int main(int argc, char* argv[])
 		printf("    -SetHzYM3812   Sets the YM3812 (OPL2) chip clock\n");
 		printf("    -SetHzYM3526   Sets the YM3526 (OPL) chip clock\n");
 		printf("    -SetHzY8950    Sets the Y8950 (MSX AUDIO) chip clock\n");
-		_getch();
-		
 		printf("    -SetHzYMF262   Sets the YMF262 (OP3) chip clock\n");
 		printf("    -SetHzYMF278B  Sets the YMF278B (OPL4) chip clock\n");
 		printf("    -SetHzYMF271   Sets the YMF271 (OPLX) chip clock\n");
 		printf("    -SetHzYMZ280B  Sets the YMZ280B chip clock\n");
+		_getch();
+		
 		printf("    -SetHzRF5C164  Sets the RF5C164 (Sega MegaCD PCM) chip clock\n");
 		printf("    -SetHzPWM      Sets the PWM chip clock\n");
 		printf("    -SetHzAY8910   Sets the AY8910 chip clock\n");
+		printf("    -SetAY8910Type     Sets the AY8910 chip type\n");
+		printf("    -SetAY8910Flags    Sets the AY8910 Flags\n");
 		printf("VGM v1.61+:\n");
 		printf("    -SetHzGBDMG    Sets the GameBoy DMG chip clock\n");
 		printf("    -SetHzNESAPU   Sets the NES APU chip clock\n");
 		printf("    -SetHzMultiPCM Sets the MultiPCM chip clock\n");
 		printf("    -SetHzUPD7759  Sets the UPD7759 chip clock\n");
 		printf("    -SetHzOKIM6258 Sets the OKIM6258 chip clock\n");
+		printf("    -SetOKIM6258Flags  Sets the OKIM6258 Flags\n");
 		printf("    -SetHzOKIM6295 Sets the OKIM6295 chip clock\n");
 		printf("    -SetHzSCC1     Sets the SCC1 (K051649) chip clock\n");
 		printf("    -SetHzK054539  Sets the K054539 chip clock\n");
+		printf("    -SetK054539Flags   Sets the K054539 Flags\n");
 		printf("    -SetHzHuC6280  Sets the HuC6280 chip clock\n");
 		printf("    -SetHzC140     Sets the C140 chip clock\n");
+		printf("    -SetC140Type       Sets the C140 chip type\n");
 		printf("    -SetHzK053260  Sets the K053260 chip clock\n");
 		printf("    -SetHzPokey    Sets the Pokey chip clock\n");
 		printf("    -SetHzQSound   Sets the QSound chip clock\n");
@@ -1446,6 +1451,44 @@ static UINT8 PatchVGM(int ArgCount, char* ArgList[])
 				printf("Warning! Command ignored - VGM version too low!\n");
 			}
 		}
+		else if (! stricmp(CmdStr, "SetAY8910Type"))
+		{
+			if (CmdData == NULL)
+				goto IncompleteArg;
+			
+			if (VGMHead.lngVersion >= 0x151)
+			{
+				TempByt = (UINT8)strtoul(CmdData, NULL, 0);
+				if (TempByt != VGMHead.bytAYType)
+				{
+					VGMHead.bytAYType = TempByt;
+					RetVal |= 0x10;
+				}
+			}
+			else
+			{
+				printf("Warning! Command ignored - VGM version too low!\n");
+			}
+		}
+		else if (! stricmp(CmdStr, "SetAY8910Flags"))
+		{
+			if (CmdData == NULL)
+				goto IncompleteArg;
+			
+			if (VGMHead.lngVersion >= 0x151)
+			{
+				TempByt = (UINT8)strtoul(CmdData, NULL, 0);
+				if (TempByt != VGMHead.bytAYFlag)
+				{
+					VGMHead.bytAYFlag = TempByt;
+					RetVal |= 0x10;
+				}
+			}
+			else
+			{
+				printf("Warning! Command ignored - VGM version too low!\n");
+			}
+		}
 		else if (! stricmp(CmdStr, "SetLoopMod"))
 		{
 			if (CmdData == NULL)
@@ -1528,6 +1571,63 @@ static UINT8 PatchVGM(int ArgCount, char* ArgList[])
 								OldVal, NewVal);
 					}
 					VGMHead.bytVolumeModifier = TempByt;
+					RetVal |= 0x10;
+				}
+			}
+			else
+			{
+				printf("Warning! Command ignored - VGM version too low!\n");
+			}
+		}
+		else if (! stricmp(CmdStr, "SetOKIM6258Flags"))
+		{
+			if (CmdData == NULL)
+				goto IncompleteArg;
+			
+			if (VGMHead.lngVersion >= 0x161)
+			{
+				TempByt = (UINT8)strtoul(CmdData, NULL, 0);
+				if (TempByt != VGMHead.bytOKI6258Flags)
+				{
+					VGMHead.bytOKI6258Flags = TempByt;
+					RetVal |= 0x10;
+				}
+			}
+			else
+			{
+				printf("Warning! Command ignored - VGM version too low!\n");
+			}
+		}
+		else if (! stricmp(CmdStr, "SetK054539Flags"))
+		{
+			if (CmdData == NULL)
+				goto IncompleteArg;
+			
+			if (VGMHead.lngVersion >= 0x161)
+			{
+				TempByt = (UINT8)strtoul(CmdData, NULL, 0);
+				if (TempByt != VGMHead.bytK054539Flags)
+				{
+					VGMHead.bytK054539Flags = TempByt;
+					RetVal |= 0x10;
+				}
+			}
+			else
+			{
+				printf("Warning! Command ignored - VGM version too low!\n");
+			}
+		}
+		else if (! stricmp(CmdStr, "SetC140Type"))
+		{
+			if (CmdData == NULL)
+				goto IncompleteArg;
+			
+			if (VGMHead.lngVersion >= 0x161)
+			{
+				TempByt = (UINT8)strtoul(CmdData, NULL, 0);
+				if (TempByt != VGMHead.bytC140Type)
+				{
+					VGMHead.bytC140Type = TempByt;
 					RetVal |= 0x10;
 				}
 			}

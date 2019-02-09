@@ -113,7 +113,7 @@ int main(int argc, char* argv[])
 	
 	MaxDrumDelay = 500;
 	DumpDrums = false;
-	Skip80Sample = 1;
+	Skip80Sample = 0;
 	Smpl80Value = 0x80;	// can be 0x80, 0x88 or 0x08
 	EarlyDataWrt = false;
 	SplitCmd = 0x00;

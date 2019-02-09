@@ -77,7 +77,7 @@ int main(int argc, char* argv[])
 	const char* refDir;
 	const char* dstDir;
 	
-	printf("VGM Tag Transfer\n----------------\n\n");
+	printf("VGM Tag Transfer\n----------------\n");
 	
 	if (argc < 3)
 	{
@@ -120,7 +120,7 @@ int main(int argc, char* argv[])
 	ReadDirectory(dstDir, dstFiles);
 	CompareDirectories(refFiles, dstFiles, refDstMap);
 	
-	if (! ACT_RENAME)
+	if (! fileActions)
 		PrintMappings(refFiles, dstFiles, refDstMap);
 	else
 		ExecuteTransfer(refDir, refFiles, dstDir, dstFiles, refDstMap, fileActions);
@@ -159,13 +159,10 @@ static void ReadDirectory(const char* dirName, VFINF_LIST& vgmInfoList)
 		return;
 	}
 	
-	while(true)
+	do
 	{
-		retValB = FindNextFile(hFindFile, &findData);
-		if (! retValB)
-			break;
 		if (findData.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY)
-			continue;
+			goto SkipFile;
 		
 		fileName = basePath + findData.cFileName;
 		retVal8 = GetVGMFileInfo(fileName.c_str(), &vgmInfo);
@@ -174,7 +171,10 @@ static void ReadDirectory(const char* dirName, VFINF_LIST& vgmInfoList)
 			vgmInfoList.push_back(vgmInfo);
 		else
 			printf("Error reading %s!\n", fileName.c_str());
-	};
+		
+SkipFile:
+		retValB = FindNextFile(hFindFile, &findData);
+	} while(retValB);
 	retValB = FindClose(hFindFile);
 	
 	return;
