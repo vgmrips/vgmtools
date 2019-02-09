@@ -176,6 +176,7 @@ INLINE void WriteLE32(const UINT8* Data, UINT32 Value);
 //	- Complete Rewrite: writes some sort of chip save state at the beginning of the VGM
 //	- VGMTool Trim: writes all commands and simply strips the delays (deprecated, can sort of break things with OPN chips)
 //	- Intelligent: writes all necessary commands to restore the chip state (e.g. unused channels will be left out)
+static bool HARD_SPLIT = false;
 static bool COMPLETE_REWRITE = false;
 static bool VGMTOOL_TRIM = false;
 static bool INTELLIGENT = false;
@@ -202,6 +203,7 @@ void SetTrimOptions(UINT8 TrimMode, UINT8 WarnMask)
 	}
 #endif
 	
+	HARD_SPLIT = false;
 	COMPLETE_REWRITE = false;
 	VGMTOOL_TRIM = false;
 	INTELLIGENT = false;
@@ -215,6 +217,9 @@ void SetTrimOptions(UINT8 TrimMode, UINT8 WarnMask)
 		break;
 	case 0x02:
 		INTELLIGENT = true;	// not working yet
+		break;
+	case 0x03:
+		HARD_SPLIT = true;
 		break;
 	}
 	WARN_PLAY_NOTES = (WarnMask) ? true : false;
@@ -933,6 +938,18 @@ static void InitializeVGM(UINT8** DstDataRef, UINT32* DstPosRef)
 					//CurReg = 0x2??;
 					CmdType = 0x87;
 				}
+				if (HARD_SPLIT)
+				{
+					DstData[DstPos + 0x00] = 0x67;
+					DstData[DstPos + 0x01] = 0x66;
+					DstData[DstPos + 0x02] = CmdType;
+					WriteLE32(&DstData[DstPos + 0x03], 0x08);
+					
+					WriteLE32(&DstData[DstPos + 0x07], TempMem->MemSize);
+					WriteLE32(&DstData[DstPos + 0x0B], 0x00);
+					DstPos += 0x07 + 0x08;
+					break;
+				}
 				
 				if (ChipCmd && (TempCD->Regs.RegMask[CurReg] & 0x7F) == 0x01)
 				{
@@ -982,6 +999,8 @@ static void InitializeVGM(UINT8** DstDataRef, UINT32* DstPosRef)
 			case 0x14:	// NES APU
 			case 0x20:	// SCSP
 			case 0x24:	// ES5503
+				if (HARD_SPLIT)
+					break;
 				if (CurChip == 0x05)
 					TempByt = 0x00;
 				else if (CurChip == 0x10)
@@ -1041,7 +1060,7 @@ static void InitializeVGM(UINT8** DstDataRef, UINT32* DstPosRef)
 		{
 			TempReg = &TempCD->Regs;
 			
-			if (! TempReg->RegCount)
+			if (! TempReg->RegCount || HARD_SPLIT)
 				continue;
 			
 			for (CurReg = 0x00; CurReg < TempReg->RegCount; CurReg ++)
@@ -2726,7 +2745,10 @@ static void CmdChk_OPL(CHIP_CHNS* ChnState, UINT8 OPLMode, UINT16 CmdReg, UINT8 
 	else if ((CmdReg & 0x0F) < 0x09)
 	{
 		CurChn = ((CmdReg & 0x100) >> 8) * 9 + (CmdReg & 0x0F);
-		KeyOnOff = (Data & 0x20) >> 5;
+		if (OPLMode == 'L')
+			KeyOnOff = (Data & 0x10) >> 4;
+		else
+			KeyOnOff = (Data & 0x20) >> 5;
 		
 		ChnState->ChnMask &= ~(1 << CurChn);
 		ChnState->ChnMask |= (KeyOnOff << CurChn);

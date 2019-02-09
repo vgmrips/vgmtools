@@ -953,7 +953,7 @@ static void MakeDataStream(void)
 	// Now general all the special DAC Stream commands.
 	
 	// (Command 90/91) * Chip Count + (Command 92/95) * played drums
-	CtrlCmdAlloc = 0x02 * ChipCnt + 0x02 * DrmSrtCount;	// should be just enough
+	CtrlCmdAlloc = 0x03 * ChipCnt + 0x02 * DrmSrtCount;	// should be just enough
 	VGMCtrlCmd = (STRM_CTRL_CMD*)malloc(CtrlCmdAlloc * sizeof(STRM_CTRL_CMD));
 	
 	CtrlCmdCount = 0x00;

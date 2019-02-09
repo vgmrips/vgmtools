@@ -38,12 +38,13 @@ TOOLS = \
 	vgm_stat \
 	vgm_tag \
 	vgm_trim \
+	vgm_tt \
 	vgm_vol \
 	vgmlpfnd \
 	vgmmerge
 
 # extra tools not compiled by default, because they are
-# either in beta state or not of use without special knowledge
+# either in beta state or not of use/shouldn't be used without special knowledge
 EXTRA_TOOLS = \
 	optdac \
 	optvgm32 \
@@ -76,15 +77,19 @@ vgm_sro_OBJS = vgm_sro.o chip_srom.o
 vgm_stat_OBJS = vgm_stat.o
 vgm_tag_OBJS = vgm_tag.o
 vgm_trim_OBJS = vgm_trim.o vgm_trml.o
+vgm_tt_OBJS = vgm_tt.o
 vgm_vol_OBJS = vgm_vol.o
 vgmlpfnd_OBJS = vgmlpfnd.o
 vgmmerge_OBJS = vgmmerge.o
 
 $(TOOLS) $(EXTRA_TOOLS): $$(addprefix $(OBJ)/,$$($$@_OBJS))
-	$(CC) $^ -o $@ $(LDFLAGS)
+	$(CXX) $^ -o $@ $(LDFLAGS)
 
 $(OBJ)/%.o: $(SRC)/%.c
 	$(CC) $(CFLAGS) -c $< -o $@
+
+$(OBJ)/%.o: $(SRC)/%.cpp
+	$(CXX) $(CFLAGS) -c $< -o $@
 
 $(OBJ):
 	mkdir $(OBJ)
