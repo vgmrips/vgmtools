@@ -203,7 +203,7 @@ typedef struct _c140_state
 	C140_VOICE voi[C140_MAX_VOICE];
 } C140_DATA;
 
-#define QSOUND_CHANNELS 16
+#define QSOUND_CHANNELS 19 /* 16pcm + 3adpcm */
 typedef struct _qsound_channel
 {
 	UINT8 bank;		// bank (x16)
@@ -1692,14 +1692,17 @@ void qsound_write(UINT8 Offset, UINT16 Value)
 	UINT8 ch;
 	UINT8 reg;
 	QSOUND_CHANNEL* TempChn;
-	UINT32 StAddr;
-	UINT32 EndAddr;
+	INT16 StAddr;
+	INT16 EndAddr;
 	UINT32 Addr;
 	
 	if (Offset < 0x80)
 	{
 		ch = Offset >> 3;
 		reg = Offset & 0x07;
+
+		if(reg == 0) // Bank
+			ch = (ch + 1) & 0x0F;
 	}
 	else if (Offset < 0x90)
 	{
@@ -1711,6 +1714,22 @@ void qsound_write(UINT8 Offset, UINT16 Value)
 		ch = Offset - 0xBA;
 		reg = 9;
 	}
+	else if (Offset >= 0xCA && Offset < 0xD6) // ADPCM
+	{
+		ch = 16+((Offset-0xCA)>>2);
+		Offset &= 3;
+		if(Offset == 0)
+			reg = 0; // bank
+		else if(Offset == 2)
+			reg = 1; // start
+		else if(Offset == 3)
+			reg = 5; // end
+	}
+	else if (Offset >= 0xD6 && Offset < 0xD9) // ADPCM key on
+	{
+		ch = 16 + Offset - 0xD6;
+		reg = 6; // it's actually a key on trigger
+	}
 	else
 	{
 		return;
@@ -1720,7 +1739,7 @@ void qsound_write(UINT8 Offset, UINT16 Value)
 	switch(reg)
 	{
 	case 0: // Bank
-		ch = (ch + 1) & 0x0F;
+		//ch = (ch + 1) & 0x0F;
 		TempChn = &chip->channel[ch];
 		TempChn->bank = Value & 0x7F;
 		break;
@@ -1748,13 +1767,13 @@ void qsound_write(UINT8 Offset, UINT16 Value)
 			// Key on
 			TempChn->key = 1;
 			
-			StAddr = (TempChn->bank << 16) + TempChn->address;
-			EndAddr = (TempChn->bank << 16) + TempChn->end;
+			StAddr = TempChn->address;
+			EndAddr = TempChn->end;
 			StAddr %= chip->ROMSize;
 			EndAddr %= chip->ROMSize;
 			EndAddr ++;
 			for (Addr = StAddr; Addr < EndAddr; Addr ++)
-				chip->ROMUsage[Addr] |= 0x01;
+				chip->ROMUsage[(TempChn->bank << 16) + (Addr&0xffff)] |= 0x01;
 		}
 		break;
 	}
