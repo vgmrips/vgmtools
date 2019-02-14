@@ -2751,6 +2751,12 @@ void c6280_write(char* TempStr, UINT8 Register, UINT8 Data)
 	return;
 }
 
+void qsound_adpcm_write(char* TempStr, UINT8 Offset, UINT16 Value)
+{
+	
+	
+}
+
 void qsound_write(char* TempStr, UINT8 Offset, UINT16 Value)
 {
 	UINT8 ch;
@@ -2759,20 +2765,93 @@ void qsound_write(char* TempStr, UINT8 Offset, UINT16 Value)
 	
 	WriteChipID(0x1F);
 	
-	if (Offset < 0x80)
+	if (Offset < 0x80) // PCM registers
 	{
 		ch = Offset >> 3;
 		reg = Offset & 0x07;
+		if(reg == 0)
+			ch = (ch + 1) & 0x0F;
 	}
-	else if (Offset < 0x90)
+	else if (Offset < 0x93) // panning
 	{
 		ch = Offset - 0x80;
 		reg = 8;
 	}
-	else if (Offset >= 0xBA && Offset < 0xCA)
+	else if (Offset == 0x93)
+	{
+		sprintf(WriteStr, "Set Echo Feedback: 0x%04X (%d %%)", Value, Value*100/32767);
+		sprintf(TempStr, "%s%s", ChipStr, WriteStr);
+		return;
+	}
+	else if (Offset >= 0xBA && Offset < 0xCA) // echo
 	{
 		ch = Offset - 0xBA;
 		reg = 9;
+	}
+	else if (Offset >= 0xCA && Offset < 0xD6) // ADPCM regs
+	{
+		static const int adpcm_reg_map[4] = {1,5,0,6}; // start, end, bank, vol
+		ch = 16+((Offset-0xCA)>>2);
+		reg = adpcm_reg_map[(Offset-0xCA)&3];
+	}
+	else if (Offset >= 0xD6 && Offset < 0xD9) // ADPCM key on
+	{
+		ch = 16+(Offset-0xD6);
+		reg = 10;
+	}
+	else if (Offset == 0xD9)
+	{
+		sprintf(WriteStr, "Set Echo Delay: 0x%04X (%d samples, %.2f ms)", Value, Value-0x554, (Value/24038.)*1000.);
+		sprintf(TempStr, "%s%s", ChipStr, WriteStr);
+		return;
+	}
+	else if (Offset >= 0xDA && Offset < 0xE2)
+	{
+		ch = ((Offset - 0xDA)&2)>>1;
+		reg = ((Offset - 0xDA)&4)>>2;
+		sprintf(WriteStr, "Set %s %s Filter %s: 0x%04X",
+			(ch == 0) ? "Left" : "Right",
+			((Offset&1) == 0) ? "Wet" : "Dry",
+			(reg == 0) ? "Select" : "Delay",
+			Value);
+		sprintf(TempStr, "%s%s", ChipStr, WriteStr);
+		return;
+	}
+	else if (Offset == 0xE2)
+	{
+		sprintf(WriteStr, "Set Delay Update Flag: 0x%04X", Value);
+		sprintf(TempStr, "%s%s", ChipStr, WriteStr);
+		return;
+	}
+	else if (Offset == 0xE3)
+	{
+		sprintf(WriteStr, "Set Chip Mode: 0x%04X", Value);
+		if(Value == 0x0000)
+			strcat(WriteStr, " (Soft Reset)");
+		else if(Value == 0x0288)
+			strcat(WriteStr, " (Reset chip)");
+		else if(Value == 0x0039)
+			strcat(WriteStr, " (Update filters)");
+		else if(Value == 0x061A)
+			strcat(WriteStr, " (Quad filter mode: Reset chip)");
+		else if(Value == 0x004F)
+			strcat(WriteStr, " (Quad filter mode: Update filters)");
+		else if(Value == 0x000C)
+			strcat(WriteStr, " (Test Mode 1)");
+		else if(Value == 0x000F)
+			strcat(WriteStr, " (Test Mode 2)");
+		sprintf(TempStr, "%s%s", ChipStr, WriteStr);
+		return;
+	}
+	else if (Offset >= 0xE4 && Offset < 0xE8)
+	{
+		ch = ((Offset - 0xE4)&2)>>1;
+		sprintf(WriteStr, "Set %s %s Master Volume: 0x%04X (%d %%)",
+			(ch == 0) ? "Left" : "Right",
+			((Offset&1) == 0) ? "Wet" : "Dry",
+			Value, (INT16)Value*100/16383);
+		sprintf(TempStr, "%s%s", ChipStr, WriteStr);
+		return;
 	}
 	else
 	{
@@ -2784,7 +2863,6 @@ void qsound_write(char* TempStr, UINT8 Offset, UINT16 Value)
 	switch(reg)
 	{
 	case 0: // Bank
-		ch = (ch + 1) & 0x0F;
 		sprintf(WriteStr, "Set Bank: %02X (base 0x%06X)", Value & 0x7F,
 				(Value & 0x7F) << 16);
 		break;
@@ -2795,30 +2873,52 @@ void qsound_write(char* TempStr, UINT8 Offset, UINT16 Value)
 		sprintf(WriteStr, "Set Pitch: 0x%04X", Value);
 		if (! Value)
 			sprintf(WriteStr, "%s (Key Off)", WriteStr);
+		else
+			sprintf(WriteStr, "%s (%d Hz)", WriteStr, Value*24038/4096);
+		break;
+	case 3: // phase
+		sprintf(WriteStr, "Set Phase: 0x%04X", Value);
 		break;
 	case 4: // loop
-		sprintf(WriteStr, "Set Loop Address: 0x%04X", Value);
+		sprintf(WriteStr, "Set Loop Length: 0x%04X", Value);
 		break;
 	case 5: // end
 		sprintf(WriteStr, "Set End Address: 0x%04X", Value);
 		break;
 	case 6: // master volume
-		sprintf(WriteStr, "Set Volume: 0x%04X", Value);
-		if (! Value)
-			sprintf(WriteStr, "%s (Key Off)", WriteStr);
+		sprintf(WriteStr, "Set Volume: 0x%04X (%d %%)", Value, (INT16)Value*100/8191);
 		break;
 	case 8: // pan
-		TempByt = (Value - 0x10) & 0x3F;
-		if (TempByt > 0x20)
-			TempByt = 0x20;
-		sprintf(WriteStr, "Set Panorama: %d", TempByt);
+		if(Value >= 0x110 && Value <= 0x130)
+		{
+			TempByt = (Value - 0x120);
+			sprintf(WriteStr, "Set Pan: 0x%04X (%d)", Value, TempByt);
+		}
+		else if(Value >= 0x140 && Value <= 0x160)
+		{
+			TempByt = (Value - 0x150);
+			sprintf(WriteStr, "Set Pan: 0x%04X (%d, No Spatial Effect)", Value, TempByt);
+		}
+		else
+		{
+			sprintf(WriteStr, "Set Pan: 0x%04X (Illegal)", Value);
+		}
+		break;
+	case 9: // echo
+		sprintf(WriteStr, "Set Echo: 0x%04X (%d %%)", Value, (INT16)Value*100/32767);
+		break;
+	case 10: // key on (ADPCM only)
+		sprintf(WriteStr, "Key On: 0x%04X", Value);
 		break;
 	default:
 		sprintf(WriteStr, "Register %u: 0x%04X", reg, Value);
 		break;
 	}
-	sprintf(TempStr, "%sCh %u: %s", ChipStr, ch, WriteStr);
-	
+	if(ch < 16)
+		sprintf(TempStr, "%sCh %u: %s", ChipStr, ch, WriteStr);
+	else if(ch < 19)
+		sprintf(TempStr, "%sADPCM Ch %u: %s", ChipStr, ch-16, WriteStr);
+
 	return;
 }
 
