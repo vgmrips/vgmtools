@@ -549,7 +549,7 @@ static void SplitVGMData(int argc, char* argv[])
 					VGMSmplStart = VGMSmplPos;
 					CmdDelay = 0x00;
 				} 
-				else if (VGMSmplPos >= SplitSmpl || StopVGM)
+				if (VGMSmplPos >= SplitSmpl || StopVGM)
 				{
 					TempLng = VGMSmplPos - CmdDelay;
 					TrimVGMData(VGMSmplStart, 0x00, TempLng, false, true);

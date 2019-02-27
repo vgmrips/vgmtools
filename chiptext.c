@@ -2751,12 +2751,6 @@ void c6280_write(char* TempStr, UINT8 Register, UINT8 Data)
 	return;
 }
 
-void qsound_adpcm_write(char* TempStr, UINT8 Offset, UINT16 Value)
-{
-	
-	
-}
-
 void qsound_write(char* TempStr, UINT8 Offset, UINT16 Value)
 {
 	UINT8 ch;
@@ -3511,6 +3505,7 @@ void scsp_write(char* TempStr, UINT16 Register, UINT8 Data)
 		Register&=0x1f;
 		//*((unsigned short *) (scsp->Slots[slot].udata.datab+(Register))) = val;
 		//SCSP_UpdateSlotReg(scsp,slot,Register&0x1f);
+		sprintf(WriteStr, "Channel %u, Register %02X: 0x%02X", slot, Register, Data);
 	}
 	else if (Register < 0x600)
 	{
@@ -3518,6 +3513,7 @@ void scsp_write(char* TempStr, UINT16 Register, UINT8 Data)
 		{
 			//*((unsigned short *) (scsp->udata.datab+((Register&0x3f)))) = val;
 			//SCSP_UpdateReg(scsp, Register&0x3f);
+			sprintf(WriteStr, "Register %03X: 0x%02X", Register, Data);
 		}
 		else
 		{

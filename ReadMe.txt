@@ -2,19 +2,136 @@ VGM Tools by Valley Bell
 =========
 
 Tool List:
+dro2vgm - DRO to VGM Converter
+imf2vgm - IMF to VGM Converter
+opl_23 - OPL 2<->3 Converter
+opt_oki - VGM OKIM6258 Optimizer
+optdac - VGM DAC Optimizer
+optvgm32 - VGM PWM Optimizer
+optvgmrf - VGM RF-PCM Optimizer
+raw2vgm - RAW to VGM Converter
 vgm_cmp - VGM Compressor
+vgm_cnt - VGM Command Counter
+vgm_dbc - VGM Data Block Compressor
+vgm_dso - VGM DAC Stream Optimizer
 vgm_facc - Make VGM Frame Accurate
+vgm_mono - VGM Mono
+vgm_ndlz - VGM Undualizer
+vgm_ptch - VGM Patcher
 vgm_smp1 - Remove 1 Sample Delays
 vgm_sptd - VGM Splitter (Delay Edition)
 vgm_spts - VGM Splitter (Sample Edition)
+vgm_sro - VGM Sample-ROM Optimizer
+vgm_sro - VGM Sample-ROM Optimizer
+vgm_stat - VGM Statistics
+vgm_tag - VGM Tagger
+vgm_tt - VGM Tag Transfer
 vgm_trim - VGM Trimmer
+vgm_vol - VGM Volume Detector
 vgm2txt - VGM Text Writer
 vgmlpfnd - VGM Loop Finder
-dro2vgm - DRO to VGM Converter
-vgm_sro - VGM Sample-ROM Optimizer
-optvgmrf - VGM RF-PCM Optimizer
 vgmmerge - VGM Merger
 
+
+
+DRO to VGM Converter (dro2vgm)
+--------------------
+This tool converts DRO files (DOSBox RAW OPL) to VGM.
+These DRO-versions are supported:
+
+Version	DosBox	Rease Date
+   0	 0.61	 4 Jul 2004
+   1	 0.63	18 Nov 2004
+   2	 0.73	14 Jul 2008
+
+Note: The program may print a warning about incorrect delays. That's caused by old DRO-files (v0 and v1) because of the way DOSBox logs them. The program already HAS a detection to detect and fix some of these bugs, so most files should work.
+
+
+IMF to VGM Converter (imf2vgm)
+--------------------
+This tool converts IMF files (id Software Music Format) to VGM.
+
+It supports IMF type-0 and type-1 files. The type is autodetected, but you can override the auto-detection with "-Type0" or "-Type1".
+
+Note: The actual playback speed of IMF files depends on the game they are from. The files themselves contain no information about the actual playback speed.
+Currently, the playback speed defaults to 700 Hz for files that use the .WLF extension and to 560 Hz for all others.
+You can override the playback speed with the "-Hz" parameter.
+
+The resulting VGMs can be forced to loop with the "-Loop" parameter.
+
+
+OPL 2<->3 Converter (opl_23)
+-------------------
+This handy tool allows you to convert between "single OPL2", "dual OPL2" and OPL3 VGMs.
+It can help you if you accidentally logged music with the wrong "oplmode" setting in DOSBox.
+
+The tool can convert in 3 ways and performs additional actions, depending on the mode.
+Mode 3d2: convert OPL3 to Dual OPL2 (L/R hard-panned)
+	- enforces "waveform select" enable (register 01h, data 20h)
+	- warns when Dual OPL2 panning will be different from original OPL3 panning
+	- warns when OPL3-specific waveforms are used
+Mode d23: convert Dual OPL2 to OPL3
+	- enables OPL3 mode
+	- enforces OPL3 panning to match Dual OPL2 panning
+Mode d22: convert Dual OPL2 to Single OPL2
+	- checks that *every* command was written to both OPL2 chips (so that it can be reduced to single OPL2) and warns if not
+
+
+VGM OKIM6258 Optimizer (opt_oki)
+----------------------
+[NOTE: still alpha and not for public use]
+This tool scans streamed OKIM6258 data (from VGM logs of X68000 games) and optimizes them into "play sample" commands for the VGM "DAC Stream" system.
+
+Currently, the tool requires the user to do some in-depth research of the logged OKIM6258 stream data in order to be able to configure the tool correctly.
+Settings to be made are the source code variables:
+- MaxDrumDelay: VGM samples after which a sample ends, even without a "stop" command
+  Some games require this to be low (~120) due to a lack of "stop" commands in general.
+  Others have jittery streams and require a high setting (>=500) to prevent the creation of many chopped samples. (e.g. Arcus Odyssey)
+- Skip80Sample: sets how many "dummy" samples the game sends before and/or after the actual ADPCM sample data.
+  Setting this incorrectly causes too many samples to be created when a game stops a sample early.
+- Smpl80Value: value of the "dummy" sample (commonly 0x80, 0x88 or 0x08)
+- EarlyDataWrt: set to "true" when the first data byte is written *before* the actual "start" command occours
+- SplitCmd: OKIM6258 command at which samples are forcedly split (usually 0x00: "start/stop" or 0x02: pan)
+
+
+VGM DAC Optimizer (optdac)
+-----------------
+This tool cleans up YM2612 DAC writes.
+
+I wrote this tool for optimizing logs of the MegaDrive version of "Worms".
+The game uses a multi-channel DAC driver and constantly streams data to the YM2612's DAC channel.
+So when no sample is playing, it will constantly write the byte 0x80.
+
+This tool detects when the same value is consecutively written 128 times or more to the DAC and removes all of them but the first one.
+This allows optvgm to work better on VGM logs of this game.
+
+This is a very special case though and using the tool on games that don't constantly write to the DAC might make the optvgm optimization worse.
+So please use with caution.
+
+
+VGM PWM Optimizer (optvgm32)
+-----------------
+[NOTE: still pre-alpha and not for public use]
+This tool is supposed to optimize the Sega 32X PWM data writes into data blocks.
+
+I never got the actual detection of "repeating data" done, so right now it just turns everything into one large stream. (with synchronization commands every second)
+
+
+VGM RF-PCM Optimizer (optvgmrf)
+--------------------
+If you know optvgm, you know what optvgmrf does. (Internally it works completely different, but the result is the same.)
+This tool optimized VGM files, that use PCM chips of the RF-family (RF5C68 and Sega MegaCD's RF5C164).
+The file size of optimized files usually decreases to 5-10%.
+
+The resulting output-file will be updated to vgm v1.60.
+
+
+RAW to VGM Converter (raw2vgm)
+--------------------
+This tool converts RAW files (Rdos Raw OPL Capture) to VGM.
+
+The resulting VGMs can be forced to loop with the "-Loop" parameter.
+If the RAW file uses two OPL chips, the VGM will use two centered YM3812 chips.
 
 
 VGM Compressor (vgm_cmp)
@@ -32,20 +149,33 @@ Notes:
 - Nevertheless it can be useful to use this tool with -justtmr on (a copy of) an untrimmed file.
 
 
+VGM Command Counter (vgm_cnt)
+-------------------
+... [counts the commands/notes for each chip]
+
+
+VGM Data Block Compressor (vgm_dbc)
+-------------------------
+... [optimizes VGM "Sample Database" blocks using lossless bit-packing, where possible)
+
+
+VGM DAC Stream Optimizer (vgm_dso)
+------------------------
+... [optimizes VGMs that use DAC Stream command 0x93 (Play From Offset) to use command 0x95 (Play Data Block)]
+
+
 Make VGM Frame Accurate (vgm_facc)
 -----------------------
 Does what is says - it rounds all delays to frames.
 You can set the Frame Rate with VGMTool ("Playback rate").
 All rates are accepted as long as a can be rounded to whole samples (44100 % Rate = 0).
 
-Systems where you want to do this are:
-- Sega Master System
-- Sega Game Gear
-
-It's not recommended to do this with rips of these systems:
-- Sega MegaDrive/Genesis (especially the ones that use the DAC)
-- NeoGeo Pocket (Color)
-- MAME systems
+WARNING:
+  You should NOT use this tool unless you know EXACTLY what you are doing.
+The only time you may want to use this tool is when:
+- You are logging Sega Master System or Sega Game Gear music.
+- AND you are logging with Kega Fusion. (NOT Meka or MAME, because those don't log at 60.00 Hz in sample-accurate mode)
+Even then, make sure the left/right errors aren't too high, else you will introduce jitter.
 
 After a conversion is finished, the rounding statistics are displayed. They show the maximum rounding errors (OldSample - RoundedSample). 
 Line 1: Left Error [always negative or 0]
@@ -57,6 +187,21 @@ If the value of the first and/or the second line is quite high (e.g. >= 300 for 
 Note: Even delays of 65535 samples are rounded. (e.g. to 65415 for 60 Hz)
 
 
+VGM Mono (vgm_mono)
+--------
+... [makes VGMs mono, works with YM2610, YMF278B, YMW258/MultiPCM and X1-010]
+
+
+VGM Undualizer (vgm_ndlz)
+--------------
+... [splits one VGM with "2x chip" into two VGMs with "1x chip" each]
+
+
+VGM Patcher (vgm_ptch)
+-----------
+... [general VGM patching utility, allows editing the VGM header (chip clocks/chip settings), checking/fixing VGMs and stripping chips/channels]
+
+
 Remove 1 Sample Delays (vgm_smp1)
 ----------------------
 This tool helps to reduce the size of VGMs by removing delays of 1 sample length.
@@ -64,8 +209,15 @@ Example:
 	Delay 12 - Event A - Delay 1 - Event B - Delay 5
 is rounded to
 	Delay 12 - Event A - Event B - Delay 6
-This is especially useful for NeoGeo Pocket VGMs.
-It's not recommended for Sega MegaDrive/Genesis VGMs - it may destroy the DAC sound.
+
+You may use this tool with:
+- VGMs that use the SN76489 and variants (SEGA PSG, T6W28, ...)
+  -> minor size reduction without audible artifacts
+- VGMs converted from DRO files
+  -> use with "-delay:50", might *remove* glitches that happen due to frequency writes being split by a 1/1000 Hz delay
+
+You should NOT use this tool with:
+- anything not mentioned above (using this tool is especially dangerous to commands for FM chips)
 
 Note: If you remove samples from VGMs compressed with vgm_cmp you should run vgm_cmp again. It may reduce the file size by some bytes.
 
@@ -89,6 +241,53 @@ Notes:
 - To get the last part of the vgm, you need to enter -1, as 0 will close vgm_spts instantly.
 - The "current sample" value can be higher than the sample value that was entered previously. That's nothing unusual because it won't split inside a delay.
 - The commandline can be used like this: "vgm_spts Stream.vgm 44100 176400 0". It will then split at sample 44100 and 176400 and will end the program. Without the zero at the end it will wait for another input.
+
+
+VGM Sample-ROM Optimizer (vgm_sro)
+------------------------
+Like vgm_cmp, this tool can greatly reduce the size of a VGM. It strips unused data from Sample-ROMs.
+The file size of optimized files usually decreases to 5-10%.
+
+Before any data is stripped, vgm_sro will display all ROM Regions. So you can see what data is stripped.
+
+The following chips are supported:
+- C140
+- C219
+- C352
+- ES5503
+- ES5506
+- Irem GA20
+- K053260
+- K054539
+- NES APU (DPCM data)
+- OKIM6295
+- Q-Sound
+- RF5C68/RF5C164 (if not streamed)
+- SegaPCM
+- UPD7759 (if not streamed)
+- X1-010
+- Y8950 (DELTA-T)
+- YM2608 (DELTA-T)
+- YM2610 (ADPCM and DELTA-T)
+- YMF278B (ROM and RAM)
+- YMF271
+- YMZ280B
+- YRW258/MultiPCM
+
+Notes:
+- If a vgm-file doesn't use one of these chips, vgm_sro can't do anything and will refuse to process the file.
+- YM2610 ADPCM only: If many ROM Regions have a length of 100 or vgm_sro complains about "end out of range" (and wants to use the complete ROM), you may want to try vgm_sro_adpcm1. This is a patch that avoids a bug of "Puzzle De Pon!".
+- SegaPCM support isn't 100% safe. That means, that there may be stripped off, although they're used. That can happen between 2 memory writes that relocate the  playing address and shouldn't be audible.
+
+
+VGM Statistics (vgm_stat)
+--------------
+... [prints song length/loop length statistics for a folder or M3U playlist]
+
+
+VGM Tagger (vgm_tag)
+----------
+... [allows VGM tagging via commandline, HTML NCRs can be used in place of Unicode characters]
 
 
 VGM Trimmer (vgm_trim)
@@ -132,13 +331,23 @@ Notes:
 - "-state" is not yet supported for all chips.
 
 
+VGM Tag Transfer (vgm_tt)
+----------------
+... [transfers tags and/or file names of VGMs from one folder to the VGMs of another folder, based on song/loop length]
+
+
+VGM Volume Detector (vgm_vol)
+-------------------
+... [detects the peak volume of WAV files logged from VGMs]
+
+
 VGM Text Writer (vgm2txt)
 ---------------
 This tool converts a VGM to a text file.
 It's not as good as the vgm2txt of VGMTool (it doesn't print note names or frequencies), but supports VGM version 1.60 and almost all current chips.
 
 Notes:
-- unsupported are: YM2413, ADPCM/DELTA-T-part of OPN chips (YM2203, YM2608, YM2610/B), DELTA-T-part of Y8950, WaveTable-part of YMF278B, YMF271, many VGM 1.61 chips
+- unsupported are: YM2413, PWM, SCSP, ES5505/6, Irem GA20
 - note names are supported for YM2151, because of the way the chip works.
 
 
@@ -190,51 +399,6 @@ Notes:
 - Searching can take a very long time, because it searches very many times through the whole file.
 - Although the display may be a little confusing at the beginning, it can greatly reduce the time you need to make a vgm pack.
 
-
-DRO to VGM Converter (dro2vgm)
---------------------
-This tool converts dro files (DosBox RAW OPL) to vgm.
-These dro-versions are supported:
-
-Version	DosBox	Rease Date
-   0	 0.61	 4 Jul 2004
-   1	 0.63	18 Nov 2004
-   2	 0.73	14 Jul 2008
-
-Note: The program may print a warning about incorrect delays. That's caused by old dro-files (v0 and v1) because of the way DosBox logs them. The program already HAS a detection to detect and fix some of these bugs, so most files should work.
-
-
-VGM Sample-ROM Optimizer (vgm_sro)
-------------------------
-Like vgm_cmp, this tool can greatly reduce the size of a VGM. It strips unused data from Sample-ROMs.
-The file size of optimized files usually decreases to 5-10%.
-
-Before any data is stripped, vgm_sro will display all ROM Regions. So you can see what data is stripped.
-
-The following chips need a Sample-ROM:
-- SegaPCM
-- YM2608 (DELTA-T)
-- YM2610 (ADPCM and DELTA-T)
-- Y8950 (DELTA-T)
-- YMZ280B (Sample ROM)
-- RF5C68 (if not streamed)
-- RF5C164 (if not streamed)
-- YMF271
-
-Notes:
-- If a vgm-file doesn't use one of these chips, vgm_sro can't do anything and will refuse to process the file.
-- YM2610 ADPCM only: If many ROM Regions have a length of 100 or vgm_sro complains about "end out of range" (and wants to use the complete ROM), you may want to try vgm_sro_adpcm1. This is a patch that avoids a bug of "Puzzle De Pon!".
-- SegaPCM support isn't 100% safe. That means, that there may be stripped off, although they're used. That can happen between 2 memory writes that relocate the  playing address and shouldn't be audible.
-
-
-
-VGM RF-PCM Optimizer (optvgmrf)
---------------------
-If you know optvgm, you know what optvgmrf does. (Internally it works completely different, but the result is the same.)
-This tool optimized VGM files, that use PCM chips of the RF-family (RF5C68 and Sega MegaCD's RF5C164).
-The file size of optimized files usually decreases to 5-10%.
-
-The resulting output-file will be updated to vgm v1.60.
 
 
 VGM Merger (vgmmerge)
