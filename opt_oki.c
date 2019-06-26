@@ -97,7 +97,7 @@ UINT32 MaxDrumDelay;
 bool DumpDrums;
 UINT8 Skip80Sample;
 UINT8 Smpl80Value;
-bool SplitCmd;
+UINT8 SplitCmd;
 bool EarlyDataWrt;
 
 bool CHANGING_CLK_RATE;

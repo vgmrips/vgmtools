@@ -22,7 +22,6 @@ vgm_smp1 - Remove 1 Sample Delays
 vgm_sptd - VGM Splitter (Delay Edition)
 vgm_spts - VGM Splitter (Sample Edition)
 vgm_sro - VGM Sample-ROM Optimizer
-vgm_sro - VGM Sample-ROM Optimizer
 vgm_stat - VGM Statistics
 vgm_tag - VGM Tagger
 vgm_tt - VGM Tag Transfer
