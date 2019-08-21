@@ -18,7 +18,10 @@
 #ifdef WIN32
 #include <windows.h>	// for Directory Listing
 #else
-#error "Sorry, but right now it's only compatible with Windows (due to directory listing)."
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <unistd.h>
+#include <dirent.h>
 #endif
 #include <zlib.h>
 
@@ -135,10 +138,14 @@ static std::string Dir2Path(const std::string& dirName)
 	lastChr = dirName[dirName.length() - 1];
 	if (lastChr == '/' || lastChr == '\\')
 		return dirName;
-	else
-		return dirName + '\\';
+#ifdef _WIN32
+	return dirName + '\\';
+#else
+	return dirName + '/';
+#endif
 }
 
+#ifdef _WIN32
 static void ReadDirectory(const char* dirName, VFINF_LIST& vgmInfoList)
 {
 	HANDLE hFindFile;
@@ -179,6 +186,54 @@ SkipFile:
 	
 	return;
 }
+#else
+static void ReadDirectory(const char* dirName, VFINF_LIST& vgmInfoList)
+{
+	DIR* dirHandle;
+	dirent* dirEntry;
+	const char* dirEntryName;
+	size_t dirEntryNameSize;
+	struct stat fileStatus;
+	std::string basePath;
+	std::string fileName;
+	VGM_FILE_INFO vgmInfo;
+	UINT8 retVal8;
+	
+	basePath = Dir2Path(dirName);
+	
+	dirHandle = opendir(basePath.c_str());
+	if (! dirHandle)
+	{
+		printf("Error reading directory!\n");
+		return;
+	}
+	
+	while ((dirEntry = readdir(dirHandle)))
+	{
+		dirEntryName = dirEntry->d_name;
+		if (! strcmp(dirEntryName, ".") || ! strcmp(dirEntryName, ".."))
+			continue;
+		
+		dirEntryNameSize = strlen(dirEntryName);
+		if (dirEntryNameSize < 4 || memcmp(dirEntryName + dirEntryNameSize - 4, ".vg", 3))
+			continue;
+		
+		fileName = basePath + dirEntryName;
+		if (stat(fileName.c_str(), &fileStatus) != 0 || ! S_ISREG(fileStatus.st_mode))
+			continue;
+		
+		retVal8 = GetVGMFileInfo(fileName.c_str(), &vgmInfo);
+		vgmInfo.fileName = dirEntryName;
+		if (! retVal8)
+			vgmInfoList.push_back(vgmInfo);
+		else
+			printf("Error reading %s!\n", fileName.c_str());
+	}
+	closedir(dirHandle);
+	
+	return;
+}
+#endif
 
 static UINT8 GetVGMFileInfo(const char* fileName, VGM_FILE_INFO* vgmInfo)
 {
