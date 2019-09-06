@@ -139,16 +139,16 @@ STRIP_DATA* StpDat;
 void InitAllChips(void)
 {
 	UINT8 CurChip;
-	
+
 	if (ChipData == NULL)
 		ChipData = (ALL_CHIPS*)malloc(ChipCount * sizeof(ALL_CHIPS));
 	for (CurChip = 0x00; CurChip < ChipCount; CurChip ++)
 	{
 		memset(ChipData, 0xFF, ChipCount * sizeof(ALL_CHIPS));
 	}
-	
+
 	SetChipSet(0x00);
-	
+
 	return;
 }
 
@@ -156,10 +156,10 @@ void FreeAllChips(void)
 {
 	if (ChipData == NULL)
 		return;
-	
+
 	free(ChipData);
 	ChipData = NULL;
-	
+
 	return;
 }
 
@@ -167,17 +167,17 @@ void SetChipSet(UINT8 ChipID)
 {
 	ChDat = ChipData + ChipID;
 	StpDat = StripVGM + ChipID;
-	
+
 	return;
 }
 
 bool GGStereo(UINT8 Data)
 {
 	STRIP_PSG* strip = &StpDat->SN76496;
-	
+
 	if (strip->All || (strip->Other & 0x01))
 		return false;
-	
+
 	return true;
 }
 
@@ -186,10 +186,10 @@ bool sn76496_write(UINT8 Command)
 	SN76496_DATA* chip = &ChDat->SN76496;
 	STRIP_PSG* strip = &StpDat->SN76496;
 	UINT8 Channel;
-	
+
 	if (strip->All)
 		return false;
-	
+
 	if (Command & 0x80)
 	{
 		Channel = (Command & 0x60) >> 1;
@@ -199,7 +199,7 @@ bool sn76496_write(UINT8 Command)
 	{
 		Channel = chip->LastChn;
 	}
-	
+
 	if (strip->ChnMask & (0x01 << Channel))
 		return false;
 	return true;
@@ -208,7 +208,7 @@ bool sn76496_write(UINT8 Command)
 bool ym2413_write(UINT8 Register, UINT8 Data)
 {
 	STRIP_OPL* strip = &StpDat->YM2413;
-	
+
 	if (strip->All)
 		return false;
 	return true;
@@ -223,7 +223,7 @@ bool ym2612_write(UINT8 Port, UINT8 Register, UINT8 Data)
 	STRIP_OPN* strip = &StpDat->YM2612;
 	UINT16 RegVal;
 	UINT8 Channel;
-	
+
 	if (strip->All)
 		return false;
 	return true;
@@ -238,10 +238,10 @@ bool ym2612_write(UINT8 Port, UINT8 Register, UINT8 Data)
 	// no OPN Prescaler Registers for YM2612
 	case 0x28:
 		Channel = Data & 0x07;
-		
+
 		if (! chip->KeyFirst[Channel] && Data == chip->KeyOn[Channel])
 			return false;
-		
+
 		chip->KeyFirst[Channel] = 0x00;
 		chip->KeyOn[Channel] = Data;
 		break;
@@ -266,10 +266,10 @@ bool ym2612_write(UINT8 Port, UINT8 Register, UINT8 Data)
 			RegVal &= 0x0FC;	// Registers A4-A6 (AC-AE for Ch3) write to the same offset
 			break;*/
 		}
-		
+
 		if (! chip->RegFirst[RegVal] && Data == chip->RegData[RegVal])
 			return false;
-		
+
 		chip->RegFirst[RegVal] = 0x00;
 		chip->RegData[RegVal] = Data;
 		break;
@@ -282,7 +282,7 @@ bool ym2151_write(UINT8 Register, UINT8 Data)
 	YM2151_DATA* chip;
 	STRIP_OPM* strip = &StpDat->YM2151;
 	UINT8 Channel;
-	
+
 	if (strip->All)
 		return false;
 	return true;
@@ -293,14 +293,14 @@ bool ym2151_write(UINT8 Register, UINT8 Data)
 		Channel = Data & 0x07;
 		if (! chip->MCFirst[Channel] && (Data & 0xF8) == chip->MCMask[Channel])
 			return false;
-		
+
 		chip->MCFirst[Channel] = 0x00;
 		chip->MCMask[Channel] = Data & 0xF8;
 		break;
 	default:
 		if (! chip->RegFirst[Register] && Data == chip->RegData[Register])
 			return false;
-		
+
 		chip->RegFirst[Register] = 0x00;
 		chip->RegData[Register] = Data;
 		break;
@@ -312,10 +312,10 @@ bool segapcm_mem_write(UINT16 Offset, UINT8 Data)
 {
 	STRIP_PCM* strip = &StpDat->SegaPCM;
 	UINT8 CurChn;
-	
+
 	if (strip->All)
 		return false;
-	
+
 	CurChn = (Offset & 0x78) >> 3;
 	if (strip->ChnMask & (0x01 << CurChn))
 		return false;
@@ -326,10 +326,10 @@ bool rf5cxx_reg_write(RF5C68_DATA* chip, STRIP_PCM* strip, UINT8 Register, UINT8
 {
 	UINT8 CurChn;
 	UINT8 ChnMask;
-	
+
 	if (strip->All)
 		return false;
-	
+
 	switch(Register)
 	{
 	case 0x00:	// Envelope
@@ -363,11 +363,11 @@ bool rf5cxx_reg_write(RF5C68_DATA* chip, STRIP_PCM* strip, UINT8 Register, UINT8
 			//      Channel Enable &&    Strip Channel
 			if (! (*Data & ChnMask) && (strip->ChnMask & (0x01 << CurChn)))
 				*Data |= ChnMask;	// disable channel
-			
+
 		}
 		return true;
 	}
-	
+
 	if (strip->ChnMask & (0x01 << CurChn))
 		return false;
 	return true;
@@ -377,7 +377,7 @@ bool rf5c68_reg_write(UINT8 Register, UINT8* Data)
 {
 	RF5C68_DATA* chip = &ChDat->RF5C68;
 	STRIP_PCM* strip = &StpDat->RF5C68;
-	
+
 	return rf5cxx_reg_write(chip, strip, Register, Data);
 }
 
@@ -385,10 +385,10 @@ bool rf5c68_mem_write(UINT16 Offset, UINT8 Data)
 {
 	//RF5C68_DATA* chip = &ChDat->RF5C68;
 	STRIP_PCM* strip = &StpDat->RF5C68;
-	
+
 	if (strip->All || (strip->Other & 0x01))
 		return false;
-	
+
 	return true;
 }
 
@@ -397,7 +397,7 @@ bool ym2203_write(UINT8 Register, UINT8 Data)
 	YM2203_DATA* chip;
 	STRIP_OPN* strip = &StpDat->YM2203;
 	UINT8 Channel;
-	
+
 	if (strip->All)
 		return false;
 	return true;
@@ -417,10 +417,10 @@ bool ym2203_write(UINT8 Register, UINT8 Data)
 		break;
 	case 0x28:
 		Channel = Data & 0x03;
-		
+
 		if (! chip->KeyFirst[Channel] && Data == chip->KeyOn[Channel])
 			return false;
-		
+
 		chip->KeyFirst[Channel] = 0x00;
 		chip->KeyOn[Channel] = Data;
 		break;
@@ -442,10 +442,10 @@ bool ym2203_write(UINT8 Register, UINT8 Data)
 			RegVal &= 0x0FC;	// Registers A4-A6 (AC-AE for Ch3) write to the same offset
 			break;*/
 		}
-		
+
 		if (! chip->RegFirst[Register] && Data == chip->RegData[Register])
 			return false;
-		
+
 		chip->RegFirst[Register] = 0x00;
 		chip->RegData[Register] = Data;
 		break;
@@ -459,7 +459,7 @@ bool ym2608_write(UINT8 Port, UINT8 Register, UINT8 Data)
 	STRIP_OPN* strip = &StpDat->YM2608;
 	UINT16 RegVal;
 	UINT8 Channel;
-	
+
 	if (strip->All)
 		return false;
 	return true;
@@ -479,10 +479,10 @@ bool ym2608_write(UINT8 Port, UINT8 Register, UINT8 Data)
 		break;
 	case 0x28:
 		Channel = Data & 0x07;
-		
+
 		if (! chip->KeyFirst[Channel] && Data == chip->KeyOn[Channel])
 			return false;
-		
+
 		chip->KeyFirst[Channel] = 0x00;
 		chip->KeyOn[Channel] = Data;
 		break;
@@ -509,10 +509,10 @@ bool ym2608_write(UINT8 Port, UINT8 Register, UINT8 Data)
 			RegVal &= 0x0FC;	// Registers A4-A6 (AC-AE for Ch3) write to the same offset
 			break;*/
 		}
-		
+
 		if (! chip->RegFirst[RegVal] && Data == chip->RegData[RegVal])
 			return false;
-		
+
 		chip->RegFirst[RegVal] = 0x00;
 		chip->RegData[RegVal] = Data;
 		break;
@@ -526,7 +526,7 @@ bool ym2610_write(UINT8 Port, UINT8 Register, UINT8 Data)
 	STRIP_OPN* strip = &StpDat->YM2610;
 	UINT16 RegVal;
 	UINT8 Channel;
-	
+
 	if (strip->All)
 		return false;
 	return true;
@@ -541,10 +541,10 @@ bool ym2610_write(UINT8 Port, UINT8 Register, UINT8 Data)
 	// no OPN Prescaler Registers for YM2610
 	case 0x28:
 		Channel = Data & 0x07;
-		
+
 		if (! chip->KeyFirst[Channel] && Data == chip->KeyOn[Channel])
 			return false;
-		
+
 		chip->KeyFirst[Channel] = 0x00;
 		chip->KeyOn[Channel] = Data;
 		break;
@@ -572,10 +572,10 @@ bool ym2610_write(UINT8 Port, UINT8 Register, UINT8 Data)
 			RegVal &= 0x0FC;	// Registers A4-A6 (AC-AE for Ch3) write to the same offset
 			break;*/
 		}
-		
+
 		if (! chip->RegFirst[RegVal] && Data == chip->RegData[RegVal])
 			return false;
-		
+
 		chip->RegFirst[RegVal] = 0x00;
 		chip->RegData[RegVal] = Data;
 		break;
@@ -586,7 +586,7 @@ bool ym2610_write(UINT8 Port, UINT8 Register, UINT8 Data)
 bool ym3812_write(UINT8 Register, UINT8 Data)
 {
 	STRIP_OPL* strip = &StpDat->YM3812;
-	
+
 	if (strip->All)
 		return false;
 	return true;
@@ -598,7 +598,7 @@ bool ym3812_write(UINT8 Register, UINT8 Data)
 bool ym3526_write(UINT8 Register, UINT8 Data)
 {
 	STRIP_OPL* strip = &StpDat->YM3526;
-	
+
 	if (strip->All)
 		return false;
 	return true;
@@ -610,7 +610,7 @@ bool ym3526_write(UINT8 Register, UINT8 Data)
 bool y8950_write(UINT8 Register, UINT8 Data)
 {
 	STRIP_OPL* strip = &StpDat->Y8950;
-	
+
 	if (strip->All)
 		return false;
 	return true;
@@ -623,10 +623,10 @@ bool ymf262_write(UINT8 Port, UINT8 Register, UINT8 Data)
 {
 	STRIP_OPL* strip = &StpDat->YMF262;
 	UINT16 RegVal;
-	
+
 	if (strip->All)
 		return false;
-	
+
 	RegVal = (Port << 8) | Register;
 	return true;
 	ChDat->YMF262.RegFirst[RegVal] = 0x00;
@@ -637,7 +637,7 @@ bool ymf262_write(UINT8 Port, UINT8 Register, UINT8 Data)
 bool ymz280b_write(UINT8 Register, UINT8 Data)
 {
 	STRIP_YMZ* strip = &StpDat->YMZ280B;
-	
+
 	if (strip->All)
 		return false;
 	return true;
@@ -650,7 +650,7 @@ bool rf5c164_reg_write(UINT8 Register, UINT8* Data)
 {
 	RF5C68_DATA* chip = &ChDat->RF5C164;
 	STRIP_PCM* strip = &StpDat->RF5C164;
-	
+
 	return rf5cxx_reg_write(chip, strip, Register, Data);
 }
 
@@ -658,10 +658,10 @@ bool rf5c164_mem_write(UINT16 Offset, UINT8 Data)
 {
 	//RF5C68_DATA* chip = &ChDat->RF5C164;
 	STRIP_PCM* strip = &StpDat->RF5C164;
-	
+
 	if (strip->All || (strip->Other & 0x01))
 		return false;
-	
+
 	return true;
 }
 
@@ -671,23 +671,23 @@ bool c140_write(UINT8 Port, UINT8 Register, UINT8 Data)
 	C140_DATA* chip = &ChDat->C140;
 	UINT16 RegVal;
 	UINT8 Channel;
-	
+
 	if (strip->All)
 		return false;
-	
+
 	if (Port == 0xFF)
 	{
 		chip->BankType = Data;
 		return true;
 	}
-	
+
 	RegVal = (Port << 8) | Register;
 	RegVal &= 0x1FF;
-	
+
 	// mirror the bank registers on the 219, fixes bkrtmaq
 	if ((RegVal >= 0x1F8) && (chip->BankType >= 0x02))
 		RegVal &= 0x1F7;
-	
+
 	if (RegVal < 0x180)
 	{
 		Channel = RegVal >> 4;
@@ -699,7 +699,7 @@ bool c140_write(UINT8 Port, UINT8 Register, UINT8 Data)
 		if (strip->Other & 0x01)
 			return false;
 	}
-	
+
 	return true;
 }
 

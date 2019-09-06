@@ -68,9 +68,9 @@ int main(int argc, char* argv[])
 	char FileName[0x100];
 	UINT8 CurPCM;
 	UINT8 CurTbl;
-	
+
 	printf("VGM Data Block Compressor\n-------------------------\n\n");
-	
+
 	ErrVal = 0;
 	argbase = 1;
 	printf("File Name:\t");
@@ -85,7 +85,7 @@ int main(int argc, char* argv[])
 	}
 	if (! strlen(FileName))
 		return 1;
-	
+
 	if (! OpenVGMFile(FileName))
 	{
 		printf("Error opening the file!\n");
@@ -93,9 +93,9 @@ int main(int argc, char* argv[])
 		goto EndProgram;
 	}
 	printf("\n");
-	
+
 	CompressVGMDataBlocks();
-	
+
 	if (DstDataLen < VGMDataLen)
 	{
 		if (argc > argbase + 1)
@@ -113,22 +113,22 @@ int main(int argc, char* argv[])
 	{
 		printf("No compression possible.\n");
 	}
-	
+
 	free(VGMData);
 	free(DstData);
 	for (CurPCM = 0x00; CurPCM < PCM_BANK_COUNT; CurPCM ++)
 	{
 		if (! CmpTbl[CurPCM].BankCount)
 			continue;
-		
+
 		for (CurTbl = 0x00; CurTbl < CmpTbl[CurPCM].BankCount; CurTbl ++)
 			free(CmpTbl[CurPCM].BankTbl[CurTbl].Entries);
 		free(CmpTbl[CurPCM].BankTbl);
 	}
-	
+
 EndProgram:
 	DblClickWait(argv[0]);
-	
+
 	return ErrVal;
 }
 
@@ -138,20 +138,20 @@ static bool OpenVGMFile(const char* FileName)
 	UINT32 CurPos;
 	UINT32 TempLng;
 	char* TempPnt;
-	
+
 	hFile = gzopen(FileName, "rb");
 	if (hFile == NULL)
 		return false;
-	
+
 	gzseek(hFile, 0x00, SEEK_SET);
 	gzread(hFile, &TempLng, 0x04);
 	if (TempLng != FCC_VGM)
 		goto OpenErr;
-	
+
 	gzseek(hFile, 0x00, SEEK_SET);
 	gzread(hFile, &VGMHead, sizeof(VGM_HEADER));
 	ZLIB_SEEKBUG_CHECK(VGMHead);
-	
+
 	// Header preperations
 	if (VGMHead.lngVersion < 0x00000150)
 	{
@@ -172,7 +172,7 @@ static bool OpenVGMFile(const char* FileName)
 	if (! VGMHead.lngDataOffset)
 		VGMHead.lngDataOffset = 0x0000000C;
 	VGMHead.lngDataOffset += 0x00000034;
-	
+
 	CurPos = VGMHead.lngDataOffset;
 	if (VGMHead.lngVersion < 0x00000150)
 		CurPos = 0x40;
@@ -182,7 +182,7 @@ static bool OpenVGMFile(const char* FileName)
 	else
 		TempLng = 0x00;
 	memset((UINT8*)&VGMHead + CurPos, 0x00, TempLng);
-	
+
 	// Read Data
 	VGMDataLen = VGMHead.lngEOFOffset;
 	VGMData = (UINT8*)malloc(VGMDataLen);
@@ -190,14 +190,14 @@ static bool OpenVGMFile(const char* FileName)
 		goto OpenErr;
 	gzseek(hFile, 0x00, SEEK_SET);
 	gzread(hFile, VGMData, VGMDataLen);
-	
+
 	gzclose(hFile);
-	
+
 	strcpy(FileBase, FileName);
 	TempPnt = strrchr(FileBase, '.');
 	if (TempPnt != NULL)
 		*TempPnt = 0x00;
-	
+
 	return true;
 
 OpenErr:
@@ -209,13 +209,13 @@ OpenErr:
 static void WriteVGMFile(const char* FileName)
 {
 	FILE* hFile;
-	
+
 	hFile = fopen(FileName, "wb");
 	fwrite(DstData, 0x01, DstDataLen, hFile);
 	fclose(hFile);
-	
+
 	printf("File written.\n");
-	
+
 	return;
 }
 
@@ -240,16 +240,16 @@ static void CompressVGMDataBlocks(void)
 	VGM_DATA_BLK DataBlk;
 	VGM_PCM_BANK* TempBnk;
 	COMPR_TBL_DATA* TempTbl;
-	
+
 	DstData = (UINT8*)malloc(VGMDataLen + 0x1000);
 	memcpy(DstData, VGMData, VGMHead.lngDataOffset);	// Copy Header
-	
+
 	for (TempByt = 0x00; TempByt < PCM_BANK_COUNT; TempByt ++)
 	{
 		PCMBank[TempByt].BankCount = 0x00;
 		PCMBank[TempByt].Bank = NULL;
 	}
-	
+
 	for (PassNum = 0x00; PassNum < 0x02; PassNum ++)
 	{
 		// Pass #1: Enumerate all PCM Data
@@ -262,7 +262,7 @@ static void CompressVGMDataBlocks(void)
 				PCMBank[TempByt].BankCount = 0x00;
 			}
 		}
-		
+
 		VGMPos = VGMHead.lngDataOffset;
 		DstPos = VGMHead.lngDataOffset;
 		NewLoopS = 0x00;
@@ -275,7 +275,7 @@ static void CompressVGMDataBlocks(void)
 			CmdLen = 0x00;
 			Command = VGMData[VGMPos + 0x00];
 			WriteEvent = true;
-			
+
 			if (Command >= 0x70 && Command <= 0x8F)
 			{
 				switch(Command & 0xF0)
@@ -322,7 +322,7 @@ static void CompressVGMDataBlocks(void)
 					memcpy(&DataBlk.Size, &VGMData[VGMPos + 0x03], 0x04);
 					DataBlk.Size &= 0x7FFFFFFF;
 					DataBlk.Data = &VGMData[VGMPos + 0x07];
-					
+
 					switch(DataBlk.Type & 0xC0)
 					{
 					case 0x00:	// Database Block
@@ -331,7 +331,7 @@ static void CompressVGMDataBlocks(void)
 						{
 							TempLng = TempBnk->BankCount;
 							TempBnk->BankCount ++;
-							
+
 							TempBnk->Bank = (VGM_PCM_DATA*)realloc(TempBnk->Bank,
 											TempBnk->BankCount * sizeof(VGM_PCM_DATA));
 							TempBnk->Bank[TempLng].DataSize = DataBlk.Size;
@@ -342,10 +342,10 @@ static void CompressVGMDataBlocks(void)
 							TempLng = TempBnk->BankCount;
 							TempBnk->BankCount ++;
 							TempTbl = &CmpTbl[DataBlk.Type].BankTbl[TempLng];
-							
+
 							if (TempTbl->ComprType == 0xFF)
 								break;	// no compression possible
-							
+
 							if (TempTbl->TblToWrite)
 							{
 								TempTbl->TblToWrite = false;
@@ -359,7 +359,7 @@ static void CompressVGMDataBlocks(void)
 									DstPos += 0x07 + DataLen;
 								}
 							}
-							
+
 							DstData[DstPos + 0x00] = 0x67;
 							DstData[DstPos + 0x01] = 0x66;
 							DstData[DstPos + 0x02] = 0x40 | DataBlk.Type;
@@ -429,7 +429,7 @@ static void CompressVGMDataBlocks(void)
 					break;
 				}
 			}
-			
+
 			if (PassNum)
 			{
 				if (VGMPos == VGMHead.lngLoopOffset)
@@ -443,7 +443,7 @@ static void CompressVGMDataBlocks(void)
 			VGMPos += CmdLen;
 			if (StopVGM)
 				break;
-			
+
 #ifdef WIN32
 			if (CmdTimer < GetTickCount())
 			{
@@ -464,7 +464,7 @@ static void CompressVGMDataBlocks(void)
 		memcpy(&DstData[0x1C], &TempLng, 0x04);
 	}
 	printf("\t\t\t\t\t\t\t\t\t\r");
-	
+
 	if (VGMHead.lngGD3Offset && VGMHead.lngGD3Offset + 0x0B < VGMHead.lngEOFOffset)
 	{
 		VGMPos = VGMHead.lngGD3Offset;
@@ -473,7 +473,7 @@ static void CompressVGMDataBlocks(void)
 		{
 			memcpy(&CmdLen, &VGMData[VGMPos + 0x08], 0x04);
 			CmdLen += 0x0C;
-			
+
 			TempLng = DstPos - 0x14;
 			memcpy(&DstData[0x14], &TempLng, 0x04);
 			memcpy(&DstData[DstPos], &VGMData[VGMPos], CmdLen);
@@ -483,7 +483,7 @@ static void CompressVGMDataBlocks(void)
 	DstDataLen = DstPos;
 	TempLng = DstDataLen - 0x04;
 	memcpy(&DstData[0x04], &TempLng, 0x04);
-	
+
 	return;
 }
 
@@ -503,14 +503,14 @@ static void MakeCompressionTable(void)
 	UINT8 BitDecomp;
 	UINT8 EntrySize;
 	COMPR_TBL_DATA* LastTbl;
-	
+
 	ValCount = 1 << 12;
 	ValueMask = (UINT8*)malloc(ValCount * 0x01);
 	for (CurPCM = 0x00; CurPCM < PCM_BANK_COUNT; CurPCM ++)
 	{
 		if (! PCMBank[CurPCM].BankCount)
 			continue;
-		
+
 		switch(CurPCM)
 		{
 		case 0x00:
@@ -526,7 +526,7 @@ static void MakeCompressionTable(void)
 			break;
 		}
 		EntrySize = (BitDecomp + 7) / 8;
-		
+
 		ValCount = 1 << BitDecomp;
 		CmpTbl[CurPCM].BankCount = PCMBank[CurPCM].BankCount;
 		CmpTbl[CurPCM].BankTbl = (COMPR_TBL_DATA*)malloc(CmpTbl[CurPCM].BankCount * sizeof(COMPR_TBL_DATA));
@@ -542,7 +542,7 @@ static void MakeCompressionTable(void)
 				TempTbl->ComprType = 0xFF;
 				continue;
 			}
-			
+
 			memset(ValueMask, 0x00, ValCount * 0x01);
 			TempTbl->BitDecomp = BitDecomp;
 			TempTbl->EntrySize = EntrySize;
@@ -570,7 +570,7 @@ static void MakeCompressionTable(void)
 			}
 			TempTbl->EntryCount = ValUsed;
 			TempTbl->Entries = malloc(ValUsed * TempTbl->EntrySize);
-			
+
 			switch(TempTbl->EntrySize)
 			{
 			case 0x01:
@@ -598,7 +598,7 @@ static void MakeCompressionTable(void)
 				}
 				break;
 			}
-			
+
 			CurPos = ValUsed - 1;
 			CurEnt = 0x00;
 			while(CurPos)
@@ -608,7 +608,7 @@ static void MakeCompressionTable(void)
 			}
 			TempTbl->BitComp = (UINT8)CurEnt;
 			DecideCompressionType(TempTbl);
-			
+
 			if (TempTbl->ComprType != 0x02)
 			{
 				TempTbl->EntryCount = 0x00;
@@ -635,7 +635,7 @@ static void MakeCompressionTable(void)
 			}
 		}
 	}
-	
+
 	return;
 }
 
@@ -648,17 +648,17 @@ static void DecideCompressionType(COMPR_TBL_DATA* ComprTbl)
 	UINT8* Ent1B;
 	UINT16* Ent2B;
 	UINT16 BitMask;
-	
+
 	// Compare compressed Bits with saved (not decompressed) size
 	if (ComprTbl->BitComp >= ((ComprTbl->BitDecomp - 1) | 0x07) + 1)
 	{
 		ComprTbl->ComprType = 0xFF;
 		return;
 	}
-	
+
 	Ent1B = (UINT8*)ComprTbl->Entries;
 	Ent2B = (UINT16*)ComprTbl->Entries;
-	
+
 	// Test 1 - Copy
 	for (CurEnt = 0x00; CurEnt < ComprTbl->EntryCount; CurEnt ++)
 	{
@@ -692,7 +692,7 @@ static void DecideCompressionType(COMPR_TBL_DATA* ComprTbl)
 		ComprTbl->AddVal = MinVal;
 		return;
 	}
-	
+
 	// Test 2 - Shift Left
 	BitMask = (1 << ComprTbl->BitComp) - 1;
 	//BitMask = (1 << (ComprTbl->BitDecomp - ComprTbl->BitComp)) - 1;	// is this more right?
@@ -726,10 +726,10 @@ static void DecideCompressionType(COMPR_TBL_DATA* ComprTbl)
 		ComprTbl->AddVal = MinVal;
 		return;
 	}
-	
+
 	ComprTbl->ComprType = 0x02;
 	ComprTbl->AddVal = 0x00;
-	
+
 	return;
 }
 
@@ -742,14 +742,14 @@ static bool CombineTables(COMPR_TBL_DATA* BaseTbl, COMPR_TBL_DATA* NewTbl)
 	UINT8* Ent1B;
 	UINT16* Ent2B;
 	UINT32 CurPos;
-	
+
 	if (BaseTbl == NULL || BaseTbl->BitComp != NewTbl->BitComp)
 		return false;	// can't combine tables
-	
+
 	ValCount = 1 << 12;
 	ValueMask = (UINT8*)malloc(ValCount * 0x01);
 	memset(ValueMask, 0x00, ValCount * 0x01);
-	
+
 	switch(BaseTbl->EntrySize)
 	{
 	case 0x01:
@@ -783,7 +783,7 @@ static bool CombineTables(COMPR_TBL_DATA* BaseTbl, COMPR_TBL_DATA* NewTbl)
 		if (ValueMask[CurEnt])
 			ValUsed ++;
 	}
-	
+
 	CurPos = ValUsed - 1;
 	CurEnt = 0x00;
 	while(CurPos)
@@ -793,7 +793,7 @@ static bool CombineTables(COMPR_TBL_DATA* BaseTbl, COMPR_TBL_DATA* NewTbl)
 	}
 	if (CurEnt > BaseTbl->BitComp)
 		return false;	// combining the tables would increase the value's bit-size
-	
+
 	// combine the two tables
 	BaseTbl->EntryCount = ValUsed;
 	BaseTbl->Entries = realloc(BaseTbl->Entries, ValUsed * BaseTbl->EntrySize);
@@ -825,7 +825,7 @@ static bool CombineTables(COMPR_TBL_DATA* BaseTbl, COMPR_TBL_DATA* NewTbl)
 		}
 		break;
 	}
-	
+
 	return true;	// combined tables successfully
 }
 
@@ -833,17 +833,17 @@ static UINT32 WriteCompressionTable(COMPR_TBL_DATA* ComprTbl, UINT8* Data)
 {
 	UINT16 TempSht;
 	UINT32 DataLen;
-	
+
 	Data[0x00] = 0x00;	// n-Bit Compession
 	Data[0x01] = ComprTbl->ComprType;
 	Data[0x02] = ComprTbl->BitDecomp;
 	Data[0x03] = ComprTbl->BitComp;
-	
+
 	TempSht = (UINT16)ComprTbl->EntryCount;
 	DataLen = ComprTbl->EntryCount * ComprTbl->EntrySize;
 	memcpy(&Data[0x04], &TempSht, 0x02);
 	memcpy(&Data[0x06], ComprTbl->Entries, DataLen);
-	
+
 	return 0x06 + DataLen;
 }
 
@@ -855,18 +855,18 @@ static void WriteBits(UINT8* Data, UINT32* Pos, UINT8* BitPos, UINT16 Value, UIN
 	UINT8 BitMask;
 	UINT8 OutShift;
 	UINT8 InBit;
-	
+
 	OutPos = *Pos;
 	OutShift = *BitPos;
 	InBit = 0x00;
-	
+
 	Data[OutPos] &= ~(0xFF >> OutShift);
 	while(BitsToWrite)
 	{
 		BitWriteVal = (BitsToWrite >= 8) ? 8 : BitsToWrite;
 		BitsToWrite -= BitWriteVal;
 		BitMask = (1 << BitWriteVal) - 1;
-		
+
 		InVal = (Value >> InBit) & BitMask;
 		OutShift += BitWriteVal;
 		Data[OutPos] |= InVal << 8 >> OutShift;
@@ -876,10 +876,10 @@ static void WriteBits(UINT8* Data, UINT32* Pos, UINT8* BitPos, UINT16 Value, UIN
 			OutPos ++;
 			Data[OutPos] = InVal << 8 >> OutShift;
 		}
-		
+
 		InBit += BitWriteVal;
 	}
-	
+
 	*Pos = OutPos;
 	*BitPos = OutShift;
 	return;
@@ -899,7 +899,7 @@ static UINT32 CompressAndWriteData(COMPR_TBL_DATA* ComprTbl, VGM_PCM_DATA* Bank,
 	UINT8* Ent1B;
 	UINT16* Ent2B;
 	UINT8 DstShift;
-	
+
 	Data[0x00] = 0x00;	// n-Bit Compession
 	memcpy(&Data[0x01], &Bank->DataSize, 0x04);
 	Data[0x05] = ComprTbl->BitDecomp;
@@ -907,13 +907,13 @@ static UINT32 CompressAndWriteData(COMPR_TBL_DATA* ComprTbl, VGM_PCM_DATA* Bank,
 	Data[0x07] = ComprTbl->ComprType;
 	memcpy(&Data[0x08], &ComprTbl->AddVal, 0x02);
 	DstBuf = &Data[0x0A];
-	
+
 	BitMask = (1 << ComprTbl->BitComp) - 1;
 	AddVal = ComprTbl->AddVal;
 	BitShift = ComprTbl->BitDecomp - ComprTbl->BitComp;
 	Ent1B = (UINT8*)ComprTbl->EntRef;
 	Ent2B = (UINT16*)ComprTbl->EntRef;
-	
+
 	SrcVal = 0x0000;	// must be initialized (else 8-bit values don't fill it completely)
 	DstPos = 0x00;
 	DstShift = 0;
@@ -949,11 +949,11 @@ static UINT32 CompressAndWriteData(COMPR_TBL_DATA* ComprTbl, VGM_PCM_DATA* Bank,
 			DstVal = (UINT16)CurEnt;
 			break;
 		}
-		
+
 		WriteBits(DstBuf, &DstPos, &DstShift, DstVal, ComprTbl->BitComp);
 	}
 	if (DstShift)
 		DstPos ++;
-	
+
 	return 0x0A + DstPos;
 }

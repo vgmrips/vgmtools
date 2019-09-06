@@ -43,9 +43,9 @@ int main(int argc, char* argv[])
 	bool KeepLSmpl;
 	UINT8 OptsTrim;
 	UINT8 OptsWarn;
-	
+
 	printf("VGM Trimmer\n-----------\n\n");
-	
+
 	ErrVal = 0;
 	argbase = 1;
 	OptsTrim = 0x00;
@@ -77,9 +77,9 @@ int main(int argc, char* argv[])
 			break;
 		}
 	}
-	
+
 	SetTrimOptions(OptsTrim, ! OptsWarn);
-	
+
 	printf("File Name:\t");
 	if (argc <= argbase + 0)
 	{
@@ -92,7 +92,7 @@ int main(int argc, char* argv[])
 	}
 	if (! strlen(FileName))
 		return 0;
-	
+
 	printf("Start Sample (in Samples):\t");
 	if (argc <= argbase + 1)
 	{
@@ -106,7 +106,7 @@ int main(int argc, char* argv[])
 	StartSmpl = strtol(InputTxt, NULL, 0);
 	if (! StartSmpl)
 		StartSmpl = 0x00;
-	
+
 	printf("Loop Sample (in Samples):\t");
 	if (argc <= argbase + 2)
 	{
@@ -118,7 +118,7 @@ int main(int argc, char* argv[])
 		printf("%s\n", InputTxt);
 	}
 	LoopSmpl = strtol(InputTxt, NULL, 0);
-	
+
 	printf("End Sample (in Samples):\t");
 	if (argc <= argbase + 3)
 	{
@@ -130,7 +130,7 @@ int main(int argc, char* argv[])
 		printf("%s\n", InputTxt);
 	}
 	EndSmpl = strtol(InputTxt, NULL, 0);
-	
+
 	if (! OpenVGMFile(FileName))
 	{
 		printf("Error opening the file!\n");
@@ -138,7 +138,7 @@ int main(int argc, char* argv[])
 		goto EndProgram;
 	}
 	printf("\n");
-	
+
 	KeepLSmpl = false;
 	if (EndSmpl == -1)
 	{
@@ -184,7 +184,7 @@ int main(int argc, char* argv[])
 		printf("Warning: Negative Start Sample - Silence added!\n");
 	if ((UINT32)EndSmpl > VGMHead.lngTotalSamples)
 		printf("Warning: End Sample after End of File - Silence added!\n");
-	
+
 	if (LoopSmpl == -1)
 	{
 		LoopSmpl = StartSmpl;
@@ -200,7 +200,7 @@ int main(int argc, char* argv[])
 	{
 		HasLoop = LoopSmpl ? true : false;
 	}
-	
+
 	TrimVGMData(StartSmpl, LoopSmpl, EndSmpl, HasLoop, KeepLSmpl);
 	if (argc > argbase + 4)
 		strcpy(FileName, argv[argbase + 4]);
@@ -212,14 +212,14 @@ int main(int argc, char* argv[])
 		strcat(FileName, "_trimmed.vgm");
 	}
 	WriteVGMFile(FileName);
-	
+
 QuickExit:
 	free(VGMData);
 	free(DstData);
-	
+
 EndProgram:
 	DblClickWait(argv[0]);
-	
+
 	return ErrVal;
 }
 
@@ -229,20 +229,20 @@ static bool OpenVGMFile(const char* FileName)
 	UINT32 CurPos;
 	UINT32 TempLng;
 	char* TempPnt;
-	
+
 	hFile = gzopen(FileName, "rb");
 	if (hFile == NULL)
 		return false;
-	
+
 	gzseek(hFile, 0x00, SEEK_SET);
 	gzread(hFile, &TempLng, 0x04);
 	if (TempLng != FCC_VGM)
 		goto OpenErr;
-	
+
 	gzseek(hFile, 0x00, SEEK_SET);
 	gzread(hFile, &VGMHead, sizeof(VGM_HEADER));
 	ZLIB_SEEKBUG_CHECK(VGMHead);
-	
+
 	// Header preperations
 	if (VGMHead.lngVersion < 0x00000101)
 	{
@@ -266,7 +266,7 @@ static bool OpenVGMFile(const char* FileName)
 	if (! VGMHead.lngDataOffset)
 		VGMHead.lngDataOffset = 0x0000000C;
 	VGMHead.lngDataOffset += 0x00000034;
-	
+
 	CurPos = VGMHead.lngDataOffset;
 	if (VGMHead.lngVersion < 0x00000150)
 		CurPos = 0x40;
@@ -276,7 +276,7 @@ static bool OpenVGMFile(const char* FileName)
 	else
 		TempLng = 0x00;
 	memset((UINT8*)&VGMHead + CurPos, 0x00, TempLng);
-	
+
 	// Read Data
 	VGMDataLen = VGMHead.lngEOFOffset;
 	VGMData = (UINT8*)malloc(VGMDataLen);
@@ -284,14 +284,14 @@ static bool OpenVGMFile(const char* FileName)
 		goto OpenErr;
 	gzseek(hFile, 0x00, SEEK_SET);
 	gzread(hFile, VGMData, VGMDataLen);
-	
+
 	gzclose(hFile);
-	
+
 	strcpy(FileBase, FileName);
 	TempPnt = strrchr(FileBase, '.');
 	if (TempPnt != NULL)
 		*TempPnt = 0x00;
-	
+
 	return true;
 
 OpenErr:
@@ -304,24 +304,24 @@ static void WriteVGMFile(const char* FileName)
 {
 	FILE* hFile;
 	const char* FileTitle;
-	
+
 	printf("\t\t\t\t\t\t\t\t\r");
 	FileTitle = strrchr(FileName, '\\');
 	if (FileTitle == NULL)
 		FileTitle = FileName;
 	else
 		FileTitle ++;
-	
+
 	hFile = fopen(FileName, "wb");
 	if (hFile == NULL)
 	{
 		printf("Error writing %s!\n", FileTitle);
 		return;
 	}
-	
+
 	fwrite(DstData, 0x01, DstDataLen, hFile);
 	fclose(hFile);
 	printf("%s written.\n", FileTitle);
-	
+
 	return;
 }

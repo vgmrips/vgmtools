@@ -32,13 +32,13 @@ int main(int argc, char* argv[])
 	int argbase;
 	int ErrVal;
 	char FileName[0x100];
-	
+
 	printf("RAW to VGM Converter\n--------------------\n\n");
-	
+
 	ErrVal = 0;
 	argbase = 1;
 	LoopOn = 0x00;
-	
+
 	while(argbase < argc && argv[argbase][0] == '-')
 	{
 		if (! stricmp(argv[argbase], "-help"))
@@ -58,7 +58,7 @@ int main(int argc, char* argv[])
 			break;
 		}
 	}
-	
+
 	printf("File Name:\t");
 	if (argc <= argbase + 0)
 	{
@@ -71,7 +71,7 @@ int main(int argc, char* argv[])
 	}
 	if (! strlen(FileName))
 		return 0;
-	
+
 	if (OpenRAWFile(FileName))
 	{
 		printf("Error opening the file!\n");
@@ -79,9 +79,9 @@ int main(int argc, char* argv[])
 		goto EndProgram;
 	}
 	printf("\n");
-	
+
 	ConvertRAW2VGM();
-	
+
 	if (argc > argbase + 1)
 		strcpy(FileName, argv[argbase + 1]);
 	else
@@ -92,13 +92,13 @@ int main(int argc, char* argv[])
 		strcat(FileName, ".vgm");
 	}
 	WriteVGMFile(FileName);
-	
+
 	free(RAWData);
 	free(VGMData);
-	
+
 EndProgram:
 	DblClickWait(argv[0]);
-	
+
 	return ErrVal;
 }
 
@@ -107,23 +107,23 @@ static UINT8 OpenRAWFile(const char* FileName)
 	FILE* hFile;
 	//UINT16 TempSht;
 	char* TempPnt;
-	
+
 	hFile = fopen(FileName, "rb");
 	if (hFile == NULL)
 		return 0xFF;
-	
+
 	fseek(hFile, 0x00, SEEK_END);
 	RAWDataLen = ftell(hFile);
-	
+
 	// Read Data
 	RAWData = (UINT8*)malloc(RAWDataLen);
 	if (RAWData == NULL)
 		goto OpenErr;
 	fseek(hFile, 0x00, SEEK_SET);
 	RAWDataLen = fread(RAWData, 0x01, RAWDataLen, hFile);
-	
+
 	fclose(hFile);
-	
+
 	strcpy(FileBase, FileName);
 	TempPnt = strrchr(FileBase, '.');
 	if (TempPnt != NULL)
@@ -135,7 +135,7 @@ static UINT8 OpenRAWFile(const char* FileName)
 	{
 		TempPnt = FileBase + strlen(FileBase);
 	}
-	
+
 	return 0x00;
 
 OpenErr:
@@ -147,13 +147,13 @@ OpenErr:
 static void WriteVGMFile(const char* FileName)
 {
 	FILE* hFile;
-	
+
 	hFile = fopen(FileName, "wb");
 	fwrite(VGMData, 0x01, VGMDataLen, hFile);
 	fclose(hFile);
-	
+
 	printf("File written.\n");
-	
+
 	return;
 }
 
@@ -170,12 +170,12 @@ static void ConvertRAW2VGM(void)
 	UINT8 CurReg;
 	UINT8 CurData;
 	UINT8 CurChip;
-	
+
 	VGMDataLen = sizeof(VGM_HEADER) + RAWDataLen * 0x02;
 	VGMData = (UINT8*)malloc(VGMDataLen);
-	
+
 	memcpy(&RAWClock, &RAWData[0x08], 0x02);
-	
+
 	// Generate VGM Header
 	memset(&VGMHead, 0x00, sizeof(VGM_HEADER));
 	VGMHead.fccVGM = FCC_VGM;
@@ -183,7 +183,7 @@ static void ConvertRAW2VGM(void)
 	VGMHead.lngRate = 0;
 	VGMHead.lngDataOffset = 0x80;
 	VGMHead.lngHzYM3812 = 3579545;
-	
+
 	// Convert data
 	RAWPos = 0x0A;
 	VGMPos = VGMHead.lngDataOffset;
@@ -199,7 +199,7 @@ static void ConvertRAW2VGM(void)
 		CurReg = RAWData[RAWPos + 0x01];
 		CurData = RAWData[RAWPos + 0x00];
 		RAWPos += 0x02;
-		
+
 		switch(CurReg)
 		{
 		case 0x00:	// Delay
@@ -229,7 +229,7 @@ static void ConvertRAW2VGM(void)
 				VGMDataLen += 0x8000;
 				VGMData = (UINT8*)realloc(VGMData, VGMDataLen);
 			}
-			
+
 			TempTick = (UINT64)CurTick * 4410 + HalfRate;
 			VGMSmplC = (UINT32)(TempTick / 119318);
 			if (VGMSmplL < VGMSmplC)
@@ -241,7 +241,7 @@ static void ConvertRAW2VGM(void)
 						CurDelay = (UINT16)SmplVal;
 					else
 						CurDelay = 0xFFFF;
-					
+
 					if (VGMPos >= VGMDataLen - 0x08)
 					{
 						VGMDataLen += 0x8000;
@@ -254,18 +254,18 @@ static void ConvertRAW2VGM(void)
 				}
 				VGMSmplL = VGMSmplC;
 			}
-			
+
 			VGMData[VGMPos + 0x00] = 0x5A + CurChip * 0x50;
 			VGMData[VGMPos + 0x01] = CurReg;
 			VGMData[VGMPos + 0x02] = CurData;
 			VGMPos += 0x03;
-			
+
 			break;
 		}
 	}
 	VGMData[VGMPos] = 0x66;
 	VGMPos += 0x01;
-	
+
 	VGMDataLen = VGMPos;
 	VGMHead.lngEOFOffset = VGMDataLen;
 	VGMHead.lngTotalSamples = VGMSmplL;
@@ -274,7 +274,7 @@ static void ConvertRAW2VGM(void)
 		VGMHead.lngLoopOffset = VGMHead.lngDataOffset;
 		VGMHead.lngLoopSamples = VGMHead.lngTotalSamples;
 	}
-	
+
 	SmplVal = VGMHead.lngDataOffset;
 	if (SmplVal > sizeof(VGM_HEADER))
 		SmplVal = sizeof(VGM_HEADER);
@@ -283,6 +283,6 @@ static void ConvertRAW2VGM(void)
 		VGMHead.lngLoopOffset -= 0x1C;
 	VGMHead.lngDataOffset -= 0x34;
 	memcpy(&VGMData[0x00], &VGMHead, SmplVal);
-	
+
 	return;
 }

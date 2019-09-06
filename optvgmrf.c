@@ -94,12 +94,12 @@ int main(int argc, char* argv[])
 	int argbase;
 	int ErrVal;
 	char FileName[0x100];
-	
+
 	printf("VGM RF-PCM Optimizer\n--------------------\n\n");
-	
+
 	ErrVal = 0;
 	argbase = 1;
-	
+
 	printf("File Name:\t");
 	if (argc <= argbase + 0)
 	{
@@ -112,7 +112,7 @@ int main(int argc, char* argv[])
 	}
 	if (! strlen(FileName))
 		return 1;
-	
+
 	if (! OpenVGMFile(FileName))
 	{
 		printf("Error opening the file!\n");
@@ -120,7 +120,7 @@ int main(int argc, char* argv[])
 		goto EndProgram;
 	}
 	printf("\n");
-	
+
 	DstData = NULL;
 	if (VGMHead.lngVersion < 0x00000151)
 	{
@@ -135,7 +135,7 @@ int main(int argc, char* argv[])
 		ErrVal = 2;
 		goto BreakProgress;
 	}
-	
+
 	CancelFlag = false;
 	OptMode = 0x00;
 	printf("Step 1: Merge single memory writes into larger blocks ...\n");
@@ -155,7 +155,7 @@ int main(int argc, char* argv[])
 		free(VGMData);
 		VGMData = DstData;
 		DstData = NULL;
-		
+
 		printf("Step 2: Generate Block Data ...\n");
 		EnumeratePCMData();
 		if (CancelFlag)
@@ -166,7 +166,7 @@ int main(int argc, char* argv[])
 	}
 	printf("Data Compression: %u -> %u (%.1f %%)\n",
 			DataSizeA, DataSizeB, 100.0f * DataSizeB / DataSizeA);
-	
+
 	if (DataSizeB < DataSizeA)
 	{
 		if (argc > argbase + 1)
@@ -180,14 +180,14 @@ int main(int argc, char* argv[])
 		}
 		WriteVGMFile(FileName);
 	}
-	
+
 BreakProgress:
 	free(VGMData);
 	free(DstData);
-	
+
 EndProgram:
 	DblClickWait(argv[0]);
-	
+
 	return ErrVal;
 }
 
@@ -197,20 +197,20 @@ static bool OpenVGMFile(const char* FileName)
 	UINT32 CurPos;
 	UINT32 TempLng;
 	char* TempPnt;
-	
+
 	hFile = gzopen(FileName, "rb");
 	if (hFile == NULL)
 		return false;
-	
+
 	gzseek(hFile, 0x00, SEEK_SET);
 	gzread(hFile, &TempLng, 0x04);
 	if (TempLng != FCC_VGM)
 		goto OpenErr;
-	
+
 	gzseek(hFile, 0x00, SEEK_SET);
 	gzread(hFile, &VGMHead, sizeof(VGM_HEADER));
 	ZLIB_SEEKBUG_CHECK(VGMHead);
-	
+
 	// Header preperations
 	if (VGMHead.lngVersion < 0x00000150)
 	{
@@ -231,7 +231,7 @@ static bool OpenVGMFile(const char* FileName)
 	if (! VGMHead.lngDataOffset)
 		VGMHead.lngDataOffset = 0x0000000C;
 	VGMHead.lngDataOffset += 0x00000034;
-	
+
 	CurPos = VGMHead.lngDataOffset;
 	if (VGMHead.lngVersion < 0x00000151)
 		CurPos = 0x40;
@@ -241,7 +241,7 @@ static bool OpenVGMFile(const char* FileName)
 	else
 		TempLng = 0x00;
 	memset((UINT8*)&VGMHead + CurPos, 0x00, TempLng);
-	
+
 	// Read Data
 	VGMDataLen = VGMHead.lngEOFOffset;
 	VGMData = (UINT8*)malloc(VGMDataLen);
@@ -249,14 +249,14 @@ static bool OpenVGMFile(const char* FileName)
 		goto OpenErr;
 	gzseek(hFile, 0x00, SEEK_SET);
 	gzread(hFile, VGMData, VGMDataLen);
-	
+
 	gzclose(hFile);
-	
+
 	strcpy(FileBase, FileName);
 	TempPnt = strrchr(FileBase, '.');
 	if (TempPnt != NULL)
 		*TempPnt = 0x00;
-	
+
 	return true;
 
 OpenErr:
@@ -268,13 +268,13 @@ OpenErr:
 static void WriteVGMFile(const char* FileName)
 {
 	FILE* hFile;
-	
+
 	hFile = fopen(FileName, "wb");
 	fwrite(DstData, 0x01, DstDataLen, hFile);
 	fclose(hFile);
-	
+
 	printf("File written.\n");
-	
+
 	return;
 }
 
@@ -285,7 +285,7 @@ static void WritePCMDataBlk(UINT32* DstPos, const UINT8 BlkType, const UINT32 Da
 	UINT32 DBlkLen;
 	UINT8 DBlkType;
 	const UINT8* Data;
-	
+
 	Data = RF_RData[BlkType].PCMRam + DataStart;
 	DBlkType = DBLK_TYPES[BlkType];
 	DstData[*DstPos + 0x00] = 0x67;
@@ -295,7 +295,7 @@ static void WritePCMDataBlk(UINT32* DstPos, const UINT8 BlkType, const UINT32 Da
 	{
 		DBlkLen = DataLen + 0x02;
 		memcpy(&DstData[*DstPos + 0x03], &DBlkLen, 0x04);
-		
+
 		memcpy(&DstData[*DstPos + 0x07], &DataStart, 0x02);
 		memcpy(&DstData[*DstPos + 0x09], Data, DataLen);
 	}
@@ -303,12 +303,12 @@ static void WritePCMDataBlk(UINT32* DstPos, const UINT8 BlkType, const UINT32 Da
 	{
 		DBlkLen = DataLen + 0x04;
 		memcpy(&DstData[*DstPos + 0x03], &DBlkLen, 0x04);
-		
+
 		memcpy(&DstData[*DstPos + 0x07], &DataStart, 0x04);
 		memcpy(&DstData[*DstPos + 0x0B], Data, DataLen);
 	}
 	*DstPos += 0x07 + DBlkLen;
-	
+
 	return;
 }
 
@@ -335,14 +335,14 @@ static void MergePCMData(void)
 	UINT32 WriteLen;
 	UINT32 BlkFound;
 	UINT8 BlkType;
-	
+
 	DstData = (UINT8*)malloc(VGMDataLen + 0x100);
 	VGMPos = VGMHead.lngDataOffset;
 	DstPos = VGMHead.lngDataOffset;
 	VGMSmplPos = 0;
 	NewLoopS = 0x00;
 	memcpy(DstData, VGMData, VGMPos);	// Copy Header
-	
+
 	memset(RF_RData, 0x00, sizeof(RF_CHIP_DATA) * RFDATA_BLOCKS);
 	RF_RData[RF5C68_MODE].RAMSize	= 0x10000;	// 64 KB
 	RF_RData[RF5C164_MODE].RAMSize	= 0x10000;	// 64 KB
@@ -352,7 +352,7 @@ static void MergePCMData(void)
 		RF_RData[TempByt].PCMRam = (UINT8*)malloc(RF_RData[TempByt].RAMSize);
 		RF_RData[TempByt].FirstBnkWrt = true;
 	}
-	
+
 #ifdef WIN32
 	CmdTimer = 0;
 #endif
@@ -364,7 +364,7 @@ static void MergePCMData(void)
 		CmdLen = 0x00;
 		Command = VGMData[VGMPos + 0x00];
 		WriteEvent = true;
-		
+
 		if (Command >= 0x70 && Command <= 0x8F)
 		{
 			switch(Command & 0xF0)
@@ -428,12 +428,12 @@ static void MergePCMData(void)
 				TempByt = VGMData[VGMPos + 0x02];
 				memcpy(&BlockLen, &VGMData[VGMPos + 0x03], 0x04);
 				BlockLen &= 0x7FFFFFFF;
-				
+
 				CmdLen = 0x07 + BlockLen;
-				
+
 				if ((TempByt & 0xC0) != 0xC0)
 					break;
-				
+
 				if (TempByt == 0xC0)
 					BlkType = RF5C68_MODE;
 				else if (TempByt == 0xC1)
@@ -461,7 +461,7 @@ static void MergePCMData(void)
 							memcpy(&TempLng, &VGMData[VGMPos + 0x07], 0x04);
 						}
 						TempRFD->RAMStart = TempLng;
-						
+
 						if (BLOCK_POS == BP_FRONT)
 						{
 							while(TempRFD->DataLen)
@@ -470,7 +470,7 @@ static void MergePCMData(void)
 									WriteLen = 0x1000;
 								else
 									WriteLen = TempRFD->DataLen;
-								
+
 								WritePCMDataBlk(&DstPos, BlkType, WriteLen, TempLng);
 								TempLng += WriteLen;
 								TempRFD->DataLen -= WriteLen;
@@ -484,7 +484,7 @@ static void MergePCMData(void)
 						DataLen = BlockLen - 0x02;
 					else
 						DataLen = BlockLen - 0x04;
-					
+
 					if ((BLOCK_POS == BP_BACK && ! TempRFD->RAMSkip) ||
 						(BLOCK_POS == BP_MIDDLE &&
 							(TempRFD->RAMSkip >= TempRFD->DataLen / 2 &&
@@ -497,13 +497,13 @@ static void MergePCMData(void)
 								WriteLen = 0x1000;
 							else
 								WriteLen = TempRFD->DataLen;
-							
+
 							WritePCMDataBlk(&DstPos, BlkType, WriteLen, TempSht);
 							TempSht += (UINT16)WriteLen;
 							TempRFD->DataLen -= WriteLen;
 						}
 					}
-					
+
 					WriteEvent = false;
 					TempRFD->RAMSkip -= DataLen;
 				}
@@ -517,7 +517,7 @@ static void MergePCMData(void)
 			case 0xB0:	// RF5C68 register write
 			case 0xB1:	// RF5C164 register write
 				CmdLen = 0x03;
-				
+
 				if (VGMData[VGMPos + 0x01] == 0x07 && ! (VGMData[VGMPos + 0x02] & 0x40))
 				{
 					if (Command == 0xB0)
@@ -526,10 +526,10 @@ static void MergePCMData(void)
 						TempRFD = &RF_RData[RF5C164_MODE];
 					else
 						TempRFD = NULL;
-					
+
 					// Bank Select
 					TempRFD->BankReg = (VGMData[VGMPos + 0x02] & 0x0F) << 12;
-				
+
 					// write Bank Select just one time, the memory write includes all
 					// neccessary data
 					if (TempRFD->FirstBnkWrt)
@@ -547,7 +547,7 @@ static void MergePCMData(void)
 			case 0xC1:	// RF5C68 memory write
 			case 0xC2:	// RF5C164 memory write
 				CmdLen = 0x04;
-				
+
 				if (Command == 0xC1)
 					BlkType = RF5C68_MODE;
 				else if (Command == 0xC2)
@@ -567,7 +567,7 @@ static void MergePCMData(void)
 						TempRFD->RAMSkip = TempRFD->DataLen;
 						memcpy(&TempSht, &VGMData[VGMPos + 0x01], 0x02);
 						TempRFD->RAMStart = TempRFD->BankReg + TempSht;
-						
+
 						if (BLOCK_POS == BP_FRONT)
 						{
 							WritePCMDataBlk(&DstPos, BlkType, TempRFD->DataLen,
@@ -592,7 +592,7 @@ static void MergePCMData(void)
 						WritePCMDataBlk(&DstPos, BlkType, TempRFD->DataLen,
 										TempRFD->RAMStart);
 					}
-					
+
 					WriteEvent = false;
 					TempRFD->RAMSkip --;
 				}
@@ -640,7 +640,7 @@ static void MergePCMData(void)
 				break;
 			}
 		}
-		
+
 		if (VGMPos == VGMHead.lngLoopOffset)
 			NewLoopS = DstPos;
 		if (WriteEvent)
@@ -651,7 +651,7 @@ static void MergePCMData(void)
 		VGMPos += CmdLen;
 		if (StopVGM)
 			break;
-		
+
 #ifdef WIN32
 		if (CmdTimer < GetTickCount())
 		{
@@ -676,7 +676,7 @@ static void MergePCMData(void)
 			NewLoopS -= 0x1C;
 		memcpy(&DstData[0x1C], &NewLoopS, 0x04);
 	}
-	
+
 	if (VGMHead.lngGD3Offset)
 	{
 		VGMPos = VGMHead.lngGD3Offset;
@@ -685,7 +685,7 @@ static void MergePCMData(void)
 		{
 			memcpy(&CmdLen, &VGMData[VGMPos + 0x08], 0x04);
 			CmdLen += 0x0C;
-			
+
 			VGMHead.lngGD3Offset = DstPos;
 			TempLng = VGMHead.lngGD3Offset - 0x14;
 			memcpy(&DstData[0x14], &TempLng, 0x04);
@@ -697,15 +697,15 @@ static void MergePCMData(void)
 	VGMHead.lngEOFOffset = DstDataLen;
 	TempLng = VGMHead.lngEOFOffset - 0x04;
 	memcpy(&DstData[0x04], &TempLng, 0x04);
-	
+
 	OptMode = (BlkFound == 0x01) ? 0x00 : 0x01;
-	
+
 	for (TempByt = 0x00; TempByt < RFDATA_BLOCKS; TempByt ++)
 	{
 		free(RF_RData[TempByt].PCMRam);
 		RF_RData[TempByt].PCMRam = NULL;
 	}
-	
+
 	return;
 }
 
@@ -724,19 +724,19 @@ static UINT32 ReadConsecutiveMemWrites(UINT8 RFMode)
 	bool StopVGM;
 	UINT16 BankReg;	// this function mustn't change the global one
 	UINT8 BlkType;
-	
+
 	TempRFD = &RF_RData[RFMode];
 	TmpPos = VGMPos;
 	BankReg = TempRFD->BankReg;
 	PCMPos = 0xFFFFFFFF;
 	DataLen = 0x00;
-	
+
 	StopVGM = false;
 	while(TmpPos < VGMHead.lngEOFOffset)
 	{
 		CmdLen = 0x00;
 		Command = VGMData[TmpPos + 0x00];
-		
+
 		if (Command >= 0x70 && Command <= 0x8F)
 		{
 			switch(Command & 0xF0)
@@ -781,12 +781,12 @@ static UINT32 ReadConsecutiveMemWrites(UINT8 RFMode)
 				TempByt = VGMData[TmpPos + 0x02];
 				memcpy(&BlkLen, &VGMData[TmpPos + 0x03], 0x04);
 				BlkLen &= 0x7FFFFFFF;
-				
+
 				CmdLen = 0x07 + BlkLen;
-				
+
 				if ((TempByt & 0xC0) != 0xC0)
 					break;
-				
+
 				if (TempByt == 0xC0)
 					BlkType = RF5C68_MODE;
 				else if (TempByt == 0xC1)
@@ -797,7 +797,7 @@ static UINT32 ReadConsecutiveMemWrites(UINT8 RFMode)
 					break;
 				if (BlkType != RFMode)
 					break;
-				
+
 				if (! (TempByt & 0x20))
 				{
 					memcpy(&TempSht, &VGMData[TmpPos + 0x07], 0x02);
@@ -817,7 +817,7 @@ static UINT32 ReadConsecutiveMemWrites(UINT8 RFMode)
 					StopVGM = true;
 					break;
 				}
-				
+
 				if (BlkLen > TempRFD->RAMSize)
 					BlkLen = TempRFD->RAMSize;
 				if (! (TempByt & 0x20))
@@ -845,7 +845,7 @@ static UINT32 ReadConsecutiveMemWrites(UINT8 RFMode)
 				if ((Command == 0xB0 && RFMode != RF5C68_MODE) ||
 					(Command == 0xB1 && RFMode != RF5C164_MODE))
 					break;
-				
+
 				if (VGMData[TmpPos + 0x01] == 0x07 && ! (VGMData[TmpPos + 0x02] & 0x40))
 				{
 					// Bank Select
@@ -859,7 +859,7 @@ static UINT32 ReadConsecutiveMemWrites(UINT8 RFMode)
 				if ((Command == 0xC1 && RFMode != RF5C68_MODE) ||
 					(Command == 0xC2 && RFMode != RF5C164_MODE))
 					break;
-				
+
 				memcpy(&TempSht, &VGMData[TmpPos + 0x01], 0x02);
 				TempSht += BankReg;
 				if (PCMPos == 0xFFFFFFFF)
@@ -869,7 +869,7 @@ static UINT32 ReadConsecutiveMemWrites(UINT8 RFMode)
 					StopVGM = true;
 					break;
 				}
-				
+
 				TempRFD->PCMRam[PCMPos] = VGMData[TmpPos + 0x03];
 				PCMPos ++;
 				DataLen ++;
@@ -935,12 +935,12 @@ static UINT32 ReadConsecutiveMemWrites(UINT8 RFMode)
 				break;
 			}
 		}
-		
+
 		TmpPos += CmdLen;
 		if (StopVGM || PCMPos >= TempRFD->RAMSize)
 			break;
 	}
-	
+
 	return DataLen;
 }
 
@@ -969,7 +969,7 @@ static void EnumeratePCMData(void)
 	UINT8 BlkType;
 	UINT32 BlkStart;
 	const UINT8* BlkData;
-	
+
 	RFBlkAlloc = 0x40;	// usually there are only few blocks ...
 	RFBlock = (RF_BLK_DATA*)malloc(RFBlkAlloc * sizeof(RF_BLK_DATA));
 	RFBlkCount = 0x00;
@@ -977,10 +977,10 @@ static void EnumeratePCMData(void)
 	InFileList = (IN_FILE_LIST*)malloc(InFileAlloc * sizeof(IN_FILE_LIST));
 	InFileCount = 0x00;
 	BlkUsage = BlkSize = 0x00;
-	
+
 	VGMPos = VGMHead.lngDataOffset;
 	VGMSmplPos = 0;
-	
+
 #ifdef WIN32
 	CmdTimer = 0;
 #endif
@@ -989,7 +989,7 @@ static void EnumeratePCMData(void)
 	{
 		CmdLen = 0x00;
 		Command = VGMData[VGMPos + 0x00];
-		
+
 		if (Command >= 0x70 && Command <= 0x8F)
 		{
 			switch(Command & 0xF0)
@@ -1053,12 +1053,12 @@ static void EnumeratePCMData(void)
 				TempByt = VGMData[VGMPos + 0x02];
 				memcpy(&BlockLen, &VGMData[VGMPos + 0x03], 0x04);
 				BlockLen &= 0x7FFFFFFF;
-				
+
 				CmdLen = 0x07 + BlockLen;
-				
+
 				if ((TempByt & 0xC0) != 0xC0)
 					break;
-				
+
 				if (TempByt == 0xC0)
 					BlkType = RF5C68_MODE;
 				else if (TempByt == 0xC1)
@@ -1067,7 +1067,7 @@ static void EnumeratePCMData(void)
 					BlkType = SCSP_MODE;
 				else
 					break;
-				
+
 				if (! (TempByt & 0x20))
 				{
 					memcpy(&TempSht, &VGMData[VGMPos + 0x07], 0x02);
@@ -1087,14 +1087,14 @@ static void EnumeratePCMData(void)
 					TempBlk = &RFBlock[CurBlk];
 					if (TempBlk->Mode != BlkType)
 						continue;
-					
+
 					//if (TempBlk->DataStart != BlkStart)
 					//	break;
 					if (TempBlk->DataSize < DataLen)
 						TempLng = TempBlk->DataSize;
 					else
 						TempLng = DataLen;
-					
+
 					if (CompareData(TempLng, BlkData, TempBlk->Data))
 					{
 						if (TempBlk->DataSize < DataLen)
@@ -1106,7 +1106,7 @@ static void EnumeratePCMData(void)
 							memcpy(TempBlk->Data, BlkData, DataLen);
 							BlkSize += DataLen;
 						}
-						
+
 						if (InFileCount >= InFileAlloc)
 						{
 							InFileAlloc += 0x1000;
@@ -1121,7 +1121,7 @@ static void EnumeratePCMData(void)
 						TempBlk->UsageCounter ++;
 						InFileCount ++;
 						BlkUsage ++;
-						
+
 						FoundBlk = true;
 					}
 				}
@@ -1133,17 +1133,17 @@ static void EnumeratePCMData(void)
 						RFBlock = (RF_BLK_DATA*)realloc(RFBlock,
 														RFBlkAlloc * sizeof(RF_BLK_DATA));
 					}
-					
+
 					TempBlk = &RFBlock[RFBlkCount];
 					RFBlkCount ++;
-					
+
 					TempBlk->Mode = BlkType;
 					TempBlk->DataSize = DataLen;
 					TempBlk->Data = (UINT8*)malloc(DataLen);
 					memcpy(TempBlk->Data, BlkData, DataLen);
 					TempBlk->UsageCounter = 0x00;
 					BlkSize += DataLen;
-					
+
 					if (InFileCount >= InFileAlloc)
 					{
 						InFileAlloc += 0x1000;
@@ -1206,11 +1206,11 @@ static void EnumeratePCMData(void)
 				break;
 			}
 		}
-		
+
 		VGMPos += CmdLen;
 		if (StopVGM)
 			break;
-		
+
 #ifdef WIN32
 		if (CmdTimer < GetTickCount())
 		{
@@ -1225,7 +1225,7 @@ static void EnumeratePCMData(void)
 #endif
 	}
 	printf("\t\t\t\t\t\t\t\t\r");
-	
+
 	BlkSngUse = 0x00;
 	for (CurBlk = 0x00; CurBlk < RFBlkCount; CurBlk ++)
 	{
@@ -1236,7 +1236,7 @@ static void EnumeratePCMData(void)
 			BlkSngUse ++;
 		}
 	}
-	
+
 	printf("%u Blocks created (%.2f MB, %ux used, %ux single use).\n",
 			RFBlkCount, BlkSize / 1048576.0f, BlkUsage, BlkSngUse);
 	if (BlkUsage == BlkSngUse)
@@ -1244,7 +1244,7 @@ static void EnumeratePCMData(void)
 		printf("Can't optimize further.\n");
 		CancelFlag = true;
 	}
-	
+
 	return;
 }
 
@@ -1254,7 +1254,7 @@ static bool CompareData(UINT32 DataLen, const UINT8* DataA,
 	UINT32 CurPos;
 	const UINT8* TempDA;
 	const UINT8* TempDB;
-	
+
 	TempDA = DataA;
 	TempDB = DataB;
 	for (CurPos = 0x00; CurPos < DataLen; CurPos ++, TempDA ++, TempDB ++)
@@ -1262,7 +1262,7 @@ static bool CompareData(UINT32 DataLen, const UINT8* DataA,
 		if (*TempDA != *TempDB)
 			return false;
 	}
-	
+
 	return true;
 }
 
@@ -1292,7 +1292,7 @@ static void RewriteVGMData(void)
 	RF_BLK_DATA* TempBlk;
 	IN_FILE_LIST* TempLst;
 	bool WriteCmd68;
-	
+
 	DstData = (UINT8*)malloc(VGMDataLen + 0x100);
 	AllDelay = 0;
 	VGMPos = VGMHead.lngDataOffset;
@@ -1300,19 +1300,19 @@ static void RewriteVGMData(void)
 	VGMSmplPos = 0;
 	NewLoopS = 0x00;
 	memcpy(DstData, VGMData, VGMPos);	// Copy Header
-	
+
 	// Write Blocks for PCM Data
 	for (CurType = 0x00; CurType < RFDATA_BLOCKS; CurType ++)
 	{
 		TempByt = DBBLK_TYPES[CurType];
-		
+
 		DataLen = 0x00;
 		for (CurBlk = 0x00; CurBlk < RFBlkCount; CurBlk ++)
 		{
 			TempBlk = &RFBlock[CurBlk];
 			if (TempBlk->Mode != CurType)
 				continue;
-			
+
 			TempBlk->DBPos = DataLen;
 			DataLen += TempBlk->DataSize;
 		}
@@ -1323,19 +1323,19 @@ static void RewriteVGMData(void)
 			DstData[DstPos + 0x02] = TempByt;
 			memcpy(&DstData[DstPos + 0x03], &DataLen, 0x04);
 			DstPos += 0x07;
-			
+
 			for (CurBlk = 0x00; CurBlk < RFBlkCount; CurBlk ++)
 			{
 				TempBlk = &RFBlock[CurBlk];
 				if (TempBlk->Mode != CurType)
 					continue;
-				
+
 				memcpy(&DstData[DstPos + 0x00], TempBlk->Data, TempBlk->DataSize);
 				DstPos += TempBlk->DataSize;
 			}
 		}
 	}
-	
+
 #ifdef WIN32
 	CmdTimer = 0;
 #endif
@@ -1348,7 +1348,7 @@ static void RewriteVGMData(void)
 		CmdLen = 0x00;
 		Command = VGMData[VGMPos + 0x00];
 		WriteEvent = true;
-		
+
 		if (Command >= 0x70 && Command <= 0x8F)
 		{
 			switch(Command & 0xF0)
@@ -1421,7 +1421,7 @@ static void RewriteVGMData(void)
 				TempByt = VGMData[VGMPos + 0x02];
 				memcpy(&TempLng, &VGMData[VGMPos + 0x03], 0x04);
 				TempLng &= 0x7FFFFFFF;
-				
+
 				switch(TempByt & 0xC0)
 				{
 				case 0x00:	// Database Block
@@ -1456,15 +1456,15 @@ static void RewriteVGMData(void)
 								TempBlk = &RFBlock[TempLst->BlockID];
 								if (TempBlk->Mode & 0x80)
 									break;	// Single-Use Blocks are left
-								
-								CurEntry ++; 
+
+								CurEntry ++;
 								WriteEvent = false;
 								// writing the block here would cause some sort of bug, because
 								// I would miss the delay
 								WriteCmd68 = true;
 								break;
 							}
-							CurEntry ++; 
+							CurEntry ++;
 						}
 						break;
 					}
@@ -1520,7 +1520,7 @@ static void RewriteVGMData(void)
 				break;
 			}
 		}
-		
+
 		if (WriteEvent || WriteCmd68 || VGMPos == VGMHead.lngLoopOffset)
 		{
 			if (VGMPos != VGMHead.lngLoopOffset)
@@ -1537,12 +1537,12 @@ static void RewriteVGMData(void)
 					if (VGMPos == VGMHead.lngLoopOffset)
 						NewLoopS = DstPos;
 				}
-				
+
 				if (AllDelay <= 0xFFFF)
 					TempSht = (UINT16)AllDelay;
 				else
 					TempSht = 0xFFFF;
-				
+
 				if (! TempSht)
 				{
 					// don't do anything - I just want to be safe
@@ -1598,7 +1598,7 @@ static void RewriteVGMData(void)
 				}
 				AllDelay -= TempSht;
 			}
-			
+
 			if (WriteEvent)
 			{
 				if (VGMPos == VGMHead.lngLoopOffset)
@@ -1612,7 +1612,7 @@ static void RewriteVGMData(void)
 			AllDelay += CmdDelay;
 		}
 		VGMPos += CmdLen;
-		
+
 		if (WriteCmd68)
 		{
 			WriteCmd68 = false;
@@ -1626,7 +1626,7 @@ static void RewriteVGMData(void)
 		}
 		if (StopVGM)
 			break;
-		
+
 #ifdef WIN32
 		if (CmdTimer < GetTickCount())
 		{
@@ -1651,7 +1651,7 @@ static void RewriteVGMData(void)
 			NewLoopS -= 0x1C;
 		memcpy(&DstData[0x1C], &NewLoopS, 0x04);
 	}
-	
+
 	if (VGMHead.lngGD3Offset)
 	{
 		VGMPos = VGMHead.lngGD3Offset;
@@ -1660,7 +1660,7 @@ static void RewriteVGMData(void)
 		{
 			memcpy(&CmdLen, &VGMData[VGMPos + 0x08], 0x04);
 			CmdLen += 0x0C;
-			
+
 			VGMHead.lngGD3Offset = DstPos;
 			TempLng = VGMHead.lngGD3Offset - 0x14;
 			memcpy(&DstData[0x14], &TempLng, 0x04);
@@ -1672,12 +1672,12 @@ static void RewriteVGMData(void)
 	VGMHead.lngEOFOffset = DstDataLen;
 	TempLng = VGMHead.lngEOFOffset - 0x04;
 	memcpy(&DstData[0x04], &TempLng, 0x04);
-	
+
 	if (VGMHead.lngVersion < 0x00000160)
 	{
 		VGMHead.lngVersion = 0x00000160;
 		memcpy(&DstData[0x08], &VGMHead.lngVersion, 0x04);
 	}
-	
+
 	return;
 }

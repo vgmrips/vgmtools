@@ -62,9 +62,9 @@ int main(int argc, char* argv[])
 	bool FileCompr;
 	int ErrVal;
 	UINT8 RetVal;
-	
+
 	printf("VGM Patcher\n-----------\n");
-	
+
 	ErrVal = 0;
 	if (argc <= 1)
 	{
@@ -97,7 +97,7 @@ int main(int argc, char* argv[])
 		printf("    -SetVolMod    Set the Volume Modifier (Format: 1.0, 0x00)\n");
 		printf("\n");
 		_getch();
-		
+
 		printf("Commands to check the lengths (total, loop) and offsets (EOF, loop, GD3):\n");
 		printf("    -Check        asks for correction\n");
 		printf("    -CheckR       read only mode\n");
@@ -111,7 +111,7 @@ int main(int argc, char* argv[])
 		printf("\n");
 		printf("                   Tip: Stripping without commands optimizes the delays.\n");
 		printf("\n");
-		
+
 		printf("Command names are case insensitive.\n");
 		goto EndProgram;
 	}
@@ -143,7 +143,7 @@ int main(int argc, char* argv[])
 		printf("    -SetHzYMF271   Sets the YMF271 (OPLX) chip clock\n");
 		printf("    -SetHzYMZ280B  Sets the YMZ280B chip clock\n");
 		_getch();
-		
+
 		printf("    -SetHzRF5C164  Sets the RF5C164 (Sega MegaCD PCM) chip clock\n");
 		printf("    -SetHzPWM      Sets the PWM chip clock\n");
 		printf("    -SetHzAY8910   Sets the AY8910 chip clock\n");
@@ -195,7 +195,7 @@ int main(int argc, char* argv[])
 		printf("    PWM            -\n");
 		printf("    AY8910        *0..5\n");
 		_getch();
-		
+
 		printf("    GBDMG         *0..3\n");
 		printf("    NESAPU        *0..4\n");
 		printf("    MultiPCM      *0..27\n");
@@ -214,7 +214,7 @@ int main(int argc, char* argv[])
 		printf("\n");
 		goto EndProgram;
 	}
-	
+
 	for (CmdCnt = 1; CmdCnt < argc; CmdCnt ++)
 	{
 		if (*argv[CmdCnt] != '-')
@@ -230,7 +230,7 @@ int main(int argc, char* argv[])
 		printf("Error: No files specified!\n");
 		goto EndProgram;
 	}
-	
+
 	PreparseCommands(CmdCnt - 1, argv + 1);
 	for (CurArg = CmdCnt; CurArg < argc; CurArg ++)
 	{
@@ -242,7 +242,7 @@ int main(int argc, char* argv[])
 			ErrVal |= 1;	// There was at least 1 opening-error.
 			continue;
 		}
-		
+
 		RetVal = PatchVGM(CmdCnt - 1, argv + 1);
 		if (RetVal & 0x80)
 		{
@@ -267,10 +267,10 @@ int main(int argc, char* argv[])
 		}*/
 		printf("\n");
 	}
-	
+
 EndProgram:
 	DblClickWait(argv[0]);
-	
+
 	return ErrVal;
 }
 
@@ -279,13 +279,13 @@ static UINT32 GetGZFileLength(const char* FileName)
 	FILE* hFile;
 	UINT32 FileSize;
 	UINT16 gzHead;
-	
+
 	hFile = fopen(FileName, "rb");
 	if (hFile == NULL)
 		return 0xFFFFFFFF;
-	
+
 	fread(&gzHead, 0x02, 0x01, hFile);
-	
+
 	if (gzHead != 0x8B1F)
 	{
 		// normal file
@@ -298,9 +298,9 @@ static UINT32 GetGZFileLength(const char* FileName)
 		fseek(hFile, -4, SEEK_END);
 		fread(&FileSize, 0x04, 0x01, hFile);
 	}
-	
+
 	fclose(hFile);
-	
+
 	return FileSize;
 }
 
@@ -313,7 +313,7 @@ static bool OpenVGMFile(const char* FileName, bool* Compressed)
 	UINT32 FileSize;
 	UINT32 CurPos;
 	UINT32 TempLng;
-	
+
 #ifdef WIN32
 	hFileWin = CreateFile(FileName, GENERIC_READ, FILE_SHARE_READ | FILE_SHARE_WRITE, NULL,
 							OPEN_EXISTING, 0, NULL);
@@ -324,26 +324,26 @@ static bool OpenVGMFile(const char* FileName, bool* Compressed)
 	}
 #endif
 	KeepDate = true;
-	
+
 	FileSize = GetGZFileLength(FileName);
-	
+
 	hFile = gzopen(FileName, "rb");
 	if (hFile == NULL)
 		return false;
-	
+
 	gzseek(hFile, 0x00, SEEK_SET);
 	gzread(hFile, &TempLng, 0x04);
 	if (TempLng != FCC_VGM)
 		goto OpenErr;
-	
+
 	*Compressed = ! gzdirect(hFile);
-	
+
 	gzseek(hFile, 0x00, SEEK_SET);
 	gzread(hFile, &VGMHead, sizeof(VGM_HEADER));
 	ZLIB_SEEKBUG_CHECK(VGMHead);
-	
+
 	// I skip the Header preperations. I'll deal with that later
-	
+
 	if (VGMHead.lngVersion < 0x150)
 		RealHdrSize = 0x40;
 	else
@@ -351,10 +351,10 @@ static bool OpenVGMFile(const char* FileName, bool* Compressed)
 	TempLng = sizeof(VGM_HEADER);
 	if (TempLng > RealHdrSize)
 		memset((UINT8*)&VGMHead + RealHdrSize, 0x00, TempLng - RealHdrSize);
-	
+
 	memset(&VGMHeadX, 0x00, sizeof(VGM_HDR_EXTRA));
 	memset(&VGMH_Extra, 0x00, sizeof(VGM_EXTRA));
-	
+
 	if (VGMHead.lngExtraOffset)
 	{
 		CurPos = 0xBC + VGMHead.lngExtraOffset;
@@ -367,7 +367,7 @@ static bool OpenVGMFile(const char* FileName, bool* Compressed)
 	}
 	// never copy more bytes than the structure has
 	RealCpySize = (RealHdrSize <= TempLng) ? RealHdrSize : TempLng;
-	
+
 	// Read Data
 	if (*Compressed)
 		VGMDataLen = 0x04 + VGMHead.lngEOFOffset;	// size from EOF offset
@@ -378,9 +378,9 @@ static bool OpenVGMFile(const char* FileName, bool* Compressed)
 		goto OpenErr;
 	gzseek(hFile, 0x00, SEEK_SET);
 	gzread(hFile, VGMData, VGMDataLen);
-	
+
 	gzclose(hFile);
-	
+
 	// Read Extra Header Data
 	if (VGMHead.lngExtraOffset)
 	{
@@ -388,16 +388,16 @@ static bool OpenVGMFile(const char* FileName, bool* Compressed)
 		memcpy(&TempLng,	&VGMData[CurPos], 0x04);
 		memcpy(&VGMHeadX,	&VGMData[CurPos], TempLng);
 		CurPos += 0x04;
-		
+
 		if (VGMHeadX.Chp2ClkOffset)
 			ReadChipExtraData32(CurPos + VGMHeadX.Chp2ClkOffset, &VGMH_Extra.Clocks);
 		CurPos += 0x04;
-		
+
 		if (VGMHeadX.ChpVolOffset)
 			ReadChipExtraData16(CurPos + VGMHeadX.ChpVolOffset, &VGMH_Extra.Volumes);
 		CurPos += 0x04;
 	}
-	
+
 	return true;
 
 OpenErr:
@@ -411,14 +411,14 @@ static void ReadChipExtraData32(UINT32 StartOffset, VGMX_CHP_EXTRA32* ChpExtra)
 	UINT32 CurPos;
 	UINT8 CurChp;
 	VGMX_CHIP_DATA32* TempCD;
-	
+
 	if (! StartOffset)
 	{
 		ChpExtra->ChipCnt = 0x00;
 		ChpExtra->CCData = NULL;
 		return;
 	}
-	
+
 	CurPos = StartOffset;
 	ChpExtra->ChipCnt = VGMData[CurPos];
 	if (ChpExtra->ChipCnt)
@@ -427,7 +427,7 @@ static void ReadChipExtraData32(UINT32 StartOffset, VGMX_CHP_EXTRA32* ChpExtra)
 	else
 		ChpExtra->CCData = NULL;
 	CurPos ++;
-	
+
 	for (CurChp = 0x00; CurChp < ChpExtra->ChipCnt; CurChp ++)
 	{
 		TempCD = &ChpExtra->CCData[CurChp];
@@ -435,7 +435,7 @@ static void ReadChipExtraData32(UINT32 StartOffset, VGMX_CHP_EXTRA32* ChpExtra)
 		memcpy(&TempCD->Data, &VGMData[CurPos + 0x01], 0x04);
 		CurPos += 0x05;
 	}
-	
+
 	return;
 }
 
@@ -444,14 +444,14 @@ static void ReadChipExtraData16(UINT32 StartOffset, VGMX_CHP_EXTRA16* ChpExtra)
 	UINT32 CurPos;
 	UINT8 CurChp;
 	VGMX_CHIP_DATA16* TempCD;
-	
+
 	if (! StartOffset)
 	{
 		ChpExtra->ChipCnt = 0x00;
 		ChpExtra->CCData = NULL;
 		return;
 	}
-	
+
 	CurPos = StartOffset;
 	ChpExtra->ChipCnt = VGMData[CurPos];
 	if (ChpExtra->ChipCnt)
@@ -460,7 +460,7 @@ static void ReadChipExtraData16(UINT32 StartOffset, VGMX_CHP_EXTRA16* ChpExtra)
 	else
 		ChpExtra->CCData = NULL;
 	CurPos ++;
-	
+
 	for (CurChp = 0x00; CurChp < ChpExtra->ChipCnt; CurChp ++)
 	{
 		TempCD = &ChpExtra->CCData[CurChp];
@@ -469,7 +469,7 @@ static void ReadChipExtraData16(UINT32 StartOffset, VGMX_CHP_EXTRA16* ChpExtra)
 		memcpy(&TempCD->Data, &VGMData[CurPos + 0x02], 0x02);
 		CurPos += 0x04;
 	}
-	
+
 	return;
 }
 
@@ -482,14 +482,14 @@ static bool WriteVGMFile(const char* FileName, bool Compress)
 #ifdef WIN32
 	HANDLE hFileWin;
 #endif
-	
+
 	if (! Compress)
 		hFile.f = fopen(FileName, "wb");
 	else
 		hFile.gz = gzopen(FileName, "wb9");
 	if (hFile.f == NULL)
 		return false;
-	
+
 	// Write VGM Data (including GD3 Tag)
 	if (! Compress)
 	{
@@ -501,12 +501,12 @@ static bool WriteVGMFile(const char* FileName, bool Compress)
 		gzseek(hFile.gz, 0x00, SEEK_SET);
 		gzwrite(hFile.gz, VGMData, VGMDataLen);
 	}
-	
+
 	if (! Compress)
 		fclose(hFile.f);
 	else
 		gzclose(hFile.gz);
-	
+
 	if (KeepDate)
 	{
 #ifdef WIN32
@@ -519,9 +519,9 @@ static bool WriteVGMFile(const char* FileName, bool Compress)
 		}
 #endif
 	}
-	
+
 	printf("File written.\n");
-	
+
 	return true;
 }
 
@@ -535,12 +535,12 @@ static UINT8 PreparseCommands(int ArgCount, char* ArgList[])
 	//UINT8 TempByt;
 	//UINT16 TempSht;
 	//UINT32 TempLng;
-	
+
 	memset(&StripVGM, 0x00, sizeof(STRIP_DATA) * 2);
 	for (CurArg = 0; CurArg < ArgCount; CurArg ++)
 	{
 		CmdStr = ArgList[CurArg] + 1;	// Skip the '-' at the beginning
-		
+
 		CmdData = strchr(CmdStr, ':');
 		if (CmdData != NULL)
 		{
@@ -549,7 +549,7 @@ static UINT8 PreparseCommands(int ArgCount, char* ArgList[])
 			*CmdData = 0x00;
 			CmdData ++;
 		}
-		
+
 		/*if (CmdData != NULL)
 			printf("%s: %s\n", CmdStr, CmdData);
 		else
@@ -570,7 +570,7 @@ static UINT8 PreparseCommands(int ArgCount, char* ArgList[])
 			*CmdData = ChrBak;
 		}
 	}
-	
+
 	return 0x00;
 }
 
@@ -593,10 +593,10 @@ static UINT8 ParseStripCommand(const char* StripCmd)
 	UINT8 ChnNum;
 	UINT8 ChipMask;
 	UINT8 CurCSet;
-	
+
 	if (StripCmd == NULL)
 		return 0x00;	// Passing no argument is valid
-	
+
 	// Format: "ChipA:Chn1,Chn2,Chn3;ChipB-#;ChipC"
 	StripTmp = strdup(StripCmd);
 	ChipPos = StripTmp;
@@ -620,7 +620,7 @@ static UINT8 ParseStripCommand(const char* StripCmd)
 		{
 			StripMode = 0x01;	// Last Entry - Strip Channels
 		}
-		
+
 		switch(StripMode)
 		{
 		case 0x00:	// 00 - Strip All
@@ -636,10 +636,10 @@ static UINT8 ParseStripCommand(const char* StripCmd)
 			*NxtChip = '\0';
 			NxtChip ++;
 		}
-		
+
 		// Detect the chip IDs to strip
 		ChipMask = 0x03;
-		
+
 		CpNumPos = strchr(ChipPos, '-');
 		if (CpNumPos != NULL)
 		{
@@ -649,7 +649,7 @@ static UINT8 ParseStripCommand(const char* StripCmd)
 			if (CurChip < 2)
 				ChipMask = 1 << CurChip;
 		}
-		
+
 		// I can compare ChipPos, because I zeroed the split-char
 		if (! stricmp(ChipPos, "PSG") || ! stricmp(ChipPos, "SN76496"))
 		{
@@ -840,7 +840,7 @@ static UINT8 ParseStripCommand(const char* StripCmd)
 			printf("Strip Error - Unknown Chip: %s\n", ChipPos);
 			return 0x80;
 		}
-		
+
 		for (CurCSet = 0; CurCSet < 2; CurCSet ++)
 		{
 			if (! (ChipMask & (1 << CurCSet)))
@@ -848,7 +848,7 @@ static UINT8 ParseStripCommand(const char* StripCmd)
 				TempChip = (STRIP_GENERIC*)( (STRIP_DATA*)TempChip + 1 );
 				continue;	// bit not set - skip
 			}
-			
+
 			switch(StripMode)
 			{
 			case 0x00:	// 00 - Strip All
@@ -868,7 +868,7 @@ static UINT8 ParseStripCommand(const char* StripCmd)
 						*ChnPos = '\0';
 						ChnPos ++;
 					}
-					
+
 					ChnNum = (UINT8)strtoul(ChipPos, &StopPos, 0);
 					if (StopPos != ChipPos)
 					{
@@ -901,20 +901,20 @@ static UINT8 ParseStripCommand(const char* StripCmd)
 							printf("Unknown channel: %s\n", ChipPos);
 						}
 					}
-					
+
 					ChipPos = ChnPos;
 				}
 				break;
 			}
-			
+
 			// advance by one STRIP_DATA
 			TempChip = (STRIP_GENERIC*)( (STRIP_DATA*)TempChip + 1 );
 		}
-		
+
 		ChipPos = NxtChip;
 	}
 	free(StripTmp);
-	
+
 	return 0x00;
 }
 
@@ -937,7 +937,7 @@ static UINT8 PatchVGM(int ArgCount, char* ArgList[])
 	UINT32 NewVal;
 	UINT32* ChipHzPnt;
 	bool LightChange;
-	
+
 	// Execute Commands
 	ResVal = 0x00;	// nothing done - skip writing
 	//if (! ArgCount)
@@ -945,7 +945,7 @@ static UINT8 PatchVGM(int ArgCount, char* ArgList[])
 	for (CurArg = 0; CurArg < ArgCount; CurArg ++)
 	{
 		CmdStr = ArgList[CurArg] + 1;	// Skip the '-' at the beginning
-		
+
 		CmdData = strchr(CmdStr, ':');
 		if (CmdData != NULL)
 		{
@@ -954,7 +954,7 @@ static UINT8 PatchVGM(int ArgCount, char* ArgList[])
 			*CmdData = 0x00;
 			CmdData ++;
 		}
-		
+
 		RetVal = 0x00;
 		LightChange = false;
 		if (CmdData != NULL)
@@ -965,9 +965,9 @@ static UINT8 PatchVGM(int ArgCount, char* ArgList[])
 		{
 			if (CmdData == NULL)
 				goto IncompleteArg;
-			
+
 			OldVal = VGMHead.lngVersion;
-			
+
 			TempPnt  = strchr(CmdData, '.');
 			TempLng = strtoul(CmdData, NULL, 0x10);	// Version Major
 			if (TempPnt)
@@ -983,7 +983,7 @@ static UINT8 PatchVGM(int ArgCount, char* ArgList[])
 				TempByt = 0x00;
 			}
 			NewVal = (TempLng << 8) | (TempByt << 0);
-			
+
 			if (OldVal != NewVal)
 			{
 				if (! stricmp(CmdStr, "UpdateVer"))
@@ -1055,7 +1055,7 @@ static UINT8 PatchVGM(int ArgCount, char* ArgList[])
 							VGMHead.lngRate = 0;
 						}
 					}
-					
+
 					VGMHead.lngVersion = NewVal;
 					RetVal |= 0x10;
 				}
@@ -1072,7 +1072,7 @@ static UINT8 PatchVGM(int ArgCount, char* ArgList[])
 						printf("The VGM has a data offset set, but you're changing the Version to < 1.50.\n");
 						printf("This will create bad VGMs. Please use -UpdateVer instead!\n");
 					}
-					
+
 					if (RetVal & 0x10)
 						VGMHead.lngVersion = NewVal;
 				}
@@ -1104,13 +1104,13 @@ static UINT8 PatchVGM(int ArgCount, char* ArgList[])
 				}
 #endif
 				NewVal = (NewVal + 0x3F) >> 6 << 6;	// round up to 0x40 bytes;
-				
+
 				//OldVal = 0x34 + VGMHead.lngDataOffset;
 				OldVal = RealHdrSize;
 				if (NewVal < OldVal)
 				{
 					ResizeVGMHeader(NewVal);
-					
+
 					printf("Header Size Old: 0x%02X bytes, New: 0x%02X bytes\n", OldVal, NewVal);
 					RetVal |= 0x10;
 				}
@@ -1129,7 +1129,7 @@ static UINT8 PatchVGM(int ArgCount, char* ArgList[])
 				if (NewVal < OldVal)
 				{
 					VGMHead.lngVersion = NewVal;
-					
+
 					printf("VGM Version Old: %u.%02X, New: %u.%02X\n",
 							OldVal >> 8, OldVal & 0xFF, NewVal >> 8, NewVal & 0xFF);
 					RetVal |= 0x10;
@@ -1171,7 +1171,7 @@ static UINT8 PatchVGM(int ArgCount, char* ArgList[])
 		{
 			if (CmdData == NULL)
 				goto IncompleteArg;
-			
+
 			NewVal = strtoul(CmdData, NULL, 0);
 			if (NewVal != VGMHead.lngRate)
 			{
@@ -1183,7 +1183,7 @@ static UINT8 PatchVGM(int ArgCount, char* ArgList[])
 		{
 			if (CmdData == NULL)
 				goto IncompleteArg;
-			
+
 			CmdStr += 5;
 			ChipHzPnt = NULL;
 			if (! stricmp(CmdStr, "PSG"))
@@ -1351,7 +1351,7 @@ static UINT8 PatchVGM(int ArgCount, char* ArgList[])
 				printf("Error - Unknown Chip: %s\n", CmdStr);
 				return 0x80;
 			}
-			
+
 			if (VGMHead.lngVersion >= OldVal)
 			{
 				NewVal = strtoul(CmdData, NULL, 0);
@@ -1374,7 +1374,7 @@ static UINT8 PatchVGM(int ArgCount, char* ArgList[])
 		{
 			if (CmdData == NULL)
 				goto IncompleteArg;
-			
+
 			CmdStr += 7;
 			if (! stricmp(CmdStr, "FdB"))
 			{
@@ -1436,7 +1436,7 @@ static UINT8 PatchVGM(int ArgCount, char* ArgList[])
 		{
 			if (CmdData == NULL)
 				goto IncompleteArg;
-			
+
 			if (VGMHead.lngVersion >= 0x151)
 			{
 				NewVal = strtoul(CmdData, NULL, 0);
@@ -1455,7 +1455,7 @@ static UINT8 PatchVGM(int ArgCount, char* ArgList[])
 		{
 			if (CmdData == NULL)
 				goto IncompleteArg;
-			
+
 			if (VGMHead.lngVersion >= 0x151)
 			{
 				TempByt = (UINT8)strtoul(CmdData, NULL, 0);
@@ -1474,7 +1474,7 @@ static UINT8 PatchVGM(int ArgCount, char* ArgList[])
 		{
 			if (CmdData == NULL)
 				goto IncompleteArg;
-			
+
 			if (VGMHead.lngVersion >= 0x151)
 			{
 				TempByt = (UINT8)strtoul(CmdData, NULL, 0);
@@ -1493,7 +1493,7 @@ static UINT8 PatchVGM(int ArgCount, char* ArgList[])
 		{
 			if (CmdData == NULL)
 				goto IncompleteArg;
-			
+
 			if (VGMHead.lngVersion >= 0x150)
 			{
 				TempByt = GetLoopModVal(CmdData);
@@ -1523,7 +1523,7 @@ static UINT8 PatchVGM(int ArgCount, char* ArgList[])
 		{
 			if (CmdData == NULL)
 				goto IncompleteArg;
-			
+
 			if (VGMHead.lngVersion >= 0x150)
 			{
 				TempSLng = strtol(CmdData, NULL, 0);
@@ -1553,7 +1553,7 @@ static UINT8 PatchVGM(int ArgCount, char* ArgList[])
 		{
 			if (CmdData == NULL)
 				goto IncompleteArg;
-			
+
 			if (VGMHead.lngVersion >= 0x150)
 			{
 				TempByt = GetVolModVal(CmdData);
@@ -1583,7 +1583,7 @@ static UINT8 PatchVGM(int ArgCount, char* ArgList[])
 		{
 			if (CmdData == NULL)
 				goto IncompleteArg;
-			
+
 			if (VGMHead.lngVersion >= 0x161)
 			{
 				TempByt = (UINT8)strtoul(CmdData, NULL, 0);
@@ -1602,7 +1602,7 @@ static UINT8 PatchVGM(int ArgCount, char* ArgList[])
 		{
 			if (CmdData == NULL)
 				goto IncompleteArg;
-			
+
 			if (VGMHead.lngVersion >= 0x161)
 			{
 				TempByt = (UINT8)strtoul(CmdData, NULL, 0);
@@ -1621,7 +1621,7 @@ static UINT8 PatchVGM(int ArgCount, char* ArgList[])
 		{
 			if (CmdData == NULL)
 				goto IncompleteArg;
-			
+
 			if (VGMHead.lngVersion >= 0x161)
 			{
 				TempByt = (UINT8)strtoul(CmdData, NULL, 0);
@@ -1669,7 +1669,7 @@ static UINT8 PatchVGM(int ArgCount, char* ArgList[])
 				printf("Error - Unknown Command: -%s\n", CmdStr - 5);
 				return 0x80;
 			}
-			
+
 			TempByt = CheckVGMFile(TempByt);
 			if (TempByt == 0xFF)
 			{
@@ -1703,14 +1703,14 @@ static UINT8 PatchVGM(int ArgCount, char* ArgList[])
 				KeepDate = false;
 		}
 		ResVal |= RetVal;
-		
+
 		if (CmdData != NULL)
 		{
 			CmdData --;
 			*CmdData = ChrBak;
 		}
 	}
-	
+
 	if (ResVal & 0x10)
 	{
 		// Write VGM Header
@@ -1721,13 +1721,13 @@ static UINT8 PatchVGM(int ArgCount, char* ArgList[])
 		memcpy(&VGMData[0x00], &VGMHead, TempLng);*/
 		memcpy(&VGMData[0x00], &VGMHead, RealCpySize);
 	}
-	
+
 	return ResVal;
 
 IncompleteArg:
 
 	printf("Error! Argument incomplete!\n");
-	
+
 	return 0x80;
 }
 
@@ -1735,7 +1735,7 @@ static UINT8 GetLoopModVal(char* CmdData)
 {
 	double LoopDbl;
 	INT32 LoopLng;
-	
+
 	switch(CmdData[0x00])
 	{
 	case '*':
@@ -1759,13 +1759,13 @@ static UINT8 GetLoopModVal(char* CmdData)
 		LoopLng = strtol(CmdData, NULL, 0);
 		break;
 	}
-	
+
 	// Note 0x00 is valid, but equal to 0x10, so minimum is 0x01
 	if (LoopLng < 0x00)
 		LoopLng = 0x01;
 	else if (LoopLng > 0xFF)
 		LoopLng = 0xFF;
-	
+
 	return (UINT8)LoopLng;
 }
 
@@ -1774,7 +1774,7 @@ static UINT8 GetVolModVal(char* CmdData)
 	char* EndStr;
 	double VolDbl;
 	INT32 VolLng;
-	
+
 	VolLng = strtol(CmdData, &EndStr, 0);
 	if (*EndStr == '.')
 	{
@@ -1786,7 +1786,7 @@ static UINT8 GetVolModVal(char* CmdData)
 			VolDbl = 64.0;
 		VolLng = (INT32)floor(log(VolDbl) / log(2.0) * 0x20 + 0.5);
 	}
-	
+
 	if (VolLng < 0x00)
 	{
 		if (VolLng < -0x3F)
@@ -1797,7 +1797,7 @@ static UINT8 GetVolModVal(char* CmdData)
 	{
 		VolLng = 0x00;
 	}
-	
+
 	return (UINT8)VolLng;
 }
 
@@ -1805,20 +1805,20 @@ static bool ResizeVGMHeader(UINT32 NewSize)
 {
 	UINT32 OldSize;
 	INT32 PosMove;
-	
+
 	// for now I want the complete header (incl. extentions)
 	/*if (! VGMHead.lngDataOffset)
 		OldSize = 0x40;
 	else
 		OldSize = 0x34 + VGMHead.lngDataOffset;*/
 	OldSize = RealHdrSize;
-	
+
 	if (OldSize == NewSize)
 		return false;
-	
+
 	if (NewSize < 0xC0 && OldSize >= 0xC0)
 		OldSize = 0x34 + VGMHead.lngDataOffset;
-	
+
 	PosMove = NewSize - OldSize;
 	VGMHead.lngEOFOffset += PosMove;
 	if (VGMHead.lngGD3Offset)
@@ -1829,22 +1829,22 @@ static bool ResizeVGMHeader(UINT32 NewSize)
 		VGMHead.lngExtraOffset += PosMove;
 	VGMHead.lngDataOffset += PosMove;	// can't use (NewSize - 0x34), if I have extra headers
 	RealHdrSize = NewSize;
-	
+
 	if (PosMove > 0)
 	{
 		VGMData = (UINT8*)realloc(VGMData, VGMDataLen + PosMove);
 		memmove(&VGMData[NewSize], &VGMData[OldSize], VGMDataLen - OldSize);
-		memset(&VGMData[OldSize], 0x00, PosMove); 
+		memset(&VGMData[OldSize], 0x00, PosMove);
 	}
 	else
 	{
 		memmove(&VGMData[NewSize], &VGMData[OldSize], VGMDataLen - OldSize);
 	}
 	VGMDataLen += PosMove;
-	
+
 	OldSize = sizeof(VGM_HEADER);
 	RealCpySize = (RealHdrSize <= OldSize) ? RealHdrSize : OldSize;
-	
+
 	return true;
 }
 
@@ -1859,7 +1859,7 @@ static UINT32 CheckForMinVersion(void)
 	bool StopVGM;
 	UINT32 MinVer;
 	UINT32* ChipHzPnt;
-	
+
 	TempLng = sizeof(VGM_HEADER);
 	ChipHzPnt = (UINT32*)((UINT8*)&VGMHead + TempLng);
 	while(ChipHzPnt > &VGMHead.lngDataOffset)
@@ -1881,7 +1881,7 @@ static UINT32 CheckForMinVersion(void)
 		MinVer = 0x171;
 	if (VGMHead.lngVersion > 0x171)
 		return VGMHead.lngVersion;
-	
+
 	if (MinVer == 0x150)
 	{
 		// check for dual chip usage of <1.51 chips
@@ -1891,7 +1891,7 @@ static UINT32 CheckForMinVersion(void)
 			(VGMHead.lngHzYM2151 & 0xC0000000))
 			MinVer = 0x151;
 	}
-	
+
 	StopVGM = false;
 	if (VGMHead.lngVersion < 0x150)
 		CurPos = 0x40;
@@ -2007,11 +2007,11 @@ static UINT32 CheckForMinVersion(void)
 			}
 		}
 		CurPos += CmdLen;
-		
+
 		if (StopVGM)
 			break;
 	}
-	
+
 	return MinVer;
 }
 
@@ -2042,7 +2042,7 @@ static UINT8 CheckVGMFile(UINT8 Mode)
 	UINT32 NewDataPos;
 	bool GD3Fix;
 	bool CmdWarning[0x100];
-	
+
 	HasLoop = VGMHead.lngLoopOffset ? true : false;
 	if (! HasLoop && VGMHead.lngLoopSamples)
 	{
@@ -2058,7 +2058,7 @@ static UINT8 CheckVGMFile(UINT8 Mode)
 		LoopPos = 0x00;
 	CountLen = 0x00;
 	CountLoop = 0x00;
-	
+
 	VGMErr = 0x00;
 	InLoop = false;
 	if (VGMHead.lngVersion < 0x150)
@@ -2076,7 +2076,7 @@ static UINT8 CheckVGMFile(UINT8 Mode)
 		{
 			VGMErr |= 0x04;
 			printf("Bad Data Offset!");
-			
+
 			StopVGM = false;
 			while(CurPos < VGMDataLen)
 			{
@@ -2111,7 +2111,7 @@ static UINT8 CheckVGMFile(UINT8 Mode)
 						memcpy(&TempLng, &VGMData[CurPos + 0x03], 0x04);
 						TempLng &= 0x7FFFFFFF;
 						CmdLen = 0x07 + TempLng;
-						
+
 						if (TempByt == 0x66 && CurPos + CmdLen <= VGMDataLen)
 							StopVGM = true;
 						else
@@ -2166,17 +2166,17 @@ static UINT8 CheckVGMFile(UINT8 Mode)
 				}
 				if (StopVGM)
 					break;
-				
+
 				CurPos += CmdLen;
 			}
 			NewDataPos = CurPos;
 			printf("  New Offset is: 0x%X\n", NewDataPos);
 		}
-		
+
 		if (VGMHead.lngDataOffset)
 			CurPos = 0x34 + VGMHead.lngDataOffset;
 	}
-	
+
 	memset(CmdWarning, 0x00, 0x100);
 	StopVGM = false;
 	BadCmdFound = false;
@@ -2187,7 +2187,7 @@ static UINT8 CheckVGMFile(UINT8 Mode)
 			if (CurPos == LoopPos)
 				InLoop = true;
 		}
-		
+
 		CmdLen = 0x00;
 		CmdDelay = 0x00;
 		Command = VGMData[CurPos + 0x00];
@@ -2334,12 +2334,12 @@ static UINT8 CheckVGMFile(UINT8 Mode)
 		CountLen += CmdDelay;
 		if (InLoop)
 			CountLoop += CmdDelay;
-		
+
 		if (StopVGM)
 			break;
 	}
 	VGMEoDPos = CurPos;
-	
+
 	// VGMErr Bits:
 	//	Bit	Val	Error Description
 	//	 0	 01	Total Samples
@@ -2354,8 +2354,8 @@ static UINT8 CheckVGMFile(UINT8 Mode)
 	//	4-7	 F0	In Header
 	//	 0	 11	GD3 found
 	//	 1	 02	GD3 Offset wrong
-	//	 3	 04	
-	//	 4	 08	
+	//	 3	 04
+	//	 4	 08
 	//VGMErr = 0x00;
 	GD3Flags = 0x00;
 	GD3Fix = false;
@@ -2363,14 +2363,14 @@ static UINT8 CheckVGMFile(UINT8 Mode)
 		VGMErr |= 0x01;
 	if (CountLoop != VGMHead.lngLoopSamples)
 		VGMErr |= 0x02;
-	
+
 	if (CurPos > 0x04 + VGMHead.lngEOFOffset)
 		printf("Warning! EOF Offset before EOF command!\n");
 	if (! StopVGM)
 		printf("Warning! File end before EOF command!\n");
 	if (HasLoop && ! InLoop)
 		printf("Warning! Loop offset between commands!\n");
-	
+
 	if (VGMHead.lngGD3Offset)
 	{
 		// Check for GD3 Tag at GD3 Offset
@@ -2430,11 +2430,11 @@ static UINT8 CheckVGMFile(UINT8 Mode)
 			VGMErr |= 0x10;
 			GD3Flags |= 0x02;	// GD3 Offset - wrong
 		}
-		
+
 		memcpy(&GD3Ver, &VGMData[CurPos + 0x04], 0x04);
 		if (GD3Ver > 0x100)
 			printf("GD3 Tag version newer than supported - correction may be skipped!\n");
-		
+
 		memcpy(&CmdLen, &VGMData[CurPos + 0x08], 0x04);
 		TempLng = CalcGD3Length(CurPos + 0x0C, GD3T_ENT_V100);
 		if (TempLng != CmdLen)
@@ -2453,7 +2453,7 @@ static UINT8 CheckVGMFile(UINT8 Mode)
 				// unknown GD3 version - don't fix length
 			}
 		}
-		
+
 		//TempLng += 0x0C;	// calculate EOF based on calculated GD3 length
 		TempLng = 0x0C + CmdLen;	// calculate EOF based on current GD3 length
 		if (CurPos + TempLng != 0x04 + VGMHead.lngEOFOffset)	// Check EOF Offset
@@ -2472,7 +2472,7 @@ static UINT8 CheckVGMFile(UINT8 Mode)
 			VGMErr |= 0x20;
 		}
 	}
-	
+
 	if (VGMHead.lngVersion >= 0x0150)
 	{
 		VGMVer = CheckForMinVersion();
@@ -2483,7 +2483,7 @@ static UINT8 CheckVGMFile(UINT8 Mode)
 			VGMErr |= 0x80;
 		}
 	}
-	
+
 	printf("\t%9s  %9s\n", "Header", "Counted");
 	printf("Length\t%9u  %9u", VGMHead.lngTotalSamples, CountLen);
 	if (VGMHead.lngTotalSamples != CountLen)
@@ -2493,10 +2493,10 @@ static UINT8 CheckVGMFile(UINT8 Mode)
 	if (VGMHead.lngLoopSamples != CountLoop)
 		printf(" !");
 	printf("\n");
-	
+
 	if (! VGMErr && ! BadCmdFound)
 		return 0x00;	// No errors - It's all okay
-	
+
 	if (BadCmdFound)
 	{
 		Mode |= 0x10;
@@ -2509,7 +2509,7 @@ static UINT8 CheckVGMFile(UINT8 Mode)
 		if (! VGMErr)
 			Mode &= ~0x03;	// If there are no fixable errors, we don't need to ask.
 	}
-	
+
 	printf("There are some errors. ");
 	if ((Mode & 0x13) == 0x00)
 	{
@@ -2546,10 +2546,10 @@ static UINT8 CheckVGMFile(UINT8 Mode)
 	{
 		printf("\n");
 	}
-	
+
 	if (! (Mode & 0x03))
 		return 0x00;
-	
+
 	RetVal = 0x00;
 	if (VGMErr & 0x01)
 	{
@@ -2591,7 +2591,7 @@ static UINT8 CheckVGMFile(UINT8 Mode)
 		VGMHead.lngDataOffset = NewDataPos - 0x34;
 		RetVal |= 0x01;
 	}
-	
+
 	//	 4	 10	GD3 Tag Offset
 	//	 5	 20	GD3 Tag Length / EOF Offset
 	if (VGMErr & 0x10)
@@ -2608,7 +2608,7 @@ static UINT8 CheckVGMFile(UINT8 Mode)
 		case 0x11:	// GD3 found, offset is good
 			break;
 		}
-		
+
 		if (GD3Flags & 0x02)	// GD3 Offset wrong
 		{
 			VGMHead.lngGD3Offset = VGMGD3Pos - 0x14;
@@ -2632,7 +2632,7 @@ static UINT8 CheckVGMFile(UINT8 Mode)
 				memcpy(&VGMData[CurPos + 0x08], &TempLng, 0x04);	// rewrite GD3 length
 				GD3Fix = true;
 			}
-			
+
 			TempLng += 0x0C;
 			VGMEoDPos = CurPos + TempLng;
 		}
@@ -2647,7 +2647,7 @@ static UINT8 CheckVGMFile(UINT8 Mode)
 	}
 	if ((VGMErr & ~0x20) || ! GD3Fix)
 		KeepDate = false;
-	
+
 	return RetVal;
 }
 
@@ -2663,7 +2663,7 @@ static bool ChipCommandIsValid(UINT8 Command)
 {
 	if (ChipCommandIsUnknown(Command))
 		return false;
-	
+
 	if (Command >= 0x61 && Command <= 0x63)
 		return true;
 	if ((Command & 0xF0) == 0x70)
@@ -2750,7 +2750,7 @@ static bool ChipCommandIsValid(UINT8 Command)
 		return true;
 	if (Command == 0xC4 && VGMHead.lngHzQSound)
 		return true;
-	
+
 	return false;
 }
 
@@ -2766,10 +2766,10 @@ static UINT32 RelocateVGMLoop(void)
 	UINT32 VGMSmplPos;
 	UINT32 VGMLoop;
 	UINT16 CmdDelay;
-	
+
 	VGMLoop = VGMHead.lngTotalSamples - VGMHead.lngLoopSamples;
 	VGMSmplPos = 0x00;
-	
+
 	StopVGM = false;
 	if (VGMHead.lngVersion < 0x150)
 		CurPos = 0x40;
@@ -2875,11 +2875,11 @@ static UINT32 RelocateVGMLoop(void)
 		VGMSmplPos += CmdDelay;
 		if (VGMSmplPos == VGMLoop)
 			return CurPos;
-		
+
 		if (StopVGM)
 			break;
 	}
-	
+
 	return 0x00;
 }
 
@@ -2888,7 +2888,7 @@ static UINT32 CalcGD3Length(UINT32 DataPos, UINT16 TagEntries)
 	UINT32 CurPos;
 	UINT16* CurChr;
 	UINT16 CurEnt;
-	
+
 	CurPos = DataPos;
 	for (CurEnt = 0x00; CurEnt < TagEntries; CurEnt ++)
 	{
@@ -2898,7 +2898,7 @@ static UINT32 CalcGD3Length(UINT32 DataPos, UINT16 TagEntries)
 			CurPos += 0x02;
 		} while(*CurChr);
 	}
-	
+
 	return CurPos - DataPos;
 }
 
@@ -2927,7 +2927,7 @@ static void StripVGMData(void)
 	UINT32 NewLoopS;
 	bool WroteCmd80;
 	UINT8* VGMPnt;
-	
+
 	DstData = (UINT8*)malloc(VGMDataLen + 0x100);
 	AllDelay = 0;
 	if (VGMHead.lngDataOffset)
@@ -2960,7 +2960,7 @@ static void StripVGMData(void)
 			c140_write(0xFF, 0x00, VGMHead.bytC140Type);
 		}
 	}
-	
+
 	StopVGM = false;
 	WroteCmd80 = false;
 	while(VGMPos < VGMDataLen)
@@ -2969,7 +2969,7 @@ static void StripVGMData(void)
 		CmdLen = 0x00;
 		Command = VGMData[VGMPos + 0x00];
 		WriteEvent = true;
-		
+
 		if (Command >= 0x70 && Command <= 0x8F)
 		{
 			switch(Command & 0xF0)
@@ -2993,7 +2993,7 @@ static void StripVGMData(void)
 		else
 		{
 			VGMPnt = &VGMData[VGMPos];
-			
+
 			// Cheat Mode (to use 2 instances of 1 chip)
 			ChipID = 0x00;
 			switch(Command)
@@ -3094,7 +3094,7 @@ static void StripVGMData(void)
 				}
 				break;
 			}
-			
+
 			SetChipSet(ChipID);
 			switch(Command)
 			{
@@ -3137,11 +3137,11 @@ static void StripVGMData(void)
 			case 0x67:	// PCM Data Stream
 				TempByt = VGMPnt[0x02];
 				memcpy(&TempLng, &VGMPnt[0x03], 0x04);
-				
+
 				ChipID = (TempLng & 0x80000000) >> 31;
 				TempLng &= 0x7FFFFFFF;
 				//SetChipSet(ChipID);
-				
+
 				switch(TempByt & 0xC0)
 				{
 				case 0x00:	// Database Block
@@ -3319,7 +3319,7 @@ static void StripVGMData(void)
 				if (StripVGM[ChipID].YMF278B_All ||
 					(StripVGM[ChipID].YMF278B_FM.All && StripVGM[ChipID].YMF278B_WT.All))
 					WriteEvent = false;
-				
+
 				if (StripVGM[ChipID].YMF278B_FM.All && VGMPnt[0x01] < 0x02 &&
 					! (VGMPnt[0x01] == 0x01 && VGMPnt[0x02] == 0x05))
 					WriteEvent = false;	// Don't kill the WaveTable-On Command at Reg 0x105
@@ -3524,7 +3524,7 @@ static void StripVGMData(void)
 				break;
 			}
 		}
-		
+
 		if (WriteEvent || VGMPos == LoopOfs)
 		{
 			if (VGMPos != LoopOfs)
@@ -3538,7 +3538,7 @@ static void StripVGMData(void)
 					TempSht = (UINT16)AllDelay;
 				else
 					TempSht = 0xFFFF;
-				
+
 				if (WroteCmd80)
 				{
 					// highest delay compression - Example:
@@ -3557,7 +3557,7 @@ static void StripVGMData(void)
 						TempSht -= 1764;
 					else if (TempSht >= 1617 && TempSht <= 1632)	// 62 63
 						TempSht -= 1617;
-					
+
 				//	if (TempSht >= 0x10 && TempSht <= 0x1F)
 				//		TempSht = 0x0F;
 				//	else if (TempSht >= 0x20)
@@ -3622,10 +3622,10 @@ static void StripVGMData(void)
 			}
 			AllDelay = CmdDelay;
 			CmdDelay = 0x00;
-			
+
 			if (VGMPos == LoopOfs)
 				NewLoopS = DstPos;
-			
+
 			if (WriteEvent)
 			{
 				// Write Event
@@ -3660,7 +3660,7 @@ static void StripVGMData(void)
 		VGMHead.lngLoopOffset = NewLoopS - 0x1C;
 	}
 	printf("\t\t\t\t\t\t\t\t\r");
-	
+
 	if (VGMHead.lngGD3Offset)
 	{
 		VGMPos = 0x14 + VGMHead.lngGD3Offset;
@@ -3669,7 +3669,7 @@ static void StripVGMData(void)
 		{
 			memcpy(&CmdLen, &VGMData[VGMPos + 0x08], 0x04);
 			CmdLen += 0x0C;
-			
+
 			VGMHead.lngGD3Offset = DstPos - 0x14;
 			memcpy(&DstData[DstPos], &VGMData[VGMPos], CmdLen);
 			DstPos += CmdLen;
@@ -3677,7 +3677,7 @@ static void StripVGMData(void)
 	}
 	VGMDataLen = DstPos;
 	VGMHead.lngEOFOffset = VGMDataLen - 0x04;
-	
+
 	if (StripClock(&StripVGM[0].SN76496.All, &VGMHead.lngHzPSG))
 	{
 		VGMHead.shtPSG_Feedback = 0x00;
@@ -3725,28 +3725,28 @@ static void StripVGMData(void)
 	StripClock(&StripVGM[0].Pokey.All, &VGMHead.lngHzPokey);
 	StripClock(&StripVGM[0].QSound.All, &VGMHead.lngHzQSound);
 	//StripClock(&StripVGM[0].SCSP.All, &VGMHead.lngHzSCSP);
-	
+
 	// PatchVGM will rewrite the header later
-	
+
 	VGMData = (UINT8*)realloc(VGMData, VGMDataLen);
 	memcpy(VGMData, DstData, VGMDataLen);
 	free(DstData);
-	
+
 	FreeAllChips();
-	
+
 	return;
 }
 
 static bool StripClock(bool* StripAllPtr, UINT32* ClockPtr)
 {
 	bool* StpAll1 = (bool*)((STRIP_DATA*)StripAllPtr + 1);	// StripVGM[1].###.All
-	
+
 	if (*StpAll1)
 		*ClockPtr &= ~0x40000000;	// strip Chip 1 clock
-	
+
 	if (*ClockPtr & 0x40000000)
 		return false;	// Chip 1 still in use - don't stip chip 0 clock
-	
+
 	// if Chip 0 to be stripped and Chip 1 is not used
 	if (*StripAllPtr)
 	{

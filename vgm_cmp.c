@@ -87,13 +87,13 @@ int main(int argc, char* argv[])
 	char FileName[0x100];
 	UINT32 SrcDataSize;
 	UINT16 PassNo;
-	
+
 	printf("VGM Compressor\n--------------\n\n");
-	
+
 	ErrVal = 0;
 	JustTimerCmds = false;
 	DoOKI6258 = false;
-	
+
 	argbase = 1;
 	while(argbase < argc && argv[argbase][0] == '-')
 	{
@@ -112,7 +112,7 @@ int main(int argc, char* argv[])
 			break;
 		}
 	}
-	
+
 	printf("File Name:\t");
 	if (argc <= argbase + 0)
 	{
@@ -125,7 +125,7 @@ int main(int argc, char* argv[])
 	}
 	if (! strlen(FileName))
 		return 0;
-	
+
 	if (! OpenVGMFile(FileName))
 	{
 		printf("Error opening the file!\n");
@@ -133,7 +133,7 @@ int main(int argc, char* argv[])
 		goto EndProgram;
 	}
 	printf("\n");
-	
+
 	PassNo = 0x00;
 	do
 	{
@@ -155,7 +155,7 @@ int main(int argc, char* argv[])
 	} while(DataSizeB < DataSizeA);
 	printf("Data Compression Total: %u -> %u (%.1f %%)\n",
 			SrcDataSize, DataSizeB, 100.0 * DataSizeB / (float)SrcDataSize);
-	
+
 	if (DataSizeB < SrcDataSize)
 	{
 		if (argc > argbase + 1)
@@ -169,13 +169,13 @@ int main(int argc, char* argv[])
 		}
 		WriteVGMFile(FileName);
 	}
-	
+
 	free(VGMData);
 	free(DstData);
-	
+
 EndProgram:
 	DblClickWait(argv[0]);
-	
+
 	return ErrVal;
 }
 
@@ -185,20 +185,20 @@ static bool OpenVGMFile(const char* FileName)
 	UINT32 CurPos;
 	UINT32 TempLng;
 	char* TempPnt;
-	
+
 	hFile = gzopen(FileName, "rb");
 	if (hFile == NULL)
 		return false;
-	
+
 	gzseek(hFile, 0x00, SEEK_SET);
 	gzread(hFile, &TempLng, 0x04);
 	if (TempLng != FCC_VGM)
 		goto OpenErr;
-	
+
 	gzseek(hFile, 0x00, SEEK_SET);
 	gzread(hFile, &VGMHead, sizeof(VGM_HEADER));
 	ZLIB_SEEKBUG_CHECK(VGMHead);
-	
+
 	// Header preperations
 	if (VGMHead.lngVersion < 0x00000101)
 	{
@@ -230,7 +230,7 @@ static bool OpenVGMFile(const char* FileName)
 	if (! VGMHead.lngDataOffset)
 		VGMHead.lngDataOffset = 0x0000000C;
 	VGMHead.lngDataOffset += 0x00000034;
-	
+
 	CurPos = VGMHead.lngDataOffset;
 	if (VGMHead.lngVersion < 0x00000150)
 		CurPos = 0x40;
@@ -240,7 +240,7 @@ static bool OpenVGMFile(const char* FileName)
 	else
 		TempLng = 0x00;
 	memset((UINT8*)&VGMHead + CurPos, 0x00, TempLng);
-	
+
 	// Read Data
 	VGMDataLen = VGMHead.lngEOFOffset;
 	VGMData = (UINT8*)malloc(VGMDataLen);
@@ -248,14 +248,14 @@ static bool OpenVGMFile(const char* FileName)
 		goto OpenErr;
 	gzseek(hFile, 0x00, SEEK_SET);
 	gzread(hFile, VGMData, VGMDataLen);
-	
+
 	gzclose(hFile);
-	
+
 	strcpy(FileBase, FileName);
 	TempPnt = strrchr(FileBase, '.');
 	if (TempPnt != NULL)
 		*TempPnt = 0x00;
-	
+
 	return true;
 
 OpenErr:
@@ -267,13 +267,13 @@ OpenErr:
 static void WriteVGMFile(const char* FileName)
 {
 	FILE* hFile;
-	
+
 	hFile = fopen(FileName, "wb");
 	fwrite(DstData, 0x01, DstDataLen, hFile);
 	fclose(hFile);
-	
+
 	printf("File written.\n");
-	
+
 	return;
 }
 
@@ -301,7 +301,7 @@ static void CompressVGMData(void)
 	UINT32 NewLoopS;
 	bool WroteCmd80;
 	const UINT8* VGMPnt;
-	
+
 	DstData = (UINT8*)malloc(VGMDataLen + 0x100);
 	AllDelay = 0;
 	VGMPos = VGMHead.lngDataOffset;
@@ -309,7 +309,7 @@ static void CompressVGMData(void)
 	VGMSmplPos = 0;
 	NewLoopS = 0x00;
 	memcpy(DstData, VGMData, VGMPos);	// Copy Header
-	
+
 #ifdef WIN32
 	CmdTimer = 0;
 #endif
@@ -326,7 +326,7 @@ static void CompressVGMData(void)
 	if (VGMHead.lngHzOKIM6295)
 	{
 		TempLng = VGMHead.lngHzOKIM6295 & 0x3FFFFFFF;
-		
+
 		SetChipSet(0x00);
 		okim6295_write(0x88, (TempLng >>  0) & 0xFF);
 		okim6295_write(0x89, (TempLng >>  8) & 0xFF);
@@ -363,7 +363,7 @@ static void CompressVGMData(void)
 			c140_write(0xFF, 0x00, VGMHead.bytC140Type);
 		}
 	}
-	
+
 	StopVGM = false;
 	WroteCmd80 = false;
 	while(VGMPos < VGMHead.lngEOFOffset)
@@ -374,7 +374,7 @@ static void CompressVGMData(void)
 		CmdLen = 0x00;
 		Command = VGMData[VGMPos + 0x00];
 		WriteEvent = true;
-		
+
 		if (Command >= 0x70 && Command <= 0x8F)
 		{
 			switch(Command & 0xF0)
@@ -395,7 +395,7 @@ static void CompressVGMData(void)
 		else
 		{
 			VGMPnt = &VGMData[VGMPos];
-			
+
 			// Cheat Mode (to use 2 instances of 1 chip)
 			ChipID = 0x00;
 			switch(Command)
@@ -497,7 +497,7 @@ static void CompressVGMData(void)
 				break;
 			}
 			SetChipSet(ChipID);
-			
+
 			NxtCmdPos = VGMPos;
 			NxtCmdCommand = Command;
 			switch(Command)
@@ -546,13 +546,13 @@ static void CompressVGMData(void)
 			case 0x67:	// PCM Data Stream
 				TempByt = VGMPnt[0x02];
 				memcpy(&TempLng, &VGMPnt[0x03], 0x04);
-				
+
 				ChipID = (TempLng & 0x80000000) >> 31;
 				TempLng &= 0x7FFFFFFF;
 				//if (TempByt == 0xC2)
 				//	WriteEvent = false;
 				/*SetChipSet(ChipID);
-				
+
 				switch(TempByt & 0xC0)
 				{
 				case 0x00:	// Database Block
@@ -569,7 +569,7 @@ static void CompressVGMData(void)
 					DataLen = TempLng - 0x02;
 					break;
 				}*/
-				
+
 				CmdLen = 0x07 + TempLng;
 				break;
 			case 0xE0:	// Seek to PCM Data Bank Pos
@@ -828,7 +828,7 @@ static void CompressVGMData(void)
 				break;
 			}
 		}
-		
+
 		if (WriteEvent || VGMPos == VGMHead.lngLoopOffset)
 		{
 			if (VGMPos == VGMHead.lngLoopOffset)
@@ -842,7 +842,7 @@ static void CompressVGMData(void)
 				AllDelay = 0x00;
 			}
 			CmdDelay = 0x00;
-			
+
 			/*if (VGMPos != VGMHead.lngLoopOffset)
 			{
 				AllDelay += CmdDelay;
@@ -851,10 +851,10 @@ static void CompressVGMData(void)
 			VGMLib_WriteDelay(DstData, &DstPos, AllDelay, &WroteCmd80);
 			AllDelay = CmdDelay;
 			CmdDelay = 0x00;*/
-			
+
 			if (VGMPos == VGMHead.lngLoopOffset)
 				NewLoopS = DstPos;
-			
+
 			if (WriteEvent)
 			{
 				// Write Event
@@ -878,7 +878,7 @@ static void CompressVGMData(void)
 		VGMPos += CmdLen;
 		if (StopVGM)
 			break;
-		
+
 #ifdef WIN32
 		if (CmdTimer < GetTickCount())
 		{
@@ -904,7 +904,7 @@ static void CompressVGMData(void)
 		memcpy(&DstData[0x1C], &NewLoopS, 0x04);
 	}
 	printf("\t\t\t\t\t\t\t\t\r");
-	
+
 	if (VGMHead.lngGD3Offset && VGMHead.lngGD3Offset + 0x0B < VGMHead.lngEOFOffset)
 	{
 		VGMPos = VGMHead.lngGD3Offset;
@@ -913,7 +913,7 @@ static void CompressVGMData(void)
 		{
 			memcpy(&CmdLen, &VGMData[VGMPos + 0x08], 0x04);
 			CmdLen += 0x0C;
-			
+
 			VGMHead.lngGD3Offset = DstPos;
 			TempLng = DstPos - 0x14;
 			memcpy(&DstData[0x14], &TempLng, 0x04);
@@ -924,9 +924,9 @@ static void CompressVGMData(void)
 	DstDataLen = DstPos;
 	TempLng = DstDataLen - 0x04;
 	memcpy(&DstData[0x04], &TempLng, 0x04);
-	
+
 	FreeAllChips();
-	
+
 	return;
 }
 
@@ -941,14 +941,14 @@ bool GetNextChipCommand(void)
 	bool ReturnData;
 	bool CmdIsPort;
 	bool FirstCmd;
-	
+
 	CurPos = NxtCmdPos;
 	FirstCmd = true;
 	while(CurPos < VGMHead.lngEOFOffset)
 	{
 		CmdLen = 0x00;
 		Command = VGMData[CurPos + 0x00];
-		
+
 		if (Command >= 0x70 && Command <= 0x8F)
 		{
 			CmdLen = 0x01;
@@ -1193,9 +1193,9 @@ bool GetNextChipCommand(void)
 			NxtCmdPos = CurPos;	// support consecutive searches
 			return true;
 		}
-		
+
 		CurPos += CmdLen;
 	}
-	
+
 	return false;
 }

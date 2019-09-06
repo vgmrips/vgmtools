@@ -45,9 +45,9 @@ int main(int argc, char* argv[])
 	int argbase;
 	int ErrVal;
 	char FileName[0x100];
-	
+
 	printf("VGM Command Counter\n-------------------\n\n");
-	
+
 	ErrVal = 0;
 	argbase = 1;
 	printf("File Name:\t");
@@ -62,7 +62,7 @@ int main(int argc, char* argv[])
 	}
 	if (! strlen(FileName))
 		return 0;
-	
+
 	if (! OpenVGMFile(FileName))
 	{
 		printf("Error opening the file!\n");
@@ -70,14 +70,14 @@ int main(int argc, char* argv[])
 		goto EndProgram;
 	}
 	printf("\n");
-	
+
 	CountVGMData();
-	
+
 	free(VGMData);
-	
+
 EndProgram:
 	DblClickWait(argv[0]);
-	
+
 	return ErrVal;
 }
 
@@ -86,20 +86,20 @@ static bool OpenVGMFile(const char* FileName)
 	gzFile hFile;
 	UINT32 CurPos;
 	UINT32 TempLng;
-	
+
 	hFile = gzopen(FileName, "rb");
 	if (hFile == NULL)
 		return false;
-	
+
 	gzseek(hFile, 0x00, SEEK_SET);
 	gzread(hFile, &TempLng, 0x04);
 	if (TempLng != FCC_VGM)
 		goto OpenErr;
-	
+
 	gzseek(hFile, 0x00, SEEK_SET);
 	gzread(hFile, &VGMHead, sizeof(VGM_HEADER));
 	ZLIB_SEEKBUG_CHECK(VGMHead);
-	
+
 	// Header preperations
 	if (VGMHead.lngVersion < 0x00000101)
 	{
@@ -133,7 +133,7 @@ static bool OpenVGMFile(const char* FileName)
 	if (! VGMHead.lngDataOffset)
 		VGMHead.lngDataOffset = 0x0000000C;
 	VGMHead.lngDataOffset += 0x00000034;
-	
+
 	CurPos = VGMHead.lngDataOffset;
 	if (VGMHead.lngVersion < 0x00000150)
 		CurPos = 0x40;
@@ -143,7 +143,7 @@ static bool OpenVGMFile(const char* FileName)
 	else
 		TempLng = 0x00;
 	memset((UINT8*)&VGMHead + CurPos, 0x00, TempLng);
-	
+
 	// Read Data
 	VGMDataLen = VGMHead.lngEOFOffset;
 	VGMData = (UINT8*)malloc(VGMDataLen);
@@ -151,9 +151,9 @@ static bool OpenVGMFile(const char* FileName)
 		goto OpenErr;
 	gzseek(hFile, 0x00, SEEK_SET);
 	gzread(hFile, VGMData, VGMDataLen);
-	
+
 	gzclose(hFile);
-	
+
 	return true;
 
 OpenErr:
@@ -164,12 +164,12 @@ OpenErr:
 
 static void CountVGMData()
 {
-	const char* CHIP_STRS[CHIP_COUNT] = 
+	const char* CHIP_STRS[CHIP_COUNT] =
 	{	"SN76496", "YM2413", "YM2612", "YM2151", "SegaPCM", "RF5C68", "YM2203", "YM2608",
 		"YM2610", "YM3812", "YM3526", "Y8950", "YMF262", "YMF278B", "YMF271", "YMZ280B",
 		"RF5C164", "PWM", "AY8910", "GameBoy", "NES APU", "MultiPCM", "uPD7759", "OKIM6258",
 		"OKIM6295", "K051649", "K054539", "HuC6280", "C140", "K053260", "Pokey", "QSound"};
-	
+
 	UINT8 Command;
 	UINT8 TempByt;
 	UINT16 TempSht;
@@ -182,7 +182,7 @@ static void CountVGMData()
 	UINT32 ChipCounters[CHIP_COUNT];
 	UINT8 CurChip;
 	const UINT8* VGMPnt;
-	
+
 	memset(ChipState, 0x00, sizeof(CHIP_STATE) * 0x02 * CHIP_COUNT);
 	for (CurChip = 0x00; CurChip < CHIP_COUNT; CurChip ++)
 	{
@@ -300,7 +300,7 @@ static void CountVGMData()
 		}
 		ChipCounters[CurChip] = TempLng;
 	}
-	
+
 	StopVGM = false;
 	VGMPos = VGMHead.lngDataOffset;
 	while(VGMPos < VGMHead.lngEOFOffset)
@@ -325,7 +325,7 @@ static void CountVGMData()
 		else
 		{
 			VGMPnt = &VGMData[VGMPos];
-			
+
 			// Cheat Mode (to use 2 instances of 1 chip)
 			CurChip = 0x00;
 			switch(Command)
@@ -426,7 +426,7 @@ static void CountVGMData()
 				}
 				break;
 			}
-			
+
 			switch(Command)
 			{
 			case 0x66:	// End Of File
@@ -464,10 +464,10 @@ static void CountVGMData()
 			case 0x67:	// Data Block (PCM Data Stream)
 				TempByt = VGMPnt[0x02];
 				memcpy(&TempLng, &VGMPnt[0x03], 0x04);
-				
+
 				CurChip = (TempLng & 0x80000000) >> 31;
 				TempLng &= 0x7FFFFFFF;
-				
+
 				switch(TempByt & 0xC0)
 				{
 				case 0x00:	// Database Block
@@ -803,7 +803,7 @@ static void CountVGMData()
 		for (CurChip = 0x00; CurChip < CHIP_COUNT; CurChip ++)
 		{
 			CHIP_STATE* TempChp = &ChipState[TempByt][CurChip];
-			
+
 			if (TempChp->Used || TempChp->CmdCount)
 			{
 				printf("%s #%u: ", CHIP_STRS[CurChip], TempByt);
@@ -816,7 +816,7 @@ static void CountVGMData()
 			}
 		}
 	}
-	
+
 	return;
 }
 
@@ -828,7 +828,7 @@ static void print_wordnum(const char* Word, INT32 Number)
 		printf("%d %s", Number, Word);
 	else
 		printf("%d %ss", Number, Word);
-	
+
 	return;
 }
 
@@ -836,11 +836,11 @@ static void DoChipCommand(UINT8 ChipSet, UINT8 ChipID, UINT16 Reg, UINT16 Data)
 {
 	CHIP_STATE* TempChp = &ChipState[ChipSet][ChipID];
 	UINT8 CurChn;
-	
+
 	TempChp->CmdCount ++;
 	if (Reg & 0x8000)
 		return;
-	
+
 	switch(ChipID)
 	{
 	case 0x00:	// SN76496
@@ -1030,7 +1030,7 @@ static void DoChipCommand(UINT8 ChipSet, UINT8 ChipID, UINT16 Reg, UINT16 Data)
 					if (Data & (0x10 << CurChn))
 						DoKeyOnOff(TempChp, CurChn, 0x00, 0x00);
 				}
-				
+
 				TempChp->ChnReg = 0xFF;
 			}
 			else if (Data & 0x80)
@@ -1101,7 +1101,7 @@ static void DoChipCommand(UINT8 ChipSet, UINT8 ChipID, UINT16 Reg, UINT16 Data)
 		}
 		break;
 	}
-	
+
 	return;
 }
 

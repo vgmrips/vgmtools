@@ -91,9 +91,9 @@ int main(int argc, char* argv[])
 	int ErrVal;
 	char FileName[0x100];
 	UINT8 CurROM;
-	
+
 	printf("VGM Sample-ROM Optimizer\n------------------------\n\n");
-	
+
 	ErrVal = 0;
 	argbase = 1;
 	printf("File Name:\t");
@@ -108,7 +108,7 @@ int main(int argc, char* argv[])
 	}
 	if (! strlen(FileName))
 		return 1;
-	
+
 	if (! OpenVGMFile(FileName))
 	{
 		printf("Error opening the file!\n");
@@ -116,14 +116,14 @@ int main(int argc, char* argv[])
 		goto EndProgram;
 	}
 	printf("\n");
-	
+
 	DstData = NULL;
 	for (CurROM = 0x00; CurROM < ROM_TYPES; CurROM ++)
 	{
 		ROMRgnLst[CurROM][0x00].Regions = NULL;
 		ROMRgnLst[CurROM][0x01].Regions = NULL;
 	}
-	
+
 	if (! VGMHead.lngHzSPCM && ! VGMHead.lngHzYM2608 && ! VGMHead.lngHzYM2610 &&
 		! VGMHead.lngHzY8950 && ! VGMHead.lngHzYMZ280B && ! VGMHead.lngHzRF5C68 &&
 		! VGMHead.lngHzRF5C164 && ! VGMHead.lngHzYMF271 && ! VGMHead.lngHzOKIM6295 &&
@@ -137,7 +137,7 @@ int main(int argc, char* argv[])
 		ErrVal = 2;
 		goto BreakProgress;
 	}
-	
+
 	CancelFlag = false;
 	FindUsedROMData();
 	if (CancelFlag)
@@ -147,7 +147,7 @@ int main(int argc, char* argv[])
 	}
 	EnumerateROMRegions();
 	OptimizeVGMSampleROM();
-	
+
 	if (DstDataLen < VGMDataLen)
 	{
 		if (argc > argbase + 1)
@@ -161,7 +161,7 @@ int main(int argc, char* argv[])
 		}
 		WriteVGMFile(FileName);
 	}
-	
+
 BreakProgress:
 	free(VGMData);
 	free(DstData);
@@ -170,10 +170,10 @@ BreakProgress:
 		free(ROMRgnLst[CurROM][0x00].Regions);	ROMRgnLst[CurROM][0x00].Regions = NULL;
 		free(ROMRgnLst[CurROM][0x01].Regions);	ROMRgnLst[CurROM][0x01].Regions = NULL;
 	}
-	
+
 EndProgram:
 	DblClickWait(argv[0]);
-	
+
 	return ErrVal;
 }
 
@@ -183,20 +183,20 @@ static bool OpenVGMFile(const char* FileName)
 	UINT32 CurPos;
 	UINT32 TempLng;
 	char* TempPnt;
-	
+
 	hFile = gzopen(FileName, "rb");
 	if (hFile == NULL)
 		return false;
-	
+
 	gzseek(hFile, 0x00, SEEK_SET);
 	gzread(hFile, &TempLng, 0x04);
 	if (TempLng != FCC_VGM)
 		goto OpenErr;
-	
+
 	gzseek(hFile, 0x00, SEEK_SET);
 	gzread(hFile, &VGMHead, sizeof(VGM_HEADER));
 	ZLIB_SEEKBUG_CHECK(VGMHead);
-	
+
 	// Header preperations
 	if (VGMHead.lngVersion < 0x00000150)
 	{
@@ -217,7 +217,7 @@ static bool OpenVGMFile(const char* FileName)
 	if (! VGMHead.lngDataOffset)
 		VGMHead.lngDataOffset = 0x0000000C;
 	VGMHead.lngDataOffset += 0x00000034;
-	
+
 	CurPos = VGMHead.lngDataOffset;
 	if (VGMHead.lngVersion < 0x00000150)
 		CurPos = 0x40;
@@ -227,7 +227,7 @@ static bool OpenVGMFile(const char* FileName)
 	else
 		TempLng = 0x00;
 	memset((UINT8*)&VGMHead + CurPos, 0x00, TempLng);
-	
+
 	// Read Data
 	VGMDataLen = VGMHead.lngEOFOffset;
 	VGMData = (UINT8*)malloc(VGMDataLen);
@@ -235,14 +235,14 @@ static bool OpenVGMFile(const char* FileName)
 		goto OpenErr;
 	gzseek(hFile, 0x00, SEEK_SET);
 	gzread(hFile, VGMData, VGMDataLen);
-	
+
 	gzclose(hFile);
-	
+
 	strcpy(FileBase, FileName);
 	TempPnt = strrchr(FileBase, '.');
 	if (TempPnt != NULL)
 		*TempPnt = 0x00;
-	
+
 	return true;
 
 OpenErr:
@@ -254,13 +254,13 @@ OpenErr:
 static void WriteVGMFile(const char* FileName)
 {
 	FILE* hFile;
-	
+
 	hFile = fopen(FileName, "wb");
 	fwrite(DstData, 0x01, DstDataLen, hFile);
 	fclose(hFile);
-	
+
 	printf("File written.\n");
-	
+
 	return;
 }
 
@@ -282,15 +282,15 @@ static void FindUsedROMData(void)
 	UINT32 CmdLen;
 	bool StopVGM;
 	const UINT8* VGMPnt;
-	
+
 	printf("Creating ROM-Usage Mask ...\n");
 	VGMPos = VGMHead.lngDataOffset;
-	
+
 #ifdef WIN32
 	CmdTimer = 0;
 #endif
 	InitAllChips();
-	
+
 	if (VGMHead.lngHzSPCM)
 	{
 		SetChipSet(0x00);
@@ -337,13 +337,13 @@ static void FindUsedROMData(void)
 			es550x_w(0xFF, VGMHead.lngHzES5506 >> 31);
 		}
 	}
-	
+
 	StopVGM = false;
 	while(VGMPos < VGMHead.lngEOFOffset)
 	{
 		CmdLen = 0x00;
 		Command = VGMData[VGMPos + 0x00];
-		
+
 		if (Command >= 0x70 && Command <= 0x8F)
 		{
 			switch(Command & 0xF0)
@@ -362,7 +362,7 @@ static void FindUsedROMData(void)
 		else
 		{
 			VGMPnt = &VGMData[VGMPos];
-			
+
 			// Cheat Mode (to use 2 instances of 1 chip)
 			ChipID = 0x00;
 			switch(Command)
@@ -399,7 +399,7 @@ static void FindUsedROMData(void)
 				break;
 			}
 			SetChipSet(ChipID);
-			
+
 			switch(Command)
 			{
 			case 0x66:	// End Of File
@@ -427,11 +427,11 @@ static void FindUsedROMData(void)
 			case 0x67:	// PCM Data Stream
 				TempByt = VGMPnt[0x02];
 				memcpy(&TempLng, &VGMPnt[0x03], 0x04);
-				
+
 				ChipID = (TempLng & 0x80000000) >> 31;
 				TempLng &= 0x7FFFFFFF;
 				SetChipSet(ChipID);
-				
+
 				switch(TempByt & 0xC0)
 				{
 				case 0x00:	// Database Block
@@ -649,11 +649,11 @@ static void FindUsedROMData(void)
 				break;
 			}
 		}
-		
+
 		VGMPos += CmdLen;
 		if (StopVGM)
 			break;
-		
+
 #ifdef WIN32
 		if (CmdTimer < GetTickCount())
 		{
@@ -668,14 +668,14 @@ static void FindUsedROMData(void)
 #endif
 	}
 	printf("\t\t\t\t\t\t\t\t\r");
-		
+
 	return;
 }
 
 char* GetROMRegionText(UINT8 ROM_ID)
 {
 	char* RetStr;
-	
+
 	switch(ROM_ID)
 	{
 	case 0x80:	// SegaPCM ROM
@@ -754,7 +754,7 @@ char* GetROMRegionText(UINT8 ROM_ID)
 		RetStr = "???";
 		break;
 	}
-	
+
 	return RetStr;
 }
 
@@ -772,10 +772,10 @@ static void EnumerateROMRegions(void)
 	UINT32 CurPos;
 	UINT32 PosStart;
 	UINT8 MaskVal;
-	
+
 	RgnMemCount = 0x100;
 	RgnMemory = (ROM_REGION*)malloc(RgnMemCount * sizeof(ROM_REGION));
-	
+
 	printf("\nROM Region List\n---------------\n");
 	printf("From\tTo\tLength\tStatus\n");
 	for (CurROM = 0x00; CurROM < ROM_TYPES; CurROM ++)
@@ -783,19 +783,19 @@ static void EnumerateROMRegions(void)
 		for (CurChip = 0x00; CurChip < 0x02; CurChip ++)
 		{
 			TempRRL = &ROMRgnLst[CurROM][CurChip];
-			
+
 			TempRRL->RegionCount = 0x00;
-			
+
 			SetChipSet(CurChip);
 			ROMSize = GetROMMask(ROM_LIST[CurROM], &ROMMask);
 			if (! ROMSize || ROMMask == NULL)
 				continue;
-			
+
 			if (! CurChip)
 				printf("  %s\n", GetROMRegionText(ROM_LIST[CurROM]));
 			else
 				printf("  %s #%u\n", GetROMRegionText(ROM_LIST[CurROM]), CurChip + 1);
-			
+
 			CurRgn = 0x00;
 			RgnMemory[CurRgn].AddrStart = 0xFFFFFFFF;
 			PosStart = 0x00;
@@ -806,7 +806,7 @@ static void EnumerateROMRegions(void)
 				{
 					printf("%06X\t%06X\t%6X\t%s\n", PosStart, CurPos - 1, CurPos - PosStart,
 							STATUS_TEXT[MaskVal]);
-					
+
 					if (MaskVal == 0x01)
 					{
 						if (! CurRgn)
@@ -835,13 +835,13 @@ static void EnumerateROMRegions(void)
 						}
 						RgnMemory[CurRgn].AddrStart = 0xFFFFFFFF;
 					}
-					
+
 					if (CurPos < ROMSize)
 						MaskVal = ROMMask[CurPos];
 					PosStart = CurPos;
 				}
 			}
-			
+
 			if (! CurRgn)
 			{
 				// to make sure that the ROM is at least allocated,
@@ -850,7 +850,7 @@ static void EnumerateROMRegions(void)
 				RgnMemory[CurRgn].AddrEnd = 0x00;
 				CurRgn ++;
 			}
-			
+
 			TempRRL->RegionCount = CurRgn;
 			TempRRL->Regions = (ROM_REGION*)malloc(TempRRL->RegionCount * sizeof(ROM_REGION));
 			for (CurRgn = 0x00; CurRgn < TempRRL->RegionCount; CurRgn ++)
@@ -858,7 +858,7 @@ static void EnumerateROMRegions(void)
 			TempRRL->IsWritten = false;
 		}
 	}
-	
+
 	free(RgnMemory);
 	return;
 }
@@ -887,13 +887,13 @@ static void OptimizeVGMSampleROM(void)
 	UINT8 CurRgn;
 	ROM_RGN_LIST* TempRRL;
 	ROM_REGION* TempRgn;
-	
+
 	DstData = (UINT8*)malloc(VGMDataLen + 0x100);
 	VGMPos = VGMHead.lngDataOffset;
 	DstPos = VGMHead.lngDataOffset;
 	NewLoopS = 0x00;
 	memcpy(DstData, VGMData, VGMPos);	// Copy Header
-	
+
 #if 1
 	for (TempByt = 0x00; TempByt < ROM_TYPES; TempByt ++)
 	{
@@ -901,7 +901,7 @@ static void OptimizeVGMSampleROM(void)
 		{
 			if ((ROM_LIST[TempByt] & 0xC0) != 0xC0)
 				continue;
-			
+
 			SetChipSet(ChipID);
 			ROMSize = GetROMData(ROM_LIST[TempByt], &ROMData);
 			TempRRL = &ROMRgnLst[TempByt][ChipID];
@@ -913,7 +913,7 @@ static void OptimizeVGMSampleROM(void)
 					continue;	// RAM size isn't changeable
 				CmdLen = (ROM_LIST[TempByt] & 0x20) ? 0x04 : 0x02;
 				CmdLen += DataLen;
-				
+
 				DstData[DstPos + 0x00] = 0x67;
 				DstData[DstPos + 0x01] = 0x66;
 				DstData[DstPos + 0x02] = ROM_LIST[TempByt];
@@ -936,7 +936,7 @@ static void OptimizeVGMSampleROM(void)
 		}
 	}
 #endif
-	
+
 #ifdef WIN32
 	CmdTimer = 0;
 #endif
@@ -947,7 +947,7 @@ static void OptimizeVGMSampleROM(void)
 		CmdLen = 0x00;
 		Command = VGMData[VGMPos + 0x00];
 		WriteEvent = true;
-		
+
 		if (Command >= 0x70 && Command <= 0x8F)
 		{
 			switch(Command & 0xF0)
@@ -992,11 +992,11 @@ static void OptimizeVGMSampleROM(void)
 			case 0x67:	// PCM Data Stream
 				TempByt = VGMData[VGMPos + 0x02];
 				memcpy(&TempLng, &VGMData[VGMPos + 0x03], 0x04);
-				
+
 				ChipID = (TempLng & 0x80000000) >> 31;
 				TempLng &= 0x7FFFFFFF;
 				SetChipSet(ChipID);
-				
+
 				switch(TempByt & 0xC0)
 				{
 				case 0x00:	// Database Block
@@ -1023,7 +1023,7 @@ static void OptimizeVGMSampleROM(void)
 							// Note: There are empty ROM Blocks to set the ROM Size
 							CmdLen = 0x08 + DataLen;
 							DataStart = TempRgn->AddrStart;
-							
+
 							DstData[DstPos + 0x00] = 0x67;
 							DstData[DstPos + 0x01] = 0x66;
 							DstData[DstPos + 0x02] = TempByt;
@@ -1051,13 +1051,13 @@ static void OptimizeVGMSampleROM(void)
 								continue;	// RAM size isn't changeable
 							CmdLen = (TempByt & 0x20) ? 0x04 : 0x02;
 							CmdLen += DataLen;
-							
+
 							DstData[DstPos + 0x00] = 0x67;
 							DstData[DstPos + 0x01] = 0x66;
 							DstData[DstPos + 0x02] = TempByt;
 							memcpy(&DstData[DstPos + 0x03], &CmdLen, 0x04);
 							DstData[DstPos + 0x06] |= (ChipID << 7);	// set '2nd Chip'-bit
-							
+
 							if (! (TempByt & 0x20))	// C0-DF - small RAM (<= 64 KB)
 							{
 								TempSht = TempRgn->AddrStart & 0xFFFF;
@@ -1134,7 +1134,7 @@ static void OptimizeVGMSampleROM(void)
 				break;
 			}
 		}
-		
+
 		// Note: In the case that the loop offset points to a Data Block,
 		//       it gets moved to the first command after it.
 		if (VGMPos == VGMHead.lngLoopOffset)
@@ -1147,7 +1147,7 @@ static void OptimizeVGMSampleROM(void)
 		VGMPos += CmdLen;
 		if (StopVGM)
 			break;
-		
+
 #ifdef WIN32
 		if (CmdTimer < GetTickCount())
 		{
@@ -1169,7 +1169,7 @@ static void OptimizeVGMSampleROM(void)
 		memcpy(&DstData[0x1C], &TempLng, 0x04);
 	}
 	printf("\t\t\t\t\t\t\t\t\r");
-	
+
 	if (VGMHead.lngGD3Offset && VGMHead.lngGD3Offset + 0x0B < VGMHead.lngEOFOffset)
 	{
 		VGMPos = VGMHead.lngGD3Offset;
@@ -1178,7 +1178,7 @@ static void OptimizeVGMSampleROM(void)
 		{
 			memcpy(&CmdLen, &VGMData[VGMPos + 0x08], 0x04);
 			CmdLen += 0x0C;
-			
+
 			TempLng = DstPos - 0x14;
 			memcpy(&DstData[0x14], &TempLng, 0x04);
 			memcpy(&DstData[DstPos], &VGMData[VGMPos], CmdLen);
@@ -1188,21 +1188,21 @@ static void OptimizeVGMSampleROM(void)
 	DstDataLen = DstPos;
 	TempLng = DstDataLen - 0x04;
 	memcpy(&DstData[0x04], &TempLng, 0x04);
-	
+
 	FreeAllChips();
-	
+
 	return;
 }
 
 static UINT8 GetRomRgnFromType(UINT8 ROMType)
 {
 	UINT8 CurType;
-	
+
 	for (CurType = 0x00; CurType < ROM_TYPES; CurType ++)
 	{
 		if (ROM_LIST[CurType] == ROMType)
 			return CurType;
 	}
-	
+
 	return 0x00;
 }

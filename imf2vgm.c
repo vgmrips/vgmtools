@@ -37,15 +37,15 @@ int main(int argc, char* argv[])
 	char FileName[0x100];
 	UINT16 ForceHz;
 	UINT8 ForceType;
-	
+
 	printf("IMF to VGM Converter\n--------------------\n\n");
-	
+
 	ErrVal = 0;
 	argbase = 1;
 	ForceHz = 0;
 	ForceType = 0xFF;
 	LoopOn = 0x00;
-	
+
 	while(argbase < argc && argv[argbase][0] == '-')
 	{
 		if (! stricmp(argv[argbase], "-help"))
@@ -83,7 +83,7 @@ int main(int argc, char* argv[])
 			break;
 		}
 	}
-	
+
 	printf("File Name:\t");
 	if (argc <= argbase + 0)
 	{
@@ -96,7 +96,7 @@ int main(int argc, char* argv[])
 	}
 	if (! strlen(FileName))
 		return 0;
-	
+
 	if (OpenIMFFile(FileName))
 	{
 		printf("Error opening the file!\n");
@@ -104,13 +104,13 @@ int main(int argc, char* argv[])
 		goto EndProgram;
 	}
 	printf("\n");
-	
+
 	if (ForceHz)
 		IMFRate = ForceHz;
 	if (ForceType < 0xFF)
 		IMFType = ForceType;
 	ConvertIMF2VGM();
-	
+
 	if (argc > argbase + 1)
 		strcpy(FileName, argv[argbase + 1]);
 	else
@@ -121,13 +121,13 @@ int main(int argc, char* argv[])
 		strcat(FileName, ".vgm");
 	}
 	WriteVGMFile(FileName);
-	
+
 	free(IMFData);
 	free(VGMData);
-	
+
 EndProgram:
 	DblClickWait(argv[0]);
-	
+
 	return ErrVal;
 }
 
@@ -136,29 +136,29 @@ static UINT8 OpenIMFFile(const char* FileName)
 	FILE* hFile;
 	UINT16 TempSht;
 	char* TempPnt;
-	
+
 	hFile = fopen(FileName, "rb");
 	if (hFile == NULL)
 		return 0xFF;
-	
+
 	fseek(hFile, 0x00, SEEK_END);
 	IMFDataLen = ftell(hFile);
-	
+
 	// Read Data
 	IMFData = (UINT8*)malloc(IMFDataLen);
 	if (IMFData == NULL)
 		goto OpenErr;
 	fseek(hFile, 0x00, SEEK_SET);
 	IMFDataLen = fread(IMFData, 0x01, IMFDataLen, hFile);
-	
+
 	fclose(hFile);
-	
+
 	memcpy(&TempSht, &IMFData[0x00], 0x02);
 	if (! TempSht)
 		IMFType = 0x00;
 	else
 		IMFType = 0x01;
-	
+
 	strcpy(FileBase, FileName);
 	TempPnt = strrchr(FileBase, '.');
 	if (TempPnt != NULL)
@@ -174,7 +174,7 @@ static UINT8 OpenIMFFile(const char* FileName)
 		IMFRate = 700;
 	else
 		IMFRate = 560;
-	
+
 	return 0x00;
 
 OpenErr:
@@ -186,13 +186,13 @@ OpenErr:
 static void WriteVGMFile(const char* FileName)
 {
 	FILE* hFile;
-	
+
 	hFile = fopen(FileName, "wb");
 	fwrite(VGMData, 0x01, VGMDataLen, hFile);
 	fclose(hFile);
-	
+
 	printf("File written.\n");
-	
+
 	return;
 }
 
@@ -203,10 +203,10 @@ static void ConvertIMF2VGM(void)
 	UINT32 VGMSmplC;
 	float  VGMSmplFraction;
 	UINT32 SmplVal;
-	
+
 	VGMDataLen = sizeof(VGM_HEADER) + IMFDataLen * 0x02;
 	VGMData = (UINT8*)malloc(VGMDataLen);
-	
+
 	switch (IMFRate) {
 		case 560: PITPeriod = 0x0850; break;
 		case 280: PITPeriod = 0x10A1; break;
@@ -215,7 +215,7 @@ static void ConvertIMF2VGM(void)
 		default:  PITPeriod = 13125000 / (IMFRate * 11);
 	}
 	printf("IMF Type: %u, IMF Playback Rate: %u Hz (8254 PIT period 0x%04X)\n", IMFType, IMFRate, PITPeriod);
-	
+
 	memcpy(&CurDelay, &IMFData[0x00], 0x02);
 	if (IMFType == 0x00)
 	{
@@ -227,7 +227,7 @@ static void ConvertIMF2VGM(void)
 		IMFDataStart = 0x0002;
 		IMFDataEnd = IMFDataStart + CurDelay;
 	}
-	
+
 	// Generate VGM Header
 	memset(&VGMHead, 0x00, sizeof(VGM_HEADER));
 	VGMHead.fccVGM = FCC_VGM;
@@ -235,13 +235,13 @@ static void ConvertIMF2VGM(void)
 	VGMHead.lngRate = IMFRate;
 	VGMHead.lngDataOffset = 0x80;
 	VGMHead.lngHzYM3812 = 3579545;
-	
+
 	// Convert data
 	IMFPos = IMFDataStart;
 	VGMPos = VGMHead.lngDataOffset;
 	VGMSmplL = 0;
 	VGMSmplFraction =0;
-	
+
 	/* Add Waveform Select Enable write to beginning, as some files (e.g. from Commander Keen Episode 4) do not include it by themselves. */
 	VGMData[VGMPos++] = 0x5A;
 	VGMData[VGMPos++] = 0x01;
@@ -257,10 +257,10 @@ static void ConvertIMF2VGM(void)
 		VGMData[VGMPos + 0x01] = IMFData[IMFPos + 0x00];	// register
 		VGMData[VGMPos + 0x02] = IMFData[IMFPos + 0x01];	// data
 		VGMPos += 0x03;
-		
+
 		UINT16 IMFDelayInIMFTicks = (IMFData[IMFPos + 2] | (IMFData[IMFPos + 3] << 8));
 		IMFPos += 0x04;
-		
+
 		/* Convert the delay time, specified relative to the IMF's rate (IMFDelayInIMFTicks)...
 		   - first to the number of ticks of the 8254 Programmable Interval Timer's master clock (IMFDelayInPitTicks);
 		   - from that to the number of milliseconds (IMFDelayInMilliseconds);
@@ -271,9 +271,9 @@ static void ConvertIMF2VGM(void)
 		float IMFDelayInVGMSamplesFloat = IMFDelayInMilliseconds * 44100 / 1000 + VGMSmplFraction;
 		UINT32 IMFDelayInVGMSamplesInt = IMFDelayInVGMSamplesFloat;
 		VGMSmplFraction = IMFDelayInVGMSamplesFloat - IMFDelayInVGMSamplesInt;
-		
+
 		VGMSmplL += IMFDelayInVGMSamplesInt; // Add the delay in 44.1 kHz samples to the total VGM file length in samples
-		
+
 		/* Store the delay, specified as the number of 44.1 kHz samples. */
 		while (IMFDelayInVGMSamplesInt) {
 			UINT32 ThisCommandDelay = (IMFDelayInVGMSamplesInt > 65535) ? 65535 : IMFDelayInVGMSamplesInt;
@@ -290,7 +290,7 @@ static void ConvertIMF2VGM(void)
 	}
 	VGMData[VGMPos] = 0x66;
 	VGMPos += 0x01;
-	
+
 	VGMDataLen = VGMPos;
 	VGMHead.lngEOFOffset = VGMDataLen;
 	VGMHead.lngTotalSamples = VGMSmplL;
@@ -299,7 +299,7 @@ static void ConvertIMF2VGM(void)
 		VGMHead.lngLoopOffset = VGMHead.lngDataOffset;
 		VGMHead.lngLoopSamples = VGMHead.lngTotalSamples;
 	}
-	
+
 	SmplVal = VGMHead.lngDataOffset;
 	if (SmplVal > sizeof(VGM_HEADER))
 		SmplVal = sizeof(VGM_HEADER);
@@ -308,6 +308,6 @@ static void ConvertIMF2VGM(void)
 		VGMHead.lngLoopOffset -= 0x1C;
 	VGMHead.lngDataOffset -= 0x34;
 	memcpy(&VGMData[0x00], &VGMHead, SmplVal);
-	
+
 	return;
 }

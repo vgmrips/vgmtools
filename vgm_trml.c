@@ -132,14 +132,14 @@ typedef struct rewrite_chipset_new
 
 #define CHIP_COUNT	0x29
 
-static const char* CHIP_STRS[CHIP_COUNT] = 
+static const char* CHIP_STRS[CHIP_COUNT] =
 {	"SN76496", "YM2413", "YM2612", "YM2151", "SegaPCM", "RF5C68", "YM2203", "YM2608",
 	"YM2610", "YM3812", "YM3526", "Y8950", "YMF262", "YMF278B/OPL", "YMF271", "YMZ280B",
 	"RF5C164", "PWM", "AY8910", "GameBoy", "NES APU", "MultiPCM", "uPD7759", "OKIM6258",
 	"OKIM6295", "K051649", "K054539", "HuC6280", "C140", "K053260", "Pokey", "QSound",
 	"SCSP", "WSwan", "VSU", "SAA1099", "ES5503", "ES5506", "X1-010", "C352",
 	"GA20"};
-static const char* CHIP_STRS2[CHIP_COUNT] = 
+static const char* CHIP_STRS2[CHIP_COUNT] =
 {	"", "", "", "", "", "", "", "",
 	"", "", "", "", "", "YMF278B/PCM", "", "",
 	"", "", "", "", "", "", "", "",
@@ -202,7 +202,7 @@ void SetTrimOptions(UINT8 TrimMode, UINT8 WarnMask)
 		exit(-1);
 	}
 #endif
-	
+
 	HARD_SPLIT = false;
 	COMPLETE_REWRITE = false;
 	VGMTOOL_TRIM = false;
@@ -223,7 +223,7 @@ void SetTrimOptions(UINT8 TrimMode, UINT8 WarnMask)
 		break;
 	}
 	WARN_PLAY_NOTES = (WarnMask) ? true : false;
-	
+
 	return;
 }
 
@@ -231,12 +231,12 @@ static void PrepareChipMemory(void)
 {
 	REWRT_CHIPSET_NEW* TempRC;
 	UINT8 CurCSet;
-	
+
 	for (CurCSet = 0x00; CurCSet < CHIP_SETS; CurCSet ++)
 	{
 		TempRC = &RC[CurCSet];
 		memset(TempRC, 0x00, sizeof(REWRT_CHIPSET_NEW));
-		
+
 		if (VGMHead.lngHzPSG)
 		{
 			// SN76496 Register Map:
@@ -599,7 +599,7 @@ static void PrepareChipMemory(void)
 			}
 		}
 	}
-	
+
 	return;
 }
 
@@ -611,16 +611,16 @@ static void SetImportantCommands(void)
 	UINT8 CurCSet;
 	UINT8 CurChip;
 	UINT16 CurReg;
-	
+
 	for (CurCSet = 0x00; CurCSet < CHIP_SETS; CurCSet ++)
 	{
 		TempCD = (CHIP_DATA*)&RC[CurCSet];
-		
+
 		for (CurChip = 0x00; CurChip < CHIP_COUNT; CurChip ++, TempCD ++)
 		{
 			TempReg = &TempCD->Regs;
 			TempMem = &TempCD->Mem;
-			
+
 			if (TempReg->RegCount)
 			{
 				if (! TempReg->Mode)
@@ -652,10 +652,10 @@ static void SetImportantCommands(void)
 			}
 			TempMem->HadWrt = false;
 			TempMem->MemPtr = NULL;
-			
+
 			if (! TempReg->RegCount)
 				continue;
-			
+
 			switch(CurChip)
 			{
 			case 0x00:	// SN76496
@@ -767,7 +767,7 @@ static void SetImportantCommands(void)
 				// Control Regs
 				for (CurReg = 0x00; CurReg < 0x03; CurReg ++)
 					TempReg->RegMask[0x14 + CurReg] |= 0x80;
-				
+
 				// WaveRAM
 				for (CurReg = 0x00; CurReg < 0x10; CurReg ++)
 					TempReg->RegMask[0x20 | CurReg] |= 0x80;
@@ -798,7 +798,7 @@ static void SetImportantCommands(void)
 				TempReg->RegData.R08[0x0C] = (VGMHead.lngHzOKIM6295 >> 31) & 0x01;
 				for (CurReg = 0x0B; CurReg <= 0x0C; CurReg ++)
 					TempReg->RegMask[CurReg] |= 0x80;
-				
+
 				// 0E - NMK112 bank switch enable
 				// 0F - Bank Base (non-NMK112)
 				for (CurReg = 0x0E; CurReg <= 0x0F; CurReg ++)
@@ -816,7 +816,7 @@ static void SetImportantCommands(void)
 				// Control Regs (Balance, LFO)
 				for (CurReg = 0xE4; CurReg < 0xE8; CurReg ++)
 					TempReg->RegMask[CurReg] |= 0x80;
-				
+
 				// Wave RAM
 				for (CurReg = 0x00; CurReg < 0xC0; CurReg ++)
 					TempReg->RegMask[CurReg] |= 0x80;
@@ -872,7 +872,7 @@ static void SetImportantCommands(void)
 			}
 		}
 	}
-	
+
 	return;
 }
 
@@ -892,21 +892,21 @@ static void InitializeVGM(UINT8** DstDataRef, UINT32* DstPosRef)
 	CHIP_MEMORY* TempMem;
 	UINT8 ChipCmd;
 	UINT8 CmdType;
-	
+
 	if (VGMTOOL_TRIM)
 		return;
-	
+
 	for (CurCSet = 0x00; CurCSet < CHIP_SETS; CurCSet ++)
 	{
 		TempCD = (CHIP_DATA*)&RC[CurCSet];
-		
+
 		for (CurChip = 0x00; CurChip < CHIP_COUNT; CurChip ++, TempCD ++)
 		{
 			TempMem = &TempCD->Mem;
-			
+
 			if (! TempMem->MemSize || ! TempMem->HadWrt)
 				continue;
-			
+
 			switch(CurChip)
 			{
 			case 0x07:	// YM2608
@@ -944,13 +944,13 @@ static void InitializeVGM(UINT8** DstDataRef, UINT32* DstPosRef)
 					DstData[DstPos + 0x01] = 0x66;
 					DstData[DstPos + 0x02] = CmdType;
 					WriteLE32(&DstData[DstPos + 0x03], 0x08);
-					
+
 					WriteLE32(&DstData[DstPos + 0x07], TempMem->MemSize);
 					WriteLE32(&DstData[DstPos + 0x0B], 0x00);
 					DstPos += 0x07 + 0x08;
 					break;
 				}
-				
+
 				if (ChipCmd && (TempCD->Regs.RegMask[CurReg] & 0x7F) == 0x01)
 				{
 					// make sure that the memory configuration register is initialized before writing the data block
@@ -980,14 +980,14 @@ static void InitializeVGM(UINT8** DstDataRef, UINT32* DstPosRef)
 				{
 					DstDataLen += TempMem->MemSize;
 					DstData = (UINT8*)realloc(DstData, DstDataLen);
-					
+
 					DstData[DstPos + 0x00] = 0x67;
 					DstData[DstPos + 0x01] = 0x66;
 					DstData[DstPos + 0x02] = CmdType;
-					
+
 					TempLng = TempMem->MemSize + 0x08;
 					WriteLE32(&DstData[DstPos + 0x03], TempLng);
-					
+
 					WriteLE32(&DstData[DstPos + 0x07], TempMem->MemSize);
 					WriteLE32(&DstData[DstPos + 0x0B], 0x00);	// DataStart: 0x00
 					memcpy(&DstData[DstPos + 0x0F], TempMem->MemData, TempMem->MemSize);
@@ -1011,11 +1011,11 @@ static void InitializeVGM(UINT8** DstDataRef, UINT32* DstPosRef)
 					TempByt = 0x20;
 				else if (CurChip == 0x24)
 					TempByt = 0x21;
-				
+
 				DstData[DstPos + 0x00] = 0x67;
 				DstData[DstPos + 0x01] = 0x66;
 				DstData[DstPos + 0x02] = 0xC0 | TempByt;
-				
+
 				if (! TempMem->MemMaxOfs)
 					TempMem->MemMaxOfs = TempMem->MemSize;
 				if (! (TempByt & 0x20))
@@ -1023,7 +1023,7 @@ static void InitializeVGM(UINT8** DstDataRef, UINT32* DstPosRef)
 				else
 					TempLng = TempMem->MemMaxOfs + 0x04;
 				WriteLE32(&DstData[DstPos + 0x03], TempLng);
-				
+
 				TempSht = 0x0000;
 				if (! (TempByt & 0x20))
 				{
@@ -1038,7 +1038,7 @@ static void InitializeVGM(UINT8** DstDataRef, UINT32* DstPosRef)
 					memcpy(&DstData[DstPos + 0x0B], TempMem->MemData, TempMem->MemMaxOfs);
 				}
 				DstPos += 0x07 + TempLng;
-				
+
 				if (CurChip == 0x05 || CurChip == 0x10)
 				{
 					// make sure that the memory bank register is initialized properly
@@ -1051,18 +1051,18 @@ static void InitializeVGM(UINT8** DstDataRef, UINT32* DstPosRef)
 			}
 		}
 	}
-	
+
 	for (CurCSet = 0x00; CurCSet < CHIP_SETS; CurCSet ++)
 	{
 		TempCD = (CHIP_DATA*)&RC[CurCSet];
-		
+
 		for (CurChip = 0x00; CurChip < CHIP_COUNT; CurChip ++, TempCD ++)
 		{
 			TempReg = &TempCD->Regs;
-			
+
 			if (! TempReg->RegCount || HARD_SPLIT)
 				continue;
-			
+
 			for (CurReg = 0x00; CurReg < TempReg->RegCount; CurReg ++)
 			{
 				if ((TempReg->RegMask[CurReg] & 0x80) || COMPLETE_REWRITE)
@@ -1070,7 +1070,7 @@ static void InitializeVGM(UINT8** DstDataRef, UINT32* DstPosRef)
 				else
 					TempReg->RegMask[CurReg] = 0x00;
 			}
-			
+
 			// CmdType
 			//		10 - 1 Port
 			//		11 - 2 Ports, Port is ORed with Command Byte
@@ -1088,7 +1088,7 @@ static void InitializeVGM(UINT8** DstDataRef, UINT32* DstPosRef)
 					DstData[DstPos + 0x01] = TempReg->RegData.R08[CurReg];
 					DstPos += 0x02;
 				}
-				
+
 				ChipCmd = 0x50 - CurCSet * 0x20;
 				for (CurReg = 0x08; CurReg < 0x10; CurReg ++)
 				{
@@ -1097,7 +1097,7 @@ static void InitializeVGM(UINT8** DstDataRef, UINT32* DstPosRef)
 						DstData[DstPos + 0x00] = ChipCmd;
 						DstData[DstPos + 0x01] = TempReg->RegData.R08[CurReg];
 						DstPos += 0x02;
-						
+
 						TempByt = CurReg & 0x07;
 						if (CurReg < 0x0E && ! (CurReg & 0x01) &&
 							TempReg->RegMask[TempByt])
@@ -1109,7 +1109,7 @@ static void InitializeVGM(UINT8** DstDataRef, UINT32* DstPosRef)
 						}
 					}
 				}
-				
+
 				CmdType = 0x00;
 				break;
 			case 0x01:	// YM2413
@@ -1134,13 +1134,13 @@ static void InitializeVGM(UINT8** DstDataRef, UINT32* DstPosRef)
 					ChipCmd = 0xB0;
 				else if (CurChip == 0x10)
 					ChipCmd = 0xB1;
-				
+
 				TempByt = 0xFF;
 				for (CurReg = 0x00; CurReg < TempReg->RegCount; CurReg ++)
 				{
 					if (CurReg / 0x07 >= 8)
 						break;
-					
+
 					if ((TempReg->RegMask[CurReg] & 0x7F) == 0x01)
 					{
 						if (TempByt != (CurReg / 0x07))
@@ -1151,7 +1151,7 @@ static void InitializeVGM(UINT8** DstDataRef, UINT32* DstPosRef)
 							DstData[DstPos + 0x02] = 0xC0 | TempByt;
 							DstPos += 0x03;
 						}
-						
+
 						DstData[DstPos + 0x00] = ChipCmd;
 						DstData[DstPos + 0x01] = (CurCSet << 7) | (CurReg % 0x07);
 						DstData[DstPos + 0x02] = TempReg->RegData.R08[CurReg];
@@ -1174,7 +1174,7 @@ static void InitializeVGM(UINT8** DstDataRef, UINT32* DstPosRef)
 						DstPos += 0x03;
 					}
 				}
-				
+
 				CmdType = 0x00;
 				break;
 			case 0x06:	// YM2203
@@ -1204,7 +1204,7 @@ static void InitializeVGM(UINT8** DstDataRef, UINT32* DstPosRef)
 			case 0x0C:	// YMF262
 				ChipCmd = 0x5E + CurCSet * 0x50;
 				CmdType = 0x11;
-				
+
 				CurReg = 0x105;	// OPL3 Enabe
 				if ((TempReg->RegMask[CurReg] & 0x7F) == 0x01)
 				{
@@ -1214,7 +1214,7 @@ static void InitializeVGM(UINT8** DstDataRef, UINT32* DstPosRef)
 					DstPos += 0x03;
 					TempReg->RegMask[CurReg] = 0x00;
 				}
-				
+
 				CurReg = 0x104;	// 4-Op Mode
 				if ((TempReg->RegMask[CurReg] & 0x7F) == 0x01)
 				{
@@ -1228,7 +1228,7 @@ static void InitializeVGM(UINT8** DstDataRef, UINT32* DstPosRef)
 			case 0x0D:	// YMF278B
 				ChipCmd = 0xD0;
 				CmdType = 0x20;
-				
+
 				CurReg = 0x105;	// OPL3 Enabe
 				if ((TempReg->RegMask[CurReg] & 0x7F) == 0x01)
 				{
@@ -1239,7 +1239,7 @@ static void InitializeVGM(UINT8** DstDataRef, UINT32* DstPosRef)
 					DstPos += 0x04;
 					TempReg->RegMask[CurReg] = 0x00;
 				}
-				
+
 				CurReg = 0x104;	// 4-Op Mode
 				if ((TempReg->RegMask[CurReg] & 0x7F) == 0x01)
 				{
@@ -1271,7 +1271,7 @@ static void InitializeVGM(UINT8** DstDataRef, UINT32* DstPosRef)
 						DstPos += 0x03;
 					}
 				}
-				
+
 				CmdType = 0x00;
 				break;
 			case 0x12:	// AY8910
@@ -1281,7 +1281,7 @@ static void InitializeVGM(UINT8** DstDataRef, UINT32* DstPosRef)
 			case 0x13:	// GB DMG
 				ChipCmd = 0xB3;
 				CmdType = 0x12;
-				
+
 				CurReg = 0x16;	// Master Enable must be always written first
 				if ((TempReg->RegMask[CurReg] & 0x01) &&
 					(TempReg->RegData.R08[CurReg] & 0x80))
@@ -1292,7 +1292,7 @@ static void InitializeVGM(UINT8** DstDataRef, UINT32* DstPosRef)
 					DstPos += 0x03;
 					TempReg->RegMask[CurReg] = 0x00;
 				}
-				
+
 				// was completely written / complete write ahead?
 				TempByt = 0x01;
 				for (CurReg = 0x20; CurReg < 0x30; CurReg ++)
@@ -1312,7 +1312,7 @@ static void InitializeVGM(UINT8** DstDataRef, UINT32* DstPosRef)
 						TempReg->RegMask[CurReg] = 0x00;
 					}
 				}
-				
+
 				// now write the other control regs
 				for (CurReg = 0x14; CurReg <= 0x15; CurReg ++)
 				{
@@ -1355,7 +1355,7 @@ static void InitializeVGM(UINT8** DstDataRef, UINT32* DstPosRef)
 					VGMHead.bytOKI6258Flags &= ~0x03;
 					VGMHead.bytOKI6258Flags |= TempReg->RegData.R08[0x0C] & 0x03;
 				}
-				
+
 				for (CurReg = 0x00; CurReg < 0x03; CurReg ++)
 				{
 					WrtReg = (0x02 + CurReg) % 0x03;	// write in order 02, 00, 01
@@ -1371,7 +1371,7 @@ static void InitializeVGM(UINT8** DstDataRef, UINT32* DstPosRef)
 			case 0x18:	// OKIM6295
 				ChipCmd = 0xB8;
 				CmdType = 0x12;
-				
+
 				if (! CurCSet &&	// only chip 1 can change the master clock
 					((TempReg->RegMask[0x0B] & 0x7F) == 0x01 ||
 					(TempReg->RegMask[0x0C] & 0x7F) == 0x01))
@@ -1391,7 +1391,7 @@ static void InitializeVGM(UINT8** DstDataRef, UINT32* DstPosRef)
 					for (CurReg = 0x08; CurReg <= 0x0C; CurReg ++)
 						TempReg->RegMask[CurReg] = TempReg->RegMask[0x0B];
 				}
-				
+
 				// start with non-NMK112 banking (0F)
 				// then write NMK112 bank enable (0E)
 				for (CurReg = 0x0F; CurReg >= 0x0E; CurReg --)
@@ -1410,7 +1410,7 @@ static void InitializeVGM(UINT8** DstDataRef, UINT32* DstPosRef)
 			case 0x19:	// K051649
 				ChipCmd = 0xD2;
 				CmdType = 0xFF;
-				
+
 				CurReg = 0xB0;	// Deformation Register
 				if ((TempReg->RegMask[CurReg] & 0x7F) == 0x01)
 				{
@@ -1421,7 +1421,7 @@ static void InitializeVGM(UINT8** DstDataRef, UINT32* DstPosRef)
 					DstPos += 0x04;
 					TempReg->RegMask[CurReg] = 0x00;
 				}
-				
+
 				for (CurReg = 0x00; CurReg < 0xB0; CurReg ++)
 				{
 					if ((TempReg->RegMask[CurReg] & 0x6F) == 0x01)
@@ -1459,7 +1459,7 @@ static void InitializeVGM(UINT8** DstDataRef, UINT32* DstPosRef)
 				break;
 			case 0x1B:	// HuC6280
 				ChipCmd = 0xB9;
-				
+
 				for (CurReg = 0xE5; CurReg < 0xE8; CurReg ++)
 				{
 					if ((TempReg->RegMask[CurReg] & 0x7F) == 0x01)
@@ -1474,7 +1474,7 @@ static void InitializeVGM(UINT8** DstDataRef, UINT32* DstPosRef)
 						DstPos += 0x03;
 					}
 				}
-				
+
 				for (TempByt = 0x00; TempByt < 0x06; TempByt ++)
 				{
 					CmdType = 0x00;
@@ -1487,7 +1487,7 @@ static void InitializeVGM(UINT8** DstDataRef, UINT32* DstPosRef)
 						DstData[DstPos + 0x02] = TempByt;
 						DstPos += 0x03;
 						CmdType = 0x01;
-						
+
 						// make sure the waveform index is reset
 						DstData[DstPos + 0x00] = ChipCmd;
 						DstData[DstPos + 0x01] = (CurCSet << 7) | 0x04;
@@ -1499,20 +1499,20 @@ static void InitializeVGM(UINT8** DstDataRef, UINT32* DstPosRef)
 						DstPos += 0x03;
 						if (TempReg->RegData.R08[WrtReg + 0x02] == 0x00)
 							TempReg->RegMask[WrtReg + 0x02] = 0x00;
-						
+
 						// write actual waveform data
 						for (CurReg = 0x00; CurReg < 0x20; CurReg ++)
 						{
 							if (! (TempReg->RegMask[TempByt * 0x20 + CurReg] & 0x7F))
 								break;
-							
+
 							DstData[DstPos + 0x00] = ChipCmd;
 							DstData[DstPos + 0x01] = (CurCSet << 7) | 0x06;
 							DstData[DstPos + 0x02] = TempReg->RegData.R08[TempByt * 0x20 + CurReg];
 							DstPos += 0x03;
 						}
 					}
-					
+
 					for (TempSht = 0x00; TempSht < 0x05; TempSht ++)
 					{
 						if (TempSht == 0x00)
@@ -1523,7 +1523,7 @@ static void InitializeVGM(UINT8** DstDataRef, UINT32* DstPosRef)
 							CurReg = 0x03;	// Volume
 						else if (TempSht == 0x04)
 							CurReg = 0x02;	// Control
-						
+
 						if ((TempReg->RegMask[WrtReg + CurReg] & 0x7F) == 0x01)
 						{
 							if (! CmdType)
@@ -1535,7 +1535,7 @@ static void InitializeVGM(UINT8** DstDataRef, UINT32* DstPosRef)
 								DstPos += 0x03;
 								CmdType = 0x01;
 							}
-							
+
 							DstData[DstPos + 0x00] = ChipCmd;
 							DstData[DstPos + 0x01] = (CurCSet << 7) | (0x02 + CurReg);
 							DstData[DstPos + 0x02] = TempReg->RegData.R08[WrtReg + CurReg];
@@ -1543,7 +1543,7 @@ static void InitializeVGM(UINT8** DstDataRef, UINT32* DstPosRef)
 						}
 					}
 				}
-				
+
 				CurReg = 0xE4;
 				if ((TempReg->RegMask[CurReg] & 0x7F) == 0x01)
 				{
@@ -1552,7 +1552,7 @@ static void InitializeVGM(UINT8** DstDataRef, UINT32* DstPosRef)
 					DstData[DstPos + 0x02] = TempReg->RegData.R08[CurReg];
 					DstPos += 0x03;
 				}
-				
+
 				CmdType = 0x00;
 				break;
 			case 0x1C:	// C140
@@ -1569,7 +1569,7 @@ static void InitializeVGM(UINT8** DstDataRef, UINT32* DstPosRef)
 				break;
 			case 0x1F:	// QSound
 				ChipCmd = 0xC4;
-				
+
 				for (CurReg = 0x00; CurReg < TempReg->RegCount; CurReg ++)
 				{
 					if ((TempReg->RegMask[CurReg] & 0x7F) == 0x01)
@@ -1582,7 +1582,7 @@ static void InitializeVGM(UINT8** DstDataRef, UINT32* DstPosRef)
 						DstPos += 0x04;
 					}
 				}
-				
+
 				CmdType = 0xFF;
 				break;
 			case 0x20:	// SCSP
@@ -1600,7 +1600,7 @@ static void InitializeVGM(UINT8** DstDataRef, UINT32* DstPosRef)
 			case 0x23:	// SAA1099
 				ChipCmd = 0xBD;
 				CmdType = 0x12;
-				
+
 				CurReg = 0x1C;	// All Sound Enable
 				if ((TempReg->RegMask[CurReg] & 0x7F) == 0x01)
 				{
@@ -1635,7 +1635,7 @@ static void InitializeVGM(UINT8** DstDataRef, UINT32* DstPosRef)
 				CmdType = 0xFF;
 				break;
 			}
-			
+
 			switch(CmdType & 0xF0)
 			{
 			case 0x10:
@@ -1705,7 +1705,7 @@ static void InitializeVGM(UINT8** DstDataRef, UINT32* DstPosRef)
 							if ((CurReg & 0xF0) == 0xA0)
 								TempSht = 0xB0 | (CurReg & 0x10F);
 							else	// order for A0..A7 is A4 A0 A5 A1 A6 A2 A7 A3
-								TempSht = 0xA0 | (CurReg & 0x108) | 
+								TempSht = 0xA0 | (CurReg & 0x108) |
 											((CurReg & 0x07) >> 1) |
 											((~CurReg & 0x01) << 2);
 						}
@@ -1741,10 +1741,10 @@ static void InitializeVGM(UINT8** DstDataRef, UINT32* DstPosRef)
 			}
 		}
 	}
-	
+
 	*DstPosRef = DstPos;
 	*DstDataRef = DstData;
-	
+
 	return;
 }
 
@@ -1752,7 +1752,7 @@ static UINT16 GetChipCommand(UINT8 Command)
 {
 	// Note: returns ChipID only for PSG and YM-chips
 	UINT8 ChipID;
-	
+
 	// Cheat Mode (to use 2 instances of 1 chip)
 	ChipID = 0x00;
 	switch(Command)
@@ -1846,7 +1846,7 @@ static UINT16 GetChipCommand(UINT8 Command)
 		}
 		break;
 	}
-	
+
 	return (ChipID << 8) | (Command << 0);
 }
 
@@ -1856,7 +1856,7 @@ static void HandleDeltaTWrite(CHIP_DATA* ChipData, UINT8 ChipType, UINT16 BaseRe
 	CHIP_MEMORY* TempMem;
 	const UINT8* RegData;
 	UINT8 AddrShift;
-	
+
 	if (Reg < BaseReg || Reg >= BaseReg + 0x10)
 		return;
 	// Handle RAM writes
@@ -1864,10 +1864,10 @@ static void HandleDeltaTWrite(CHIP_DATA* ChipData, UINT8 ChipType, UINT16 BaseRe
 	TempMem = &ChipData->Mem;
 	RegData = &TempReg->RegData.R08[BaseReg];
 	Reg -= BaseReg;
-	
+
 	if ((RegData[0x00] & 0xE0) != 0x60)
 		return;
-	
+
 	if (Reg == 0x00)
 	{
 		if (TempMem->MemData == NULL || ! TempMem->MemSize)
@@ -1905,7 +1905,7 @@ static void HandleDeltaTWrite(CHIP_DATA* ChipData, UINT8 ChipType, UINT16 BaseRe
 		}
 		TempMem->CurAddr ++;
 	}
-	
+
 	return;
 }
 
@@ -1922,14 +1922,14 @@ static UINT32 ReadCommand(UINT8 Mask)
 	CHIP_STATE* TempReg;
 	CHIP_MEMORY* TempMem;
 	UINT32 CmdLen;
-	
+
 	CmdReg = GetChipCommand(VGMData[VGMPos + 0x00]);
 	if (! CmdReg)
 		return 0x00;
-	
+
 	ChipID = (CmdReg & 0x0FF00) >> 8;
 	Command = (CmdReg & 0x00FF) >> 0;
-	
+
 	CmdLen = 0x00;
 	TempChp = NULL;
 	switch(Command)
@@ -1944,7 +1944,7 @@ static UINT32 ReadCommand(UINT8 Mask)
 				TempReg->RegData.R08[0x11] = (UINT8)CmdReg;
 			else
 				CmdReg = TempReg->RegData.R08[0x11] & 0x07;
-			
+
 			if (CmdReg < TempReg->RegCount)
 			{
 				TempReg->RegMask[CmdReg] |= Mask;
@@ -1952,7 +1952,7 @@ static UINT32 ReadCommand(UINT8 Mask)
 					TempReg->RegData.R08[CmdReg] = VGMData[VGMPos + 0x01];
 			}
 		}
-		
+
 		CmdLen = 0x02;
 		break;
 	case 0x4F:	// GG Stereo
@@ -1965,7 +1965,7 @@ static UINT32 ReadCommand(UINT8 Mask)
 			if (Mask == 0x01)
 				TempReg->RegData.R08[CmdReg] = VGMData[VGMPos + 0x01];
 		}
-		
+
 		CmdLen = 0x02;
 		break;
 	case 0x51:	// YM2413 write
@@ -1987,7 +1987,7 @@ static UINT32 ReadCommand(UINT8 Mask)
 		else if (Command == 0x5D)
 			TempChp = &RC[ChipID].YMZ280B;
 		TempReg = &TempChp->Regs;
-		
+
 		if (TempReg->RegCount)
 		{
 			CmdReg = VGMData[VGMPos + 0x01];
@@ -2002,7 +2002,7 @@ static UINT32 ReadCommand(UINT8 Mask)
 				}
 			}
 		}
-		
+
 		CmdLen = 0x03;
 		break;
 	case 0x52:	// YM2612 write port 0
@@ -2022,7 +2022,7 @@ static UINT32 ReadCommand(UINT8 Mask)
 		else if ((Command & 0xFE) == 0x5E)
 			TempChp = &RC[ChipID].YMF262;
 		TempReg = &TempChp->Regs;
-		
+
 		if (TempReg->RegCount)
 		{
 			CmdReg = ((Command & 0x01) << 8) | VGMData[VGMPos + 0x01];
@@ -2039,7 +2039,7 @@ static UINT32 ReadCommand(UINT8 Mask)
 				}
 			}
 		}
-		
+
 		CmdLen = 0x03;
 		break;
 	case 0x54:	// YM2151 write
@@ -2052,7 +2052,7 @@ static UINT32 ReadCommand(UINT8 Mask)
 				CmdReg = 0xFFFF;
 			else if (CmdReg == 0x19 && (VGMData[VGMPos + 0x02] & 0x80))
 				CmdReg = 0x1A;
-			
+
 			if (CmdReg < TempReg->RegCount)
 			{
 				TempReg->RegMask[CmdReg] |= Mask;
@@ -2060,7 +2060,7 @@ static UINT32 ReadCommand(UINT8 Mask)
 					TempReg->RegData.R08[CmdReg] = VGMData[VGMPos + 0x02];
 			}
 		}
-		
+
 		CmdLen = 0x03;
 		break;
 	case 0xC0:	// Sega PCM memory write
@@ -2076,7 +2076,7 @@ static UINT32 ReadCommand(UINT8 Mask)
 					TempReg->RegData.R08[CmdReg] = VGMData[VGMPos + 0x03];
 			}
 		}
-		
+
 		CmdLen = 0x04;
 		break;
 	case 0xB0:	// RF5C68 register write
@@ -2110,7 +2110,7 @@ static UINT32 ReadCommand(UINT8 Mask)
 				TempReg->RegMask[CmdReg] |= Mask;
 				if (Mask == 0x01)
 					TempReg->RegData.R08[CmdReg] = VGMData[VGMPos + 0x02];
-				
+
 				CmdReg ^= 0x01;	// force Chip Enable for both regs
 				TempReg->RegData.R08[CmdReg] |= VGMData[VGMPos + 0x02] & 0x80;
 			}
@@ -2122,7 +2122,7 @@ static UINT32 ReadCommand(UINT8 Mask)
 					TempReg->RegData.R08[CmdReg] = VGMData[VGMPos + 0x02];
 			}
 		}
-		
+
 		CmdLen = 0x03;
 		break;
 	case 0xC3:	// MultiPCM bank write
@@ -2157,7 +2157,7 @@ static UINT32 ReadCommand(UINT8 Mask)
 		else if (Command == 0xC8)
 			TempChp = &RC[ChipID].X1_010;
 		TempReg = &TempChp->Regs;
-		
+
 		if (TempReg->RegCount)
 		{
 			CmdReg = ((VGMData[VGMPos + 0x01] & 0x7F) << 8) | VGMData[VGMPos + 0x02];
@@ -2178,7 +2178,7 @@ static UINT32 ReadCommand(UINT8 Mask)
 							TempMem->CurAddr &= 0x3FFFFF;
 							if (TempReg->RegData.R08[0x202] & 0x02)
 								printf("Warning: OPL4 in Mem Mode 1! Please report!\n");
-							
+
 							// subtract ROM size (results in intended overflow for ROM offsets)
 							TempMem->CurAddr -= TempMem->StopAddr;
 						}
@@ -2197,14 +2197,14 @@ static UINT32 ReadCommand(UINT8 Mask)
 				}
 			}
 		}
-		
+
 		CmdLen = 0x04;
 		break;
 	case 0xD2:	// SCC1 write
 		ChipID = VGMData[VGMPos + 0x01] >> 7;
 		TempChp = &RC[ChipID].K051649;
 		TempReg = &TempChp->Regs;
-		
+
 		if (TempReg->RegCount)
 		{
 			CmdReg = VGMData[VGMPos + 0x01] & 0x7F;
@@ -2235,7 +2235,7 @@ static UINT32 ReadCommand(UINT8 Mask)
 				}
 			}
 		}
-		
+
 		CmdLen = 0x04;
 		break;
 	case 0xB2:	// PWM register write
@@ -2252,7 +2252,7 @@ static UINT32 ReadCommand(UINT8 Mask)
 													(VGMData[VGMPos + 0x02] << 0);
 			}
 		}
-		
+
 		CmdLen = 0x03;
 		break;
 	case 0xA0:	// AY8910 write
@@ -2293,7 +2293,7 @@ static UINT32 ReadCommand(UINT8 Mask)
 		else if (Command == 0xBF)
 			TempChp = &RC[ChipID].GA20;
 		TempReg = &TempChp->Regs;
-		
+
 		if (TempReg->RegCount)
 		{
 			CmdReg = VGMData[VGMPos + 0x01] & 0x7F;
@@ -2304,14 +2304,14 @@ static UINT32 ReadCommand(UINT8 Mask)
 					TempReg->RegData.R08[CmdReg] = VGMData[VGMPos + 0x02];
 			}
 		}
-		
+
 		CmdLen = 0x03;
 		break;
 	case 0xB9:	// HuC6280 write
 		ChipID = VGMData[VGMPos + 0x01] >> 7;
 		TempChp = &RC[ChipID].HuC6280;
 		TempReg = &TempChp->Regs;
-		
+
 		if (TempReg->RegCount)
 		{
 			// 00-BF - Waveform RAM
@@ -2335,7 +2335,7 @@ static UINT32 ReadCommand(UINT8 Mask)
 					CmdReg = 0xFFFF;
 					break;
 				}
-				
+
 				ChnReg = 0xC0 + TempReg->RegData.R08[0xE4] * 0x06;
 				if (CmdReg == 0x04)
 				{
@@ -2370,7 +2370,7 @@ static UINT32 ReadCommand(UINT8 Mask)
 				CmdReg = 0xFFFF;
 				break;
 			}
-			
+
 			if (CmdReg < TempReg->RegCount)
 			{
 				TempReg->RegMask[CmdReg] |= Mask;
@@ -2378,13 +2378,13 @@ static UINT32 ReadCommand(UINT8 Mask)
 					TempReg->RegData.R08[CmdReg] = VGMData[VGMPos + 0x02];
 			}
 		}
-		
+
 		CmdLen = 0x03;
 		break;
 	case 0xC4:	// Q-Sound write
 		TempChp = &RC[ChipID].QSound;
 		TempReg = &TempChp->Regs;
-		
+
 		if (TempReg->RegCount)
 		{
 			CmdReg = VGMData[VGMPos + 0x03];
@@ -2396,7 +2396,7 @@ static UINT32 ReadCommand(UINT8 Mask)
 													(VGMData[VGMPos + 0x02] << 0);
 			}
 		}
-		
+
 		CmdLen = 0x04;
 		break;
 	case 0xBE:	// ES5506 write (8-bit data)
@@ -2407,7 +2407,7 @@ static UINT32 ReadCommand(UINT8 Mask)
 		break;
 	}
 	CommandCheck(0x00, Command, TempChp, CmdReg);
-	
+
 	return CmdLen;
 }
 
@@ -2420,21 +2420,21 @@ static void CommandCheck(UINT8 Mode, UINT8 Command, CHIP_DATA* ChpData, UINT16 C
 	UINT8 CurChn;
 	UINT8 KeyOnOff;
 	UINT16 TempSht;
-	
+
 	if (ChpData == NULL)
 		return;
 	TempReg = &ChpData->Regs;
 	TempChn = &ChpData->Chns;
 	if (! TempChn->ChnCount)
 		return;
-	
+
 	switch(Command)
 	{
 	case 0x50:	// SN76496 write
 		CmdReg &= ~0x09;
 		CurChn = (CmdReg & 0x06) >> 1;
 		KeyOnOff = 0x00;
-		
+
 		if (CurChn < 3)	// not on noise channel
 		{
 			// test Frequency
@@ -2446,7 +2446,7 @@ static void CommandCheck(UINT8 Mode, UINT8 Command, CHIP_DATA* ChpData, UINT16 C
 		// test volume
 		if ((TempReg->RegData.R08[CmdReg | 0x09] & 0x0F) == 0x0F)
 			KeyOnOff |= 0x01;	// volume 0 - key off
-		
+
 		KeyOnOff = ! KeyOnOff;
 		TempChn->ChnMask &= ~(1 << CurChn);
 		TempChn->ChnMask |= (KeyOnOff << CurChn);
@@ -2467,7 +2467,7 @@ static void CommandCheck(UINT8 Mode, UINT8 Command, CHIP_DATA* ChpData, UINT16 C
 		{
 			CurChn = 9 + 5;	// 9 FM + 5 Rhythm
 			KeyOnOff = (TempReg->RegData.R08[CmdReg] & 0x80) >> 7;
-			
+
 			TempChn->ChnMask &= ~(1 << CurChn);
 			TempChn->ChnMask |= (KeyOnOff << CurChn);
 		}
@@ -2510,7 +2510,7 @@ static void CommandCheck(UINT8 Mode, UINT8 Command, CHIP_DATA* ChpData, UINT16 C
 		{
 			CurChn = TempReg->RegData.R08[CmdReg] & 0x07;
 			KeyOnOff = (TempReg->RegData.R08[CmdReg] & 0x78) ? 0x01 : 0x00;
-			
+
 			TempChn->ChnMask &= ~(1 << CurChn);
 			TempChn->ChnMask |= (KeyOnOff << CurChn);
 		}
@@ -2520,7 +2520,7 @@ static void CommandCheck(UINT8 Mode, UINT8 Command, CHIP_DATA* ChpData, UINT16 C
 		{
 			CurChn = (CmdReg >> 3) & 0x0F;
 			KeyOnOff = TempReg->RegData.R08[CmdReg] & 0x01;
-			
+
 			TempChn->ChnMask &= ~(1 << CurChn);
 			TempChn->ChnMask |= (KeyOnOff << CurChn);
 		}
@@ -2539,7 +2539,7 @@ static void CommandCheck(UINT8 Mode, UINT8 Command, CHIP_DATA* ChpData, UINT16 C
 		{
 			CurChn = (CmdReg & 0x1C) >> 2;
 			KeyOnOff = (TempReg->RegData.R08[CmdReg] & 0x80) >> 7;
-			
+
 			TempChn->ChnMask &= ~(1 << CurChn);
 			TempChn->ChnMask |= (KeyOnOff << CurChn);
 		}
@@ -2557,7 +2557,7 @@ static void CommandCheck(UINT8 Mode, UINT8 Command, CHIP_DATA* ChpData, UINT16 C
 			{
 				CurChn = CmdReg - 0x68;
 				KeyOnOff = (TempReg->RegData.R08[CmdReg] & 0x80) >> 7;
-				
+
 				TempChn->ChnMask2 &= ~(1 << CurChn);
 				TempChn->ChnMask2 |= (KeyOnOff << CurChn);
 			}
@@ -2584,7 +2584,7 @@ static void CommandCheck(UINT8 Mode, UINT8 Command, CHIP_DATA* ChpData, UINT16 C
 			TempSht = ~TempReg->RegData.R08[0x07] & 0x3F;
 			CurChn = CmdReg - 0x08;
 			KeyOnOff = TempReg->RegData.R08[CmdReg] ? 0x09 : 0;
-			
+
 			TempChn->ChnMask &= ~(0x09 << CurChn);
 			TempChn->ChnMask |= (KeyOnOff << CurChn) & TempSht;
 		}
@@ -2596,7 +2596,7 @@ static void CommandCheck(UINT8 Mode, UINT8 Command, CHIP_DATA* ChpData, UINT16 C
 			{
 				CurChn = CmdReg / 0x05;
 				KeyOnOff = (TempReg->RegData.R08[CmdReg] & 0x80) >> 7;
-				
+
 				// just ORs the enable-bit, doesn't reset it
 				TempChn->ChnMask |= (KeyOnOff << CurChn);
 			}
@@ -2604,7 +2604,7 @@ static void CommandCheck(UINT8 Mode, UINT8 Command, CHIP_DATA* ChpData, UINT16 C
 			{
 				CurChn = CmdReg / 0x05;
 				KeyOnOff = (TempReg->RegData.R08[CmdReg] & 0x80) >> 7;
-				
+
 				TempChn->ChnMask &= ~(1 << CurChn);
 				TempChn->ChnMask |= (KeyOnOff << CurChn);
 			}
@@ -2615,7 +2615,7 @@ static void CommandCheck(UINT8 Mode, UINT8 Command, CHIP_DATA* ChpData, UINT16 C
 		{
 			TempChn->ChnMask = TempReg->RegData.R08[0x15] & 0x1F;
 		}
-		
+
 		break;
 	case 0xB9:	// HuC6280 write
 		if (CmdReg >= 0xC0 && CmdReg <= 0xE3)
@@ -2625,7 +2625,7 @@ static void CommandCheck(UINT8 Mode, UINT8 Command, CHIP_DATA* ChpData, UINT16 C
 			{
 				CurChn = TempSht / 0x06;
 				KeyOnOff = (TempReg->RegData.R08[CmdReg] & 0x80) >> 7;
-				
+
 				TempChn->ChnMask &= ~(1 << CurChn);
 				TempChn->ChnMask |= (KeyOnOff << CurChn);
 			}
@@ -2645,7 +2645,7 @@ static void CommandCheck(UINT8 Mode, UINT8 Command, CHIP_DATA* ChpData, UINT16 C
 					KeyOnOff = 0x00;	// frequency 0
 				else if (! TempReg->RegData.R16[TempSht | 0x06])
 					KeyOnOff = 0x00;	// volume 0
-				
+
 				TempChn->ChnMask &= ~(1 << CurChn);
 				TempChn->ChnMask |= (KeyOnOff << CurChn);
 			}
@@ -2663,7 +2663,7 @@ static void CommandCheck(UINT8 Mode, UINT8 Command, CHIP_DATA* ChpData, UINT16 C
 			{
 				CurChn = TempSht >> 4;
 				KeyOnOff = (TempReg->RegData.R08[CmdReg] & 0x80) >> 7;
-				
+
 				TempChn->ChnMask &= ~(1 << CurChn);
 				TempChn->ChnMask |= (KeyOnOff << CurChn);
 			}
@@ -2691,7 +2691,7 @@ static void CommandCheck(UINT8 Mode, UINT8 Command, CHIP_DATA* ChpData, UINT16 C
 			TempSht = TempReg->RegData.R08[0x14] | TempReg->RegData.R08[0x15];
 			CurChn = CmdReg & 0x07;
 			KeyOnOff = TempReg->RegData.R08[CmdReg] ? 1 : 0;
-			
+
 			TempChn->ChnMask &= ~(1 << CurChn);
 			TempChn->ChnMask |= (KeyOnOff << CurChn) & TempSht;
 		}
@@ -2709,7 +2709,7 @@ static void CommandCheck(UINT8 Mode, UINT8 Command, CHIP_DATA* ChpData, UINT16 C
 	case 0xBF:	// GA20 write
 		break;
 	}
-	
+
 	return;
 }
 
@@ -2718,7 +2718,7 @@ static void CmdChk_OPL(CHIP_CHNS* ChnState, UINT8 OPLMode, UINT16 CmdReg, UINT8 
 	UINT16 RhythmReg;
 	UINT8 CurChn;
 	UINT8 KeyOnOff;
-	
+
 	if (OPLMode == 'L')
 	{
 		// OPLL register order
@@ -2732,11 +2732,11 @@ static void CmdChk_OPL(CHIP_CHNS* ChnState, UINT8 OPLMode, UINT16 CmdReg, UINT8 
 			return;
 		RhythmReg = 0xBD;
 	}
-	
+
 	if (CmdReg == RhythmReg)
 	{
 		CurChn = (OPLMode == '3') ? 18 : 9;	// base channel for drums
-		
+
 		// Rhythm Off: disable all, Rhythm On: use mask
 		KeyOnOff = (Data & 0x20) ? (Data & 0x1F) : 0x00;
 		ChnState->ChnMask &= ~(0x1F << CurChn);
@@ -2749,11 +2749,11 @@ static void CmdChk_OPL(CHIP_CHNS* ChnState, UINT8 OPLMode, UINT16 CmdReg, UINT8 
 			KeyOnOff = (Data & 0x10) >> 4;
 		else
 			KeyOnOff = (Data & 0x20) >> 5;
-		
+
 		ChnState->ChnMask &= ~(1 << CurChn);
 		ChnState->ChnMask |= (KeyOnOff << CurChn);
 	}
-	
+
 	return;
 }
 
@@ -2763,7 +2763,7 @@ static void CmdChk_OPN(CHIP_CHNS* ChnState, UINT8 OPNMode, UINT16 CmdReg, UINT8 
 	UINT16 ADPCMReg;
 	UINT8 CurChn;
 	UINT8 KeyOnOff;
-	
+
 	if (OPNMode == 'A')
 	{
 		ADPCMReg = 0x010;
@@ -2779,14 +2779,14 @@ static void CmdChk_OPN(CHIP_CHNS* ChnState, UINT8 OPNMode, UINT16 CmdReg, UINT8 
 		ADPCMReg = 0x00;
 		DeltaTReg = 0x00;
 	}
-	
+
 	if (CmdReg == 0x028)	// OPN Key On/Off
 	{
 		CurChn = Data & 0x03;
 		if (OPNMode != 0)	// all but YM2203: enable channels 3-5
 			CurChn += ((Data & 0x04) / 0x04 * 3);
 		KeyOnOff = (Data & 0xF0) ? 0x01 : 0x00;
-		
+
 		ChnState->ChnMask &= ~(1 << CurChn);
 		ChnState->ChnMask |= (KeyOnOff << CurChn);
 	}
@@ -2815,11 +2815,11 @@ static void CmdChk_OPN(CHIP_CHNS* ChnState, UINT8 OPNMode, UINT16 CmdReg, UINT8 
 	{
 		CurChn = 6 + 6;	// 6 FM + 6 ADPCM
 		KeyOnOff = (Data & 0x80) >> 7;
-		
+
 		ChnState->ChnMask &= ~(1 << CurChn);
 		ChnState->ChnMask |= (KeyOnOff << CurChn);
 	}
-	
+
 	return;
 }
 
@@ -2855,13 +2855,13 @@ void TrimVGMData(const INT32 StartSmpl, const INT32 LoopSmpl, const INT32 EndSmp
 	bool ForceCmdWrite;
 	const UINT8* TempData;
 	UINT32 DataStart;
-	
+
 	// +0x100 - Make sure to have enough room for additional delays
 	DstDataLen = VGMDataLen + 0x100;
 	CmdDelay = 0;
 	VGMPos = VGMHead.lngDataOffset;
 	DstPos = VGMHead.lngDataOffset;
-	
+
 	switch(HasLoop)
 	{
 	case 0x00:	// No Loop
@@ -2875,24 +2875,24 @@ void TrimVGMData(const INT32 StartSmpl, const INT32 LoopSmpl, const INT32 EndSmp
 		break;
 	}
 	EndSmplA = EndSmpl + (KeepESmpl ? 1 : 0);
-	
+
 	PrepareChipMemory();
 	SetImportantCommands();
-	
+
 	for (ChipID = 0x00; ChipID < CHIP_SETS; ChipID ++)
 	{
 		TempCD = (CHIP_DATA*)&RC[ChipID];
-		
+
 		for (TempByt = 0x00; TempByt < CHIP_COUNT; TempByt ++, TempCD ++)
 		{
 			DstDataLen += TempCD->Mem.MemSize;
 		}
 		RC[ChipID].YMF278B.Mem.StopAddr = 0x200000;	// default ROM size is 2 MB
 	}
-	
+
 	if (DstData == NULL)	// now allocate memory, if needed
 		DstData = (UINT8*)malloc(DstDataLen);
-	
+
 #ifdef SHOW_PROGRESS
 	CmdTimer = 0;
 #endif
@@ -2901,7 +2901,7 @@ void TrimVGMData(const INT32 StartSmpl, const INT32 LoopSmpl, const INT32 EndSmp
 	StopVGM = false;
 	DlyToWrt = false;
 	WriteMode = 0x00;
-	
+
 	CmdLen = 0x00;
 	CmdDelay = 0x00;
 	DelayOff = false;
@@ -2912,7 +2912,7 @@ void TrimVGMData(const INT32 StartSmpl, const INT32 LoopSmpl, const INT32 EndSmp
 		//       This is intentional, because the first sample requires to check the VGM start sample
 		//       before the first command is read. In all other cases, the check must occour between
 		//       reading the command and copying it to the trimmed file.
-		
+
 		// --- Loop Part 2: Trimming ---
 		switch(WriteMode)
 		{
@@ -2920,12 +2920,12 @@ void TrimVGMData(const INT32 StartSmpl, const INT32 LoopSmpl, const INT32 EndSmp
 			if (VGMSmplPos >= StartSmpl)
 			{
 				// Beginn to write to trimmed vgm
-				
+
 				// Rewrite neccessary commands
 				VGMReadAhead(VGMPos + CmdLen, 2 * 44100);	// Read 2 seconds ahead
-				
+
 				InitializeVGM(&DstData, &DstPos);
-				
+
 				CmdDelay = VGMSmplPos - StartSmpl;	// queue Initial Delay
 				if (CmdDelay & 0x80000000)	// if CmdDelay < 0 for unsigned
 				{
@@ -2933,7 +2933,7 @@ void TrimVGMData(const INT32 StartSmpl, const INT32 LoopSmpl, const INT32 EndSmp
 					CmdDelay = 0x00;
 				}
 				DlyToWrt = true;
-				
+
 				DelayOff = true;
 				WriteMode = 0x01;
 			}
@@ -2961,9 +2961,9 @@ void TrimVGMData(const INT32 StartSmpl, const INT32 LoopSmpl, const INT32 EndSmp
 						TempLng = 0x00;
 					}
 					VGMLib_WriteDelay(DstData, &DstPos, TempLng, NULL);
-					
+
 					LoopPos = DstPos;
-					
+
 					CmdDelay = VGMSmplPos - LoopSmplA;	// queue Delay after Loop
 					if (CmdDelay & 0x80000000)	// CmdDelay overflow check
 					{
@@ -2988,7 +2988,7 @@ void TrimVGMData(const INT32 StartSmpl, const INT32 LoopSmpl, const INT32 EndSmp
 					VGMLib_WriteDelay(DstData, &DstPos, TempLng, NULL);
 					DstData[DstPos] = 0x66;
 					DstPos ++;
-					
+
 					if (HasLoop)
 					{
 						WriteVGMHeader(DstData, VGMData, DstPos, EndSmpl - StartSmpl,
@@ -3001,7 +3001,7 @@ void TrimVGMData(const INT32 StartSmpl, const INT32 LoopSmpl, const INT32 EndSmp
 						WriteVGMHeader(DstData, VGMData, DstPos, EndSmpl - StartSmpl,
 										0x00, 0x00);
 					}
-					
+
 					StopVGM = true;
 					WriteMode = 0x02;
 					break;
@@ -3011,7 +3011,7 @@ void TrimVGMData(const INT32 StartSmpl, const INT32 LoopSmpl, const INT32 EndSmp
 					IsDelay = false;
 				}
 			}
-			
+
 			if (DlyToWrt)
 			{
 				// write remaining delays ("left-overs" from Start and Loop Start)
@@ -3030,7 +3030,7 @@ void TrimVGMData(const INT32 StartSmpl, const INT32 LoopSmpl, const INT32 EndSmp
 		VGMPos += CmdLen;
 		if (StopVGM)
 			break;
-		
+
 		// --- Loop Part 1: Reading a Command ---
 		CmdDelay = 0x00;
 		DelayOff = false;
@@ -3062,7 +3062,7 @@ void TrimVGMData(const INT32 StartSmpl, const INT32 LoopSmpl, const INT32 EndSmp
 			CmdLen = ReadCommand(0x01);
 			if (! CmdLen)
 			{
-			
+
 			ChipID = 0x00;
 			switch(Command)
 			{
@@ -3094,10 +3094,10 @@ void TrimVGMData(const INT32 StartSmpl, const INT32 LoopSmpl, const INT32 EndSmp
 			case 0x67:	// PCM Data Stream
 				TempByt = VGMData[VGMPos + 0x02];
 				TempLng = ReadLE32(&VGMData[VGMPos + 0x03]);
-				
+
 				ChipID = (TempLng & 0x80000000) >> 31;
 				TempLng &= 0x7FFFFFFF;
-				
+
 				switch(TempByt & 0xC0)
 				{
 				case 0x00:	// Database Block
@@ -3111,7 +3111,7 @@ void TrimVGMData(const INT32 StartSmpl, const INT32 LoopSmpl, const INT32 EndSmp
 						UINT32 ROMSize;
 						UINT32 DataStart;
 						UINT32 DataLen;
-						
+
 						TempMem = NULL;
 						if (TempByt == 0x81)	// YM2608 DeltaT RAM
 							TempMem = &RC[ChipID].YM2608.Mem;
@@ -3124,7 +3124,7 @@ void TrimVGMData(const INT32 StartSmpl, const INT32 LoopSmpl, const INT32 EndSmp
 						ROMSize = ReadLE32(&VGMData[VGMPos + 0x07]);
 						DataStart = ReadLE32(&VGMData[VGMPos + 0x0B]);
 						DataLen = TempLng - 0x08;
-						
+
 						if (TempMem->MemData == NULL || TempMem->MemSize != ROMSize)
 						{
 							TempMem->MemSize = ROMSize;
@@ -3199,7 +3199,7 @@ void TrimVGMData(const INT32 StartSmpl, const INT32 LoopSmpl, const INT32 EndSmp
 								DataStart = 0x8000;
 								CmdLen -= TempSht;
 							}
-							
+
 							DataStart &= 0x7FFF;
 							memcpy(&TempMem->MemData[DataStart], TempData, CmdLen);
 							if (DataStart + CmdLen > TempMem->MemMaxOfs)
@@ -3258,7 +3258,7 @@ void TrimVGMData(const INT32 StartSmpl, const INT32 LoopSmpl, const INT32 EndSmp
 				TempSht = (VGMData[VGMPos + 0x01] << 8) | (VGMData[VGMPos + 0x02] << 0);
 				ChipID = (TempSht & 0x8000) >> 15;
 				TempSht &= 0x7FFF;
-				
+
 				TempMem = &RC[ChipID].WSwan.Mem;
 				if (TempMem->MemSize)
 				{
@@ -3321,10 +3321,10 @@ void TrimVGMData(const INT32 StartSmpl, const INT32 LoopSmpl, const INT32 EndSmp
 				}
 				break;
 			}	// end switch(Command)
-			
+
 			}	// end if (! CmdLen)
 		}
-		
+
 #ifdef SHOW_PROGRESS
 		if (CmdTimer < GetTickCount())
 		{
@@ -3338,11 +3338,11 @@ void TrimVGMData(const INT32 StartSmpl, const INT32 LoopSmpl, const INT32 EndSmp
 		}
 #endif
 	}
-	
+
 	for (ChipID = 0x00; ChipID < CHIP_SETS; ChipID ++)
 	{
 		TempCD = (CHIP_DATA*)&RC[ChipID];
-		
+
 		for (TempByt = 0x00; TempByt < CHIP_COUNT; TempByt ++, TempCD ++)
 		{
 			if (TempCD->Regs.RegData.R08 != NULL)
@@ -3353,7 +3353,7 @@ void TrimVGMData(const INT32 StartSmpl, const INT32 LoopSmpl, const INT32 EndSmp
 				free(TempCD->Mem.MemData);
 		}
 	}
-	
+
 	return;
 }
 
@@ -3365,7 +3365,7 @@ static void WriteVGMHeader(UINT8* DstData, const UINT8* SrcData, const UINT32 EO
 	UINT32 DstPos;
 	UINT32 CmdLen;
 	UINT32 TempLng;
-	
+
 	memcpy(DstData, VGMData, VGMHead.lngDataOffset);	// Copy Header
 	WriteLE32(&DstData[0x18], SampleCount);
 	TempLng = LoopPos;
@@ -3384,7 +3384,7 @@ static void WriteVGMHeader(UINT8* DstData, const UINT8* SrcData, const UINT32 EO
 		// rewrite OKIM6295 clock
 		WriteLE32(&DstData[0x98], VGMHead.lngHzOKIM6295);
 	}
-	
+
 	DstPos = EOFPos;
 	if (VGMHead.lngGD3Offset && VGMHead.lngGD3Offset + 0x0B < VGMHead.lngEOFOffset)
 	{
@@ -3394,18 +3394,18 @@ static void WriteVGMHeader(UINT8* DstData, const UINT8* SrcData, const UINT32 EO
 		{
 			CmdLen = ReadLE32(&VGMData[CurPos + 0x08]);
 			CmdLen += 0x0C;
-			
+
 			TempLng = DstPos - 0x14;
 			WriteLE32(&DstData[0x14], TempLng);
 			memcpy(&DstData[DstPos], &VGMData[CurPos], CmdLen);	// Copy GD3 Tag
 			DstPos += CmdLen;
 		}
 	}
-	
+
 	DstDataLen = DstPos;
 	TempLng = DstDataLen - 0x04;
 	WriteLE32(&DstData[0x04], TempLng);	// Write EOF Position
-	
+
 	return;
 }
 
@@ -3423,10 +3423,10 @@ static void VGMReadAhead(const UINT32 StartPos, const UINT32 Samples)
 	//UINT16 CmdReg;
 	//UINT8* TempPnt;
 	bool StopVGM;
-	
+
 	if (COMPLETE_REWRITE || VGMTOOL_TRIM)
 		return;
-	
+
 	CurPos = StartPos;
 	CurSmpl = 0x00;
 	StopVGM = false;
@@ -3434,7 +3434,7 @@ static void VGMReadAhead(const UINT32 StartPos, const UINT32 Samples)
 	{
 		CmdLen = 0x00;
 		Command = VGMData[CurPos + 0x00];
-		
+
 		if (Command >= 0x70 && Command <= 0x8F)
 		{
 			switch(Command & 0xF0)
@@ -3455,7 +3455,7 @@ static void VGMReadAhead(const UINT32 StartPos, const UINT32 Samples)
 			CmdLen = ReadCommand(0x02);
 			if (! CmdLen)
 			{
-			
+
 			switch(Command)
 			{
 			case 0x66:	// End Of File
@@ -3540,7 +3540,7 @@ static void VGMReadAhead(const UINT32 StartPos, const UINT32 Samples)
 				}
 				break;
 			}
-			
+
 			}
 		}
 		CurPos += CmdLen;
@@ -3549,7 +3549,7 @@ static void VGMReadAhead(const UINT32 StartPos, const UINT32 Samples)
 		if (StopVGM)
 			break;
 	}
-	
+
 	return;
 }
 
@@ -3561,13 +3561,13 @@ static void DisplayPlayingNoteWarning(void)
 	CHIP_CHNS* TempChn;
 	char ChnStr[0x80];	// enough space for 32+ channels
 	bool DidWarn;
-	
+
 	DidWarn = false;
 	// go through all chips and check for playing notes ...
 	for (CurCSet = 0x00; CurCSet < CHIP_SETS; CurCSet ++)
 	{
 		TempCD = (CHIP_DATA*)&RC[CurCSet];
-		
+
 		for (CurChip = 0x00; CurChip < CHIP_COUNT; CurChip ++, TempCD ++)
 		{
 			TempChn = &TempCD->Chns;
@@ -3578,14 +3578,14 @@ static void DisplayPlayingNoteWarning(void)
 					printf("Warning: Notes playing after EOF!\n");
 					DidWarn = true;
 				}
-				
+
 				ShowPlayingNotes(CHIP_STRS[CurChip], TempChn->ChnCount, TempChn->ChnMask, ChnStr, TempChn->unsafeKey);
 				if (TempChn->ChnCount2)
 					ShowPlayingNotes(CHIP_STRS2[CurChip], TempChn->ChnCount2, TempChn->ChnMask2, ChnStr, TempChn->unsafeKey);
 			}
 		}
 	}
-	
+
 	return;
 }
 
@@ -3594,7 +3594,7 @@ static void ShowPlayingNotes(const char* ChipStr, UINT16 ChnCount, UINT32 ChnMas
 	char* ChnPtr;
 	UINT16 CurChn;
 	UINT16 PlayChnCnt;
-	
+
 	ChnPtr = Buffer;
 	PlayChnCnt = 0x00;
 	for (CurChn = 0x00; CurChn < ChnCount; CurChn ++)
@@ -3608,10 +3608,10 @@ static void ShowPlayingNotes(const char* ChipStr, UINT16 ChnCount, UINT32 ChnMas
 	if (! PlayChnCnt)
 		return;
 	ChnPtr[-2] = '\0';	// strip last ", "
-	
+
 	printf("%s: %u channel%s %splaying (%s)\n", ChipStr, PlayChnCnt, unsafe ? "possibly " : "",
 			(PlayChnCnt != 1) ? "s" : "", Buffer);
-	
+
 	return;
 }
 

@@ -48,9 +48,9 @@ int main(int argc, char* argv[])
 	int ErrVal;
 	char FileName[0x100];
 	UINT8 FileID;
-	
+
 	printf("VGM Undualizer\n--------------\n\n");
-	
+
 	ErrVal = 0;
 	argbase = 1;
 	printf("File Name:\t");
@@ -65,7 +65,7 @@ int main(int argc, char* argv[])
 	}
 	if (! strlen(FileName))
 		return 0;
-	
+
 	if (! OpenVGMFile(FileName))
 	{
 		printf("Error opening the file!\n");
@@ -73,20 +73,20 @@ int main(int argc, char* argv[])
 		goto EndProgram;
 	}
 	printf("\n");
-	
+
 	SplitVGMData();
 	free(SrcData);
-	
+
 	for (FileID = 0x00; FileID < MAX_VGMS; FileID ++)
 	{
 		sprintf(FileName, "%s_%u.vgm", FileBase, FileID);
 		WriteVGMFile(FileName, &DstVGM[FileID]);
 		free(DstVGM[FileID].Data);
 	}
-	
+
 EndProgram:
 	DblClickWait(argv[0]);
-	
+
 	return ErrVal;
 }
 
@@ -96,20 +96,20 @@ static bool OpenVGMFile(const char* FileName)
 	UINT32 CurPos;
 	UINT32 TempLng;
 	char* TempPnt;
-	
+
 	hFile = gzopen(FileName, "rb");
 	if (hFile == NULL)
 		return false;
-	
+
 	gzseek(hFile, 0x00, SEEK_SET);
 	gzread(hFile, &TempLng, 0x04);
 	if (TempLng != FCC_VGM)
 		goto OpenErr;
-	
+
 	gzseek(hFile, 0x00, SEEK_SET);
 	gzread(hFile, &SrcHead, sizeof(VGM_HEADER));
 	ZLIB_SEEKBUG_CHECK(SrcHead);
-	
+
 	// Header preperations
 	if (SrcHead.lngVersion < 0x00000150)
 	{
@@ -130,7 +130,7 @@ static bool OpenVGMFile(const char* FileName)
 	if (! SrcHead.lngDataOffset)
 		SrcHead.lngDataOffset = 0x0000000C;
 	SrcHead.lngDataOffset += 0x00000034;
-	
+
 	CurPos = SrcHead.lngDataOffset;
 	if (SrcHead.lngVersion < 0x00000150)
 		CurPos = 0x40;
@@ -140,7 +140,7 @@ static bool OpenVGMFile(const char* FileName)
 	else
 		TempLng = 0x00;
 	memset((UINT8*)&SrcHead + CurPos, 0x00, TempLng);
-	
+
 	// Read Data
 	SrcDataLen = SrcHead.lngEOFOffset;
 	SrcData = (UINT8*)malloc(SrcDataLen);
@@ -148,14 +148,14 @@ static bool OpenVGMFile(const char* FileName)
 		goto OpenErr;
 	gzseek(hFile, 0x00, SEEK_SET);
 	gzread(hFile, SrcData, SrcDataLen);
-	
+
 	gzclose(hFile);
-	
+
 	strcpy(FileBase, FileName);
 	TempPnt = strrchr(FileBase, '.');
 	if (TempPnt != NULL)
 		*TempPnt = 0x00;
-	
+
 	return true;
 
 OpenErr:
@@ -168,7 +168,7 @@ static void WriteVGMFile(const char* FileName, VGM_INF* VGMInf)
 {
 	FILE* hFile;
 	const char* FileTitle;
-	
+
 	//printf("                                                                \r");
 	printf("\t\t\t\t\t\t\t\t\r");
 	FileTitle = strrchr(FileName, '\\');
@@ -176,24 +176,24 @@ static void WriteVGMFile(const char* FileName, VGM_INF* VGMInf)
 		FileTitle = FileName;
 	else
 		FileTitle ++;
-	
+
 	if (! VGMInf->HadWrt)
 	{
 		printf("%s skipped (empty).\n", FileTitle);
 		return;
 	}
-	
+
 	hFile = fopen(FileName, "wb");
 	if (hFile == NULL)
 	{
 		printf("Error writing %s!\n", FileTitle);
 		return;
 	}
-	
+
 	fwrite(VGMInf->Data, 0x01, VGMInf->DataLen, hFile);
 	fclose(hFile);
 	printf("%s written.\n", FileTitle);
-	
+
 	return;
 }
 
@@ -202,7 +202,7 @@ static void CopyHeader(VGM_HEADER* SrcHead, VGM_HEADER* DstHead, bool IsChip2)
 	UINT8 CurChip;
 	UINT32* SrcClock;
 	UINT32* DstClock;
-	
+
 	*DstHead = *SrcHead;
 	for (CurChip = 0x00; CurChip < 0x20; CurChip ++)
 	{
@@ -234,7 +234,7 @@ static void CopyHeader(VGM_HEADER* SrcHead, VGM_HEADER* DstHead, bool IsChip2)
 			DstClock = &DstHead->lngHzOKIM6295;
 			break;
 		}
-		
+
 		if (! IsChip2 || (*SrcClock & 0x40000000))
 		{
 			*DstClock = *SrcClock & 0xBFFFFFFF;
@@ -270,12 +270,12 @@ static void CopyHeader(VGM_HEADER* SrcHead, VGM_HEADER* DstHead, bool IsChip2)
 				break;
 			}
 		}
-		
+
 		// move to next chip clock
 		SrcClock ++;
 		DstClock ++;
 	}
-	
+
 	return;
 }
 
@@ -298,11 +298,11 @@ static void SplitVGMData(void)
 	bool WriteEvent;
 	UINT32 FixOfs;
 	UINT8 FixByt;
-	
+
 	for (FileID = 0x00; FileID < MAX_VGMS; FileID ++)
 	{
 		TempVGM = &DstVGM[FileID];
-		
+
 		CopyHeader(&SrcHead, &TempVGM->Head, (FileID > 0x00));
 		TempVGM->Pos = TempVGM->Head.lngDataOffset;
 		TempVGM->DataLen = SrcDataLen;
@@ -311,7 +311,7 @@ static void SplitVGMData(void)
 		TempVGM->WroteCmd80 = false;
 		TempVGM->HadWrt = false;
 	}
-	
+
 #ifdef WIN32
 	CmdTimer = 0;
 #endif
@@ -327,14 +327,14 @@ static void SplitVGMData(void)
 			for (FileID = 0x00; FileID < MAX_VGMS; FileID ++)
 			{
 				TempVGM = &DstVGM[FileID];
-				
+
 				TempLng = SrcSmplPos - TempVGM->SmplPos;
 				VGMLib_WriteDelay(TempVGM->Data, &TempVGM->Pos, TempLng, &TempVGM->WroteCmd80);
 				TempVGM->Head.lngLoopOffset = TempVGM->Pos;
 				TempVGM->SmplPos = SrcSmplPos;
 			}
 		}
-		
+
 		if (Command >= 0x70 && Command <= 0x8F)
 		{
 			switch(Command & 0xF0)
@@ -358,28 +358,28 @@ static void SplitVGMData(void)
 			{
 			case 0x66:	// End Of File
 				StopVGM = true;
-				
+
 				WriteEvent = false;
 				CmdLen = 0x01;
 				break;
 			case 0x62:	// 1/60s delay
 				TempSht = 735;
 				CmdDelay = TempSht;
-				
+
 				WriteEvent = false;
 				CmdLen = 0x01;
 				break;
 			case 0x63:	// 1/50s delay
 				TempSht = 882;
 				CmdDelay = TempSht;
-				
+
 				WriteEvent = false;
 				CmdLen = 0x01;
 				break;
 			case 0x61:	// xx Sample Delay
 				memcpy(&TempSht, &SrcData[SrcPos + 0x01], 0x02);
 				CmdDelay = TempSht;
-				
+
 				WriteEvent = false;
 				CmdLen = 0x03;
 				break;
@@ -388,10 +388,10 @@ static void SplitVGMData(void)
 				memcpy(&TempLng, &SrcData[SrcPos + 0x03], 0x04);
 				FileID = (TempLng & 0x80000000) >> 31;
 				TempLng &= 0x7FFFFFFF;
-				
+
 				FixOfs = 0x06;
 				FixByt = SrcData[SrcPos + 0x06] & 0x7F;
-				
+
 				CmdLen = 0x07 + TempLng;
 				break;
 			case 0x68:	// PCM RAM write
@@ -423,14 +423,14 @@ static void SplitVGMData(void)
 				FileID = 0x01;
 				FixOfs = 0x00;
 				FixByt = 0x50;
-				
+
 				CmdLen = 0x02;
 				break;
 			case 0x3F:
 				FileID = 0x01;
 				FixOfs = 0x00;
 				FixByt = 0x4F;
-				
+
 				CmdLen = 0x02;
 				break;
 			default:
@@ -456,14 +456,14 @@ static void SplitVGMData(void)
 						FixOfs = 0x00;
 						FixByt = Command - 0x50;
 					}
-					
+
 					CmdLen = 0x03;
 					break;
 				case 0xB0:
 					FileID = (SrcData[SrcPos + 0x01] & 0x80) >> 7;
 					FixOfs = 0x01;
 					FixByt = SrcData[SrcPos + 0x01] & 0x7F;
-					
+
 					CmdLen = 0x03;
 					break;
 				case 0xC0:
@@ -471,7 +471,7 @@ static void SplitVGMData(void)
 					FileID = (SrcData[SrcPos + 0x01] & 0x80) >> 7;
 					FixOfs = 0x01;
 					FixByt = SrcData[SrcPos + 0x01] & 0x7F;
-					
+
 					CmdLen = 0x04;
 					break;
 				case 0xE0:
@@ -486,16 +486,16 @@ static void SplitVGMData(void)
 				}	// end switch(Command & 0xF0)
 			}	// end switch(Command)
 		}
-		
+
 		SrcSmplPos += CmdDelay;
 		if (WriteEvent)
 		{
 			TempVGM = &DstVGM[FileID];
-			
+
 			TempLng = SrcSmplPos - TempVGM->SmplPos;
 			VGMLib_WriteDelay(TempVGM->Data, &TempVGM->Pos, TempLng, &TempVGM->WroteCmd80);
 			TempVGM->SmplPos = SrcSmplPos;
-			
+
 			// Write Event
 			TempVGM->HadWrt = true;
 			TempVGM->WroteCmd80 = ((Command & 0xF0) == 0x80);
@@ -504,12 +504,12 @@ static void SplitVGMData(void)
 				CmdDelay = Command & 0x0F;
 				Command &= 0x80;
 			}
-			
+
 			if (CmdLen > 0x01)
 				memcpy(&TempVGM->Data[TempVGM->Pos], &SrcData[SrcPos], CmdLen);
 			else
 				TempVGM->Data[TempVGM->Pos] = Command;	// write the 0x80-command correctly
-			
+
 			// now fix the 2nd-chip commands
 			if (FileID)
 				TempVGM->Data[TempVGM->Pos + FixOfs] = FixByt;
@@ -518,7 +518,7 @@ static void SplitVGMData(void)
 		SrcPos += CmdLen;
 		if (StopVGM)
 			break;
-		
+
 #ifdef WIN32
 		if (CmdTimer < GetTickCount())
 		{
@@ -535,7 +535,7 @@ static void SplitVGMData(void)
 		TempVGM = &DstVGM[FileID];
 		if (! TempVGM->HadWrt)
 			continue;
-		
+
 		// write EOF
 		TempLng = SrcSmplPos - TempVGM->SmplPos;
 		VGMLib_WriteDelay(TempVGM->Data, &TempVGM->Pos, TempLng, &TempVGM->WroteCmd80);
@@ -543,7 +543,7 @@ static void SplitVGMData(void)
 		TempVGM->Pos ++;
 	}
 	printf("\t\t\t\t\t\t\t\t\r");
-	
+
 	if (SrcHead.lngGD3Offset && SrcHead.lngGD3Offset + 0x0B < SrcHead.lngEOFOffset)
 	{
 		SrcPos = SrcHead.lngGD3Offset;
@@ -552,26 +552,26 @@ static void SplitVGMData(void)
 		{
 			memcpy(&CmdLen, &SrcData[SrcPos + 0x08], 0x04);
 			CmdLen += 0x0C;
-			
+
 			for (FileID = 0x00; FileID < MAX_VGMS; FileID ++)
 			{
 				TempVGM = &DstVGM[FileID];
 				if (! TempVGM->HadWrt)
 					continue;
-				
+
 				TempVGM->Head.lngGD3Offset = TempVGM->Pos;
 				memcpy(&TempVGM->Data[TempVGM->Pos], &SrcData[SrcPos], CmdLen);
 				TempVGM->Pos += CmdLen;
 			}
 		}
 	}
-	
+
 	for (FileID = 0x00; FileID < MAX_VGMS; FileID ++)
 	{
 		TempVGM = &DstVGM[FileID];
 		if (! TempVGM->HadWrt)
 			continue;
-		
+
 		TempVGM->DataLen = TempVGM->Pos;
 		TempVGM->Head.lngEOFOffset = TempVGM->DataLen - 0x04;
 		if (TempVGM->Head.lngGD3Offset)
@@ -580,7 +580,7 @@ static void SplitVGMData(void)
 			TempVGM->Head.lngLoopOffset -= 0x1C;
 		TempLng = TempVGM->Head.lngDataOffset;
 		TempVGM->Head.lngDataOffset -= 0x34;
-		
+
 		// Copy Header
 		if (sizeof(VGM_HEADER) < TempLng)
 		{
@@ -593,6 +593,6 @@ static void SplitVGMData(void)
 			memcpy(&TempVGM->Data[0x00], &TempVGM->Head, TempLng);
 		}
 	}
-	
+
 	return;
 }

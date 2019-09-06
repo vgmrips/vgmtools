@@ -89,13 +89,13 @@ int main(int argc, char* argv[])
 	int argbase;
 	int ErrVal;
 	char FileName[0x100];
-	
+
 	printf("VGM PWM Optimizer\n-----------------\n\n");
-	
+
 	ErrVal = 0;
 	JustTimerCmds = false;
 	argbase = 1;
-	
+
 	printf("File Name:\t");
 	if (argc <= argbase + 0)
 	{
@@ -108,7 +108,7 @@ int main(int argc, char* argv[])
 	}
 	if (! strlen(FileName))
 		return 0;
-	
+
 	if (! OpenVGMFile(FileName))
 	{
 		printf("Error opening the file!\n");
@@ -116,16 +116,16 @@ int main(int argc, char* argv[])
 		goto EndProgram;
 	}
 	printf("\n");
-	
+
 	EnumeratePWMWrite();
 	DataReducer();
 	MakeDataStream();
-	
+
 	free(VGMWrite);	VGMWrite = NULL;
 	WriteAlloc = 0x00;	WriteCount = 0x00;
-	
+
 	RewriteVGMData();
-	
+
 	if (DataSizeB < DataSizeA)
 	{
 		if (argc > argbase + 1)
@@ -139,13 +139,13 @@ int main(int argc, char* argv[])
 		}
 		WriteVGMFile(FileName);
 	}
-	
+
 	free(VGMData);
 	free(DstData);
-	
+
 EndProgram:
 	DblClickWait(argv[0]);
-	
+
 	return ErrVal;
 }
 
@@ -155,20 +155,20 @@ static bool OpenVGMFile(const char* FileName)
 	UINT32 CurPos;
 	UINT32 TempLng;
 	char* TempPnt;
-	
+
 	hFile = gzopen(FileName, "rb");
 	if (hFile == NULL)
 		return false;
-	
+
 	gzseek(hFile, 0x00, SEEK_SET);
 	gzread(hFile, &TempLng, 0x04);
 	if (TempLng != FCC_VGM)
 		goto OpenErr;
-	
+
 	gzseek(hFile, 0x00, SEEK_SET);
 	gzread(hFile, &VGMHead, sizeof(VGM_HEADER));
 	ZLIB_SEEKBUG_CHECK(VGMHead);
-	
+
 	// Header preperations
 	if (VGMHead.lngVersion < 0x00000101)
 	{
@@ -200,7 +200,7 @@ static bool OpenVGMFile(const char* FileName)
 	if (! VGMHead.lngDataOffset)
 		VGMHead.lngDataOffset = 0x0000000C;
 	VGMHead.lngDataOffset += 0x00000034;
-	
+
 	CurPos = VGMHead.lngDataOffset;
 	if (VGMHead.lngVersion < 0x00000151)
 		CurPos = 0x40;
@@ -210,7 +210,7 @@ static bool OpenVGMFile(const char* FileName)
 	else
 		TempLng = 0x00;
 	memset((UINT8*)&VGMHead + CurPos, 0x00, TempLng);
-	
+
 	// Read Data
 	VGMDataLen = VGMHead.lngEOFOffset;
 	VGMData = (UINT8*)malloc(VGMDataLen);
@@ -218,14 +218,14 @@ static bool OpenVGMFile(const char* FileName)
 		goto OpenErr;
 	gzseek(hFile, 0x00, SEEK_SET);
 	gzread(hFile, VGMData, VGMDataLen);
-	
+
 	gzclose(hFile);
-	
+
 	strcpy(FileBase, FileName);
 	TempPnt = strrchr(FileBase, '.');
 	if (TempPnt != NULL)
 		*TempPnt = 0x00;
-	
+
 	return true;
 
 OpenErr:
@@ -237,13 +237,13 @@ OpenErr:
 static void WriteVGMFile(const char* FileName)
 {
 	FILE* hFile;
-	
+
 	hFile = fopen(FileName, "wb");
 	fwrite(DstData, 0x01, DstDataLen, hFile);
 	fclose(hFile);
-	
+
 	printf("File written.\n");
-	
+
 	return;
 }
 
@@ -262,14 +262,14 @@ static void EnumeratePWMWrite(void)
 	bool StopVGM;
 	bool FirstAfterLoop[0x03];
 	DATA_WRITE* TempWrt;
-	
+
 	VGMPos = VGMHead.lngDataOffset;
 	VGMSmplPos = 0;
-	
+
 	WriteAlloc = VGMHead.lngDataOffset / 8;
 	VGMWrite = (DATA_WRITE*)malloc(WriteAlloc * sizeof(DATA_WRITE));
 	WriteCount = 0x00;
-	
+
 #ifdef WIN32
 	CmdTimer = 0;
 #endif
@@ -285,7 +285,7 @@ static void EnumeratePWMWrite(void)
 			for (TempByt = 0x00; TempByt < 0x03; TempByt ++)
 				FirstAfterLoop[TempByt] = true;
 		}
-		
+
 		if (Command >= 0x70 && Command <= 0x8F)
 		{
 			switch(Command & 0xF0)
@@ -340,7 +340,7 @@ static void EnumeratePWMWrite(void)
 					}
 					TempWrt = &VGMWrite[WriteCount];
 					WriteCount ++;
-					
+
 					TempByt -= 0x02;
 					TempWrt->Port = TempByt;
 					if (FirstAfterLoop[TempByt])
@@ -358,7 +358,7 @@ static void EnumeratePWMWrite(void)
 				TempByt = VGMData[VGMPos + 0x02];
 				memcpy(&TempLng, &VGMData[VGMPos + 0x03], 0x04);
 				TempLng &= 0x7FFFFFFF;
-				
+
 				CmdLen = 0x07 + TempLng;
 				break;
 			case 0x90:	// DAC Ctrl: Setup Chip
@@ -408,11 +408,11 @@ static void EnumeratePWMWrite(void)
 				break;
 			}
 		}
-		
+
 		VGMPos += CmdLen;
 		if (StopVGM)
 			break;
-		
+
 #ifdef WIN32
 		if (CmdTimer < GetTickCount())
 		{
@@ -427,9 +427,9 @@ static void EnumeratePWMWrite(void)
 #endif
 	}
 	printf("\t\t\t\t\t\t\t\t\r");
-	
+
 	printf("%u PWM writes found.\n", WriteCount);
-	
+
 	return;
 }
 
@@ -437,26 +437,26 @@ static UINT32 gcd(UINT32 x, UINT32 y)
 {
 	UINT32 shift;
 	UINT32 diff;
-	
+
 	// Thanks to Wikipedia for this algorithm
 	// http://en.wikipedia.org/wiki/Binary_GCD_algorithm
 	if (! x || ! y)
 		return x | y;
-	
+
 	for (shift = 0; ((x | y) & 1) == 0; shift ++)
 	{
 		x >>= 1;
 		y >>= 1;
 	}
-	
+
 	while((x & 1) == 0)
 		x >>= 1;
-	
+
 	do
 	{
 		while((y & 1) == 0)
 			y >>= 1;
-		
+
 		if (x < y)
 		{
 			y -= x;
@@ -469,7 +469,7 @@ static UINT32 gcd(UINT32 x, UINT32 y)
 		}
 		y >>= 1;
 	} while(y);
-	
+
 	return x << shift;
 }
 
@@ -482,12 +482,12 @@ static void DataReducer(void)
 	UINT32 CurWrt;
 	UINT32 SrcWrt;
 	bool LoopWaiting;
-	
+
 	if (! WriteCount)
 		return;
 	//if (VGMWrite[0].Port != VGMWrite[1].Port)
 	//	return;
-	
+
 	MinSmplUsg = WriteCount;
 	LstSmpl = 0xFFFF;
 	for (CurWrt = 0x00; CurWrt < WriteCount; CurWrt ++)
@@ -505,7 +505,7 @@ static void DataReducer(void)
 	}
 	if (SmplRep < MinSmplUsg)
 		MinSmplUsg = SmplRep;
-	
+
 	LstSmpl = 0xFFFF;
 	SmplGCD = MinSmplUsg;
 	for (CurWrt = 0x00; CurWrt < WriteCount; CurWrt ++)
@@ -520,9 +520,9 @@ static void DataReducer(void)
 		}
 		SmplRep ++;
 	}
-	
+
 	printf("Data Reduction x%u ...", SmplGCD);
-	
+
 	// Eliminate multiple samples
 	LoopWaiting = false;
 	if (VGMWrite[0].Port != VGMWrite[1].Port)
@@ -543,7 +543,7 @@ static void DataReducer(void)
 	}
 	WriteCount = CurWrt;
 	printf("  Done.\n");
-	
+
 	return;
 }
 
@@ -562,12 +562,12 @@ static void MakeDataStream(void)
 	PWM_CHN PWMChn[0x02];
 	PWM_CHN* TempChn;
 	UINT8 TempByt;
-	
+
 	VGMStream.Type = 0x03;	// PWM Data Block
 	VGMStream.Length = WriteCount * 0x02;	// 2 Bytes per Write
 	VGMStream.Data = malloc(VGMStream.Length);
 	DataStr = (UINT16*)VGMStream.Data;
-	
+
 	for (CurChn = 0x00; CurChn < 0x02; CurChn ++)
 	{
 		TempChn = &PWMChn[CurChn];
@@ -581,7 +581,7 @@ static void MakeDataStream(void)
 		TempChn->Frequency = 0x00000000;
 	}
 	WrtCount = 0x00;
-	
+
 	for (CurWrt = 0x00; CurWrt < WriteCount; CurWrt ++)
 	{
 		TempWrt = &VGMWrite[CurWrt];
@@ -602,7 +602,7 @@ static void MakeDataStream(void)
 		}
 		if (CurChn >= 0x02)
 			continue;
-		
+
 		if (TempWrt->Port & 0x80)
 		{
 			TempChn->SmplLoop = TempWrt->SmplPos;
@@ -626,7 +626,7 @@ static void MakeDataStream(void)
 		if (PWMChn[CurChn].CmdLoop != 0xFFFFFFFF)
 			PWMChn[CurChn].CmdLoop ++;
 	}
-	
+
 	ChnCnt = 0x00;
 	for (CurChn = 0x00; CurChn < 0x02; CurChn ++)
 	{
@@ -634,18 +634,18 @@ static void MakeDataStream(void)
 			break;
 		ChnCnt ++;
 	}
-	
+
 	for (CurChn = 0x00; CurChn < ChnCnt; CurChn ++)
 	{
 		//Frequency = CommandCount / (SampleCount / 44100.0);
 		TempChn = &PWMChn[CurChn];
-		
+
 		SmplDiff = TempChn->SmplEnd - TempChn->SmplStart;
 		CmdDiff = TempChn->CmdCount;
 		CmdDiff = 44100 * CmdDiff + SmplDiff / 2;
 		TempChn->Frequency = (UINT32)(CmdDiff / SmplDiff);
 		printf("PWM Frequency %s Chn: %u\n", CHN_STR[TempChn->Command], TempChn->Frequency);
-		
+
 		if (TempChn->SmplLoop < TempChn->SmplStart)
 		{
 			// this case IS possible (e.g. loop at 0.5s, stream start at 1.0s)
@@ -653,9 +653,9 @@ static void MakeDataStream(void)
 			TempChn->CmdLoop = 0xFFFFFFFF;
 		}
 	}
-	
+
 	CtrlCmdCount = 0x00;
-	
+
 	for (CurChn = 0x00; CurChn < ChnCnt; CurChn ++)
 	{
 		TempCmd = &VGMCtrlCmd[CtrlCmdCount];
@@ -665,7 +665,7 @@ static void MakeDataStream(void)
 		TempCmd->DataB1 = 0x11;	// 0x11 - PWM chip
 		TempCmd->DataB2 = 0x00;
 		TempCmd->DataB3 = 0x02 + PWMChn[CurChn].Command;
-		
+
 		TempCmd = &VGMCtrlCmd[CtrlCmdCount];
 		CtrlCmdCount ++;
 		TempCmd->Command = 0x91;	// Set Stream 00 Data
@@ -682,7 +682,7 @@ static void MakeDataStream(void)
 			TempCmd->DataB3 = CurChn;	// Step Base
 		}
 	}
-	
+
 	for (CurChn = 0x00; CurChn < ChnCnt; CurChn ++)
 	{
 		TempCmd = &VGMCtrlCmd[CtrlCmdCount];
@@ -693,12 +693,12 @@ static void MakeDataStream(void)
 		TempCmd->DataS1 = 0x0000;	// Block ID
 		TempCmd->DataB1 = 0x00;		// No looping
 	}
-	
+
 	for (CurChn = 0x00; CurChn < ChnCnt; CurChn ++)
 	{
 		if (PWMChn[CurChn].CmdLoop == 0xFFFFFFFF)
 			continue;
-		
+
 		TempCmd = &VGMCtrlCmd[CtrlCmdCount];
 		CtrlCmdCount ++;
 		TempCmd->Command = 0x93;	// Play Stream (long call for loop reposition)
@@ -707,7 +707,7 @@ static void MakeDataStream(void)
 		TempCmd->DataB1 = 0x03;		// play until end
 		TempCmd->DataL2 = 0x00;
 	}
-	
+
 	return;
 }
 
@@ -740,7 +740,7 @@ static void RewriteVGMData(void)
 	UINT32 PWMFreq;
 	UINT32 PWMStep;
 #endif
-	
+
 	DstData = (UINT8*)malloc(VGMDataLen + 0x100);
 	AllDelay = 0;
 	VGMPos = VGMHead.lngDataOffset;
@@ -757,25 +757,25 @@ static void RewriteVGMData(void)
 		DataPos[TempByt] = 0x00;
 #endif
 	}
-	
+
 #ifdef WIN32
 	CmdTimer = 0;
 #endif
 	StopVGM = false;
-	
+
 	DstData[DstPos + 0x00] = 0x67;
 	DstData[DstPos + 0x01] = 0x66;
 	DstData[DstPos + 0x02] = VGMStream.Type;
 	memcpy(&DstData[DstPos + 0x03], &VGMStream.Length, 0x04);
 	memcpy(&DstData[DstPos + 0x07], VGMStream.Data, VGMStream.Length);
 	DstPos += 0x07 + VGMStream.Length;
-	
+
 	for (StrmCmd = 0x00; StrmCmd < CtrlCmdCount; StrmCmd ++)
 	{
 		TempCmd = &VGMCtrlCmd[StrmCmd];
 		if (TempCmd->Command >= 0x92)
 			break;
-		
+
 		DstData[DstPos + 0x00] = TempCmd->Command;
 		DstData[DstPos + 0x01] = TempCmd->StreamID;
 		switch(TempCmd->Command)
@@ -797,7 +797,7 @@ static void RewriteVGMData(void)
 			break;
 		}
 	}
-	
+
 #ifdef EXTRA_SYNC
 	PWMFreq = 0xFFFFFFFF;
 #endif
@@ -814,7 +814,7 @@ static void RewriteVGMData(void)
 				FirstAfterLoop[TempByt] = true;
 			WriteExtra = true;
 		}
-		
+
 		if (Command >= 0x70 && Command <= 0x8F)
 		{
 			switch(Command & 0xF0)
@@ -871,7 +871,7 @@ static void RewriteVGMData(void)
 				if (TempByt >= 0x02 && TempByt <= 0x04)
 				{
 					TempByt -= 0x02;
-					
+
 					if (! ChnWritten[TempByt] || FirstAfterLoop[TempByt])
 						WriteExtra = true;
 #ifdef EXTRA_SYNC
@@ -886,7 +886,7 @@ static void RewriteVGMData(void)
 				TempByt = VGMData[VGMPos + 0x02];
 				memcpy(&TempLng, &VGMData[VGMPos + 0x03], 0x04);
 				TempLng &= 0x7FFFFFFF;
-				
+
 				CmdLen = 0x07 + TempLng;
 				break;
 			case 0x90:	// DAC Ctrl: Setup Chip
@@ -936,7 +936,7 @@ static void RewriteVGMData(void)
 				break;
 			}
 		}
-		
+
 		if (WriteEvent || WriteExtra)
 		{
 			if (VGMPos != VGMHead.lngLoopOffset)
@@ -950,7 +950,7 @@ static void RewriteVGMData(void)
 					TempSht = (UINT16)AllDelay;
 				else
 					TempSht = 0xFFFF;
-				
+
 				if (! TempSht)
 				{
 					// don't do anything - I just want to be safe
@@ -1006,10 +1006,10 @@ static void RewriteVGMData(void)
 			}
 			AllDelay = CmdDelay;
 			CmdDelay = 0x00;
-			
+
 			if (VGMPos == VGMHead.lngLoopOffset)
 				NewLoopS = DstPos;
-			
+
 			if (WriteEvent)
 			{
 				memcpy(&DstData[DstPos], &VGMData[VGMPos], CmdLen);
@@ -1020,7 +1020,7 @@ static void RewriteVGMData(void)
 		{
 			AllDelay += CmdDelay;
 		}
-		
+
 		if (Command == 0xB2)
 		{
 			TempByt = VGMData[VGMPos + 0x01] >> 4;
@@ -1028,7 +1028,7 @@ static void RewriteVGMData(void)
 			if (TempByt >= 0x02 && TempByt <= 0x04)
 			{
 				TempByt -= 0x02;
-				
+
 				if (! ChnWritten[TempByt])
 				{
 					TempCmd = &VGMCtrlCmd[StrmCmd];
@@ -1039,14 +1039,14 @@ static void RewriteVGMData(void)
 					PWMFreq = TempCmd->DataL1;
 #endif
 					DstPos += 0x06;
-					
+
 					DstData[DstPos + 0x00] = 0x95;
 					DstData[DstPos + 0x01] = TempCmd->StreamID;
 					memcpy(&DstData[DstPos + 0x02], &TempCmd->DataS1, 0x02);
 					DstData[DstPos + 0x04] = TempCmd->DataB1;
 					DstPos += 0x05;
 					StrmCmd ++;
-					
+
 					ChnWritten[TempByt] = true;
 					if (FirstAfterLoop[TempByt])
 					{
@@ -1064,7 +1064,7 @@ static void RewriteVGMData(void)
 					memcpy(&DstData[DstPos + 0x07], &TempCmd->DataL2, 0x04);
 					DstPos += 0x0B;
 					StrmCmd ++;
-					
+
 					FirstAfterLoop[TempByt] = false;
 				}
 #ifdef EXTRA_SYNC
@@ -1086,7 +1086,7 @@ static void RewriteVGMData(void)
 		VGMPos += CmdLen;
 		if (StopVGM)
 			break;
-		
+
 #ifdef WIN32
 		if (CmdTimer < GetTickCount())
 		{
@@ -1112,7 +1112,7 @@ static void RewriteVGMData(void)
 		memcpy(&DstData[0x1C], &NewLoopS, 0x04);
 	}
 	printf("\t\t\t\t\t\t\t\t\r");
-	
+
 	if (VGMHead.lngGD3Offset)
 	{
 		VGMPos = VGMHead.lngGD3Offset;
@@ -1121,7 +1121,7 @@ static void RewriteVGMData(void)
 		{
 			memcpy(&CmdLen, &VGMData[VGMPos + 0x08], 0x04);
 			CmdLen += 0x0C;
-			
+
 			VGMHead.lngGD3Offset = DstPos;
 			TempLng = DstPos - 0x14;
 			memcpy(&DstData[0x14], &TempLng, 0x04);
@@ -1130,15 +1130,15 @@ static void RewriteVGMData(void)
 		}
 	}
 	DstDataLen = DstPos;
-	
+
 	if (VGMHead.lngVersion < 0x00000160)
 	{
 		VGMHead.lngVersion = 0x00000160;
 		memcpy(&DstData[0x08], &VGMHead.lngVersion, 0x04);
 	}
-	
+
 	TempLng = DstDataLen - 0x04;
 	memcpy(&DstData[0x04], &TempLng, 0x04);
-	
+
 	return;
 }

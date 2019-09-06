@@ -62,9 +62,9 @@ int main(int argc, char* argv[])
 	int argbase;
 	int ErrVal;
 	char FileName[0x100];
-	
+
 	printf("VGM Mono\n--------\n");
-	
+
 	ErrVal = 0;
 	argbase = 1;
 	/*while(argbase < argc && argv[argbase][0] == '-')
@@ -79,7 +79,7 @@ int main(int argc, char* argv[])
 			break;
 		}
 	}*/
-	
+
 	printf("File Name:\t");
 	if (argc <= argbase + 0)
 	{
@@ -92,7 +92,7 @@ int main(int argc, char* argv[])
 	}
 	if (! strlen(FileName))
 		return 0;
-	
+
 	if (! OpenVGMFile(FileName))
 	{
 		printf("Error opening the file!\n");
@@ -100,7 +100,7 @@ int main(int argc, char* argv[])
 		goto EndProgram;
 	}
 	printf("\n");
-	
+
 	/*PassNo = 0x00;
 	do
 	{
@@ -122,7 +122,7 @@ int main(int argc, char* argv[])
 	} while(DataSizeB < DataSizeA);
 	printf("Data Compression Total: %u -> %u (%.1f %%)\n",
 			SrcDataSize, DataSizeB, 100.0 * DataSizeB / (float)SrcDataSize);
-	
+
 	if (DataSizeB < SrcDataSize)*/
 	{
 		if (argc > argbase + 1)
@@ -136,13 +136,13 @@ int main(int argc, char* argv[])
 		}
 		WriteVGMFile(FileName);
 	}
-	
+
 	free(VGMData);
 	//free(DstData);
-	
+
 EndProgram:
 	DblClickWait(argv[0]);
-	
+
 	return ErrVal;
 }
 
@@ -152,20 +152,20 @@ static bool OpenVGMFile(const char* FileName)
 	UINT32 CurPos;
 	UINT32 TempLng;
 	char* TempPnt;
-	
+
 	hFile = gzopen(FileName, "rb");
 	if (hFile == NULL)
 		return false;
-	
+
 	gzseek(hFile, 0x00, SEEK_SET);
 	gzread(hFile, &TempLng, 0x04);
 	if (TempLng != FCC_VGM)
 		goto OpenErr;
-	
+
 	gzseek(hFile, 0x00, SEEK_SET);
 	gzread(hFile, &VGMHead, sizeof(VGM_HEADER));
 	ZLIB_SEEKBUG_CHECK(VGMHead);
-	
+
 	// Header preperations
 	if (VGMHead.lngVersion < 0x00000101)
 	{
@@ -197,7 +197,7 @@ static bool OpenVGMFile(const char* FileName)
 	if (! VGMHead.lngDataOffset)
 		VGMHead.lngDataOffset = 0x0000000C;
 	VGMHead.lngDataOffset += 0x00000034;
-	
+
 	CurPos = VGMHead.lngDataOffset;
 	if (VGMHead.lngVersion < 0x00000150)
 		CurPos = 0x40;
@@ -207,7 +207,7 @@ static bool OpenVGMFile(const char* FileName)
 	else
 		TempLng = 0x00;
 	memset((UINT8*)&VGMHead + CurPos, 0x00, TempLng);
-	
+
 	// Read Data
 	VGMDataLen = VGMHead.lngEOFOffset;
 	VGMData = (UINT8*)malloc(VGMDataLen);
@@ -215,14 +215,14 @@ static bool OpenVGMFile(const char* FileName)
 		goto OpenErr;
 	gzseek(hFile, 0x00, SEEK_SET);
 	gzread(hFile, VGMData, VGMDataLen);
-	
+
 	gzclose(hFile);
-	
+
 	strcpy(FileBase, FileName);
 	TempPnt = strrchr(FileBase, '.');
 	if (TempPnt != NULL)
 		*TempPnt = 0x00;
-	
+
 	return true;
 
 OpenErr:
@@ -234,14 +234,14 @@ OpenErr:
 static void WriteVGMFile(const char* FileName)
 {
 	FILE* hFile;
-	
+
 	hFile = fopen(FileName, "wb");
 	//fwrite(DstData, 0x01, DstDataLen, hFile);
 	fwrite(VGMData, 0x01, VGMDataLen, hFile);
 	fclose(hFile);
-	
+
 	printf("File written.\n");
-	
+
 	return;
 }
 
@@ -271,13 +271,13 @@ static void CompressVGMData(void)
 	UINT8 X1Channel;
 	UINT8 X1Flags[0x10];
 	UINT8* X1VolWrites[0x10];	// need to cache because sample volume register has another purpose in wavetable mode
-	
+
 	//DstData = (UINT8*)malloc(VGMDataLen + 0x100);
 	VGMPos = VGMHead.lngDataOffset;
 	//DstPos = VGMHead.lngDataOffset;
 	VGMSmplPos = 0;
 	//memcpy(DstData, VGMData, VGMPos);	// Copy Header
-	
+
 #ifdef WIN32
 	CmdTimer = 0;
 #endif
@@ -302,17 +302,17 @@ static void CompressVGMData(void)
 			c140_write(0xFF, 0x00, VGMHead.bytC140Type);
 		}
 	}*/
-	
+
 	memset(ChnBoth, 0x00, sizeof(UINT32) * 0x20);
 	LastMBnkWrtOfs = 0x00;
 	MPCMBank = MPCMAddr = MPCMSlot = 0x00;
-	
+
 	StopVGM = false;
 	while(VGMPos < VGMHead.lngEOFOffset)
 	{
 		CmdLen = 0x00;
 		Command = VGMData[VGMPos + 0x00];
-		
+
 		if (Command >= 0x70 && Command <= 0x8F)
 		{
 			switch(Command & 0xF0)
@@ -331,7 +331,7 @@ static void CompressVGMData(void)
 		else
 		{
 			VGMPnt = &VGMData[VGMPos];
-			
+
 			// Cheat Mode (to use 2 instances of 1 chip)
 			ChipID = 0x00;
 			switch(Command)
@@ -433,7 +433,7 @@ static void CompressVGMData(void)
 				break;
 			}
 			//SetChipSet(ChipID);
-			
+
 			switch(Command)
 			{
 			case 0x66:	// End Of File
@@ -470,11 +470,11 @@ static void CompressVGMData(void)
 			case 0x67:	// PCM Data Stream
 				TempByt = VGMPnt[0x02];
 				memcpy(&TempLng, &VGMPnt[0x03], 0x04);
-				
+
 				ChipID = (TempLng & 0x80000000) >> 31;
 				TempLng &= 0x7FFFFFFF;
 				/*SetChipSet(ChipID);
-				
+
 				switch(TempByt & 0xC0)
 				{
 				case 0x00:	// Database Block
@@ -491,7 +491,7 @@ static void CompressVGMData(void)
 					DataLen = TempLng - 0x02;
 					break;
 				}*/
-				
+
 				CmdLen = 0x07 + TempLng;
 				break;
 			case 0xE0:	// Seek to PCM Data Bank Pos
@@ -507,7 +507,7 @@ static void CompressVGMData(void)
 				if ((TempSht & 0xF8) == 0x20)
 				{
 					TempByt = TempSht & 0x07;
-					
+
 					if ((VGMPnt[0x02] & 0xC0) == 0xC0)
 					{
 						ChnBoth[TempByt] = VGMPos;
@@ -562,7 +562,7 @@ static void CompressVGMData(void)
 			case 0x59:	// YM2610 write port 1
 				TempByt = Command & 0x01;
 				//WriteEvent = ym2610_write(TempByt, VGMPnt[0x01], VGMPnt[0x02]);
-				
+
 				TempSht = (TempByt << 8) | (VGMPnt[0x01] << 0);
 				//		FM Stereo			or		ADPCM Stereo		or		Delta-T Stereo
 				if ((TempSht & 0xFC) == 0xB4 || (TempSht & 0x1F8) == 0x108 || TempSht == 0x011)
@@ -573,7 +573,7 @@ static void CompressVGMData(void)
 						TempByt = 12;
 					else
 						TempByt = 6 + (TempSht & 0x07);
-					
+
 					if ((VGMPnt[0x02] & 0xC0) == 0xC0)
 					{
 						ChnBoth[TempByt] = VGMPos;
@@ -809,7 +809,7 @@ static void CompressVGMData(void)
 			case 0xc8:	// X1-010 write
 				TempSht = VGMPnt[0x01]<<8 | VGMPnt[0x02]<<0;
 				TempByt = VGMPnt[0x03];
-				
+
 				// register write
 				if(TempSht < 0x80)
 				{
@@ -850,7 +850,7 @@ static void CompressVGMData(void)
 					TempByt = (TempByt>>4) > (TempByt&0x0f) ? ((TempByt&0xf0) | (TempByt>>4)) : ((TempByt&0x0f) | (TempByt<<4));
 					VGMPnt[0x03] = TempByt;
 				}
-				
+
 				CmdLen = 0x04;
 				break;
 			default:
@@ -882,11 +882,11 @@ static void CompressVGMData(void)
 				break;
 			}
 		}
-		
+
 		VGMPos += CmdLen;
 		if (StopVGM)
 			break;
-		
+
 #ifdef WIN32
 		if (CmdTimer < GetTickCount())
 		{
@@ -901,6 +901,6 @@ static void CompressVGMData(void)
 #endif
 	}
 	printf("\t\t\t\t\t\t\t\t\r");
-	
+
 	return;
 }

@@ -79,9 +79,9 @@ int main(int argc, char* argv[])
 	int argbase;
 	const char* refDir;
 	const char* dstDir;
-	
+
 	printf("VGM Tag Transfer\n----------------\n");
-	
+
 	if (argc < 3)
 	{
 		printf("Usage: %s [options] referenceDir destinationDir\n", argv[0]);
@@ -90,7 +90,7 @@ int main(int argc, char* argv[])
 		printf("By default, only matches are shown, but no action is taken.\n");
 		return 1;
 	}
-	
+
 	argbase = 1;
 	fileActions = 0x00;
 	while(argbase < argc && argv[argbase][0] == '-')
@@ -110,31 +110,31 @@ int main(int argc, char* argv[])
 			break;
 		}
 	}
-	
+
 	if (argc < argbase + 2)
 	{
 		printf("Insufficient arguments.\n");
 		return 1;
 	}
-	
+
 	refDir = argv[argbase + 0];
 	dstDir = argv[argbase + 1];
 	ReadDirectory(refDir, refFiles);
 	ReadDirectory(dstDir, dstFiles);
 	CompareDirectories(refFiles, dstFiles, refDstMap);
-	
+
 	if (! fileActions)
 		PrintMappings(refFiles, dstFiles, refDstMap);
 	else
 		ExecuteTransfer(refDir, refFiles, dstDir, dstFiles, refDstMap, fileActions);
-	
+
 	return 0;
 }
 
 static std::string Dir2Path(const std::string& dirName)
 {
 	char lastChr;
-	
+
 	lastChr = dirName[dirName.length() - 1];
 	if (lastChr == '/' || lastChr == '\\')
 		return dirName;
@@ -155,9 +155,9 @@ static void ReadDirectory(const char* dirName, VFINF_LIST& vgmInfoList)
 	std::string fileName;
 	VGM_FILE_INFO vgmInfo;
 	UINT8 retVal8;
-	
+
 	basePath = Dir2Path(dirName);
-	
+
 	fileName = basePath + "*.vg?";
 	hFindFile = FindFirstFile(fileName.c_str(), &findData);
 	if (hFindFile == INVALID_HANDLE_VALUE)
@@ -165,12 +165,12 @@ static void ReadDirectory(const char* dirName, VFINF_LIST& vgmInfoList)
 		printf("Error reading directory!\n");
 		return;
 	}
-	
+
 	do
 	{
 		if (findData.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY)
 			goto SkipFile;
-		
+
 		fileName = basePath + findData.cFileName;
 		retVal8 = GetVGMFileInfo(fileName.c_str(), &vgmInfo);
 		vgmInfo.fileName = findData.cFileName;
@@ -178,12 +178,12 @@ static void ReadDirectory(const char* dirName, VFINF_LIST& vgmInfoList)
 			vgmInfoList.push_back(vgmInfo);
 		else
 			printf("Error reading %s!\n", fileName.c_str());
-		
+
 SkipFile:
 		retValB = FindNextFile(hFindFile, &findData);
 	} while(retValB);
 	retValB = FindClose(hFindFile);
-	
+
 	return;
 }
 #else
@@ -198,30 +198,30 @@ static void ReadDirectory(const char* dirName, VFINF_LIST& vgmInfoList)
 	std::string fileName;
 	VGM_FILE_INFO vgmInfo;
 	UINT8 retVal8;
-	
+
 	basePath = Dir2Path(dirName);
-	
+
 	dirHandle = opendir(basePath.c_str());
 	if (! dirHandle)
 	{
 		printf("Error reading directory!\n");
 		return;
 	}
-	
+
 	while ((dirEntry = readdir(dirHandle)))
 	{
 		dirEntryName = dirEntry->d_name;
 		if (! strcmp(dirEntryName, ".") || ! strcmp(dirEntryName, ".."))
 			continue;
-		
+
 		dirEntryNameSize = strlen(dirEntryName);
 		if (dirEntryNameSize < 4 || memcmp(dirEntryName + dirEntryNameSize - 4, ".vg", 3))
 			continue;
-		
+
 		fileName = basePath + dirEntryName;
 		if (stat(fileName.c_str(), &fileStatus) != 0 || ! S_ISREG(fileStatus.st_mode))
 			continue;
-		
+
 		retVal8 = GetVGMFileInfo(fileName.c_str(), &vgmInfo);
 		vgmInfo.fileName = dirEntryName;
 		if (! retVal8)
@@ -230,7 +230,7 @@ static void ReadDirectory(const char* dirName, VFINF_LIST& vgmInfoList)
 			printf("Error reading %s!\n", fileName.c_str());
 	}
 	closedir(dirHandle);
-	
+
 	return;
 }
 #endif
@@ -239,11 +239,11 @@ static UINT8 GetVGMFileInfo(const char* fileName, VGM_FILE_INFO* vgmInfo)
 {
 	gzFile hFile;
 	UINT8 hdrData[0x40];
-	
+
 	hFile = gzopen(fileName, "rb");
 	if (hFile == NULL)
 		return 0xFF;
-	
+
 	gzseek(hFile, 0x00, SEEK_SET);
 	gzread(hFile, hdrData, 0x40);
 	if (memcmp(&hdrData[0x00], "Vgm ", 0x04))
@@ -251,7 +251,7 @@ static UINT8 GetVGMFileInfo(const char* fileName, VGM_FILE_INFO* vgmInfo)
 		gzclose(hFile);
 		return 0xF0;
 	}
-	
+
 	gzseek(hFile, 0x18, SEEK_SET);
 	memcpy(&vgmInfo->fileSize, &hdrData[0x04], 0x04);
 	vgmInfo->fileSize += 0x04;
@@ -260,9 +260,9 @@ static UINT8 GetVGMFileInfo(const char* fileName, VGM_FILE_INFO* vgmInfo)
 		vgmInfo->gd3Offset += 0x14;
 	memcpy(&vgmInfo->totalSmpls, &hdrData[0x18], 0x04);
 	memcpy(&vgmInfo->loopSmpls, &hdrData[0x20], 0x04);
-	
+
 	gzclose(hFile);
-	
+
 	return 0x00;
 }
 
@@ -272,7 +272,7 @@ static void CompareDirectories(const VFINF_LIST& srcFiles, const VFINF_LIST& dst
 	VGM_FINF_KEY key;
 	VGM_FINF_VALUE val;
 	VFINF_MAP::iterator mapIt;
-	
+
 	for (curFile = 0; curFile < srcFiles.size(); curFile ++)
 	{
 		const VGM_FILE_INFO& srcFile = srcFiles[curFile];
@@ -309,14 +309,14 @@ static void CompareDirectories(const VFINF_LIST& srcFiles, const VFINF_LIST& dst
 			fileMap[key] = val;
 		}
 	}
-	
+
 	return;
 }
 
 static void PrintMappings(const VFINF_LIST& srcFiles, const VFINF_LIST& dstFiles, const VFINF_MAP& fileMap)
 {
 	VFINF_MAP::const_iterator mapIt;
-	
+
 	for (mapIt = fileMap.begin(); mapIt != fileMap.end(); ++mapIt)
 	{
 		const char* srcName = "-";
@@ -325,10 +325,10 @@ static void PrintMappings(const VFINF_LIST& srcFiles, const VFINF_LIST& dstFiles
 			srcName = srcFiles[mapIt->second.refFileID].fileName.c_str();
 		if (mapIt->second.dstFileID != (size_t)-1)
 			dstName = dstFiles[mapIt->second.dstFileID].fileName.c_str();
-		
+
 		printf("%s == %s\n", srcName, dstName);
 	}
-	
+
 	return;
 }
 
@@ -343,20 +343,20 @@ static void ExecuteTransfer(const char* srcDir, const VFINF_LIST& srcFiles, cons
 	std::string srcFilePath;
 	std::string dstFilePath;
 	UINT8 retVal;
-	
+
 	srcBasePath = Dir2Path(srcDir);
 	dstBasePath = Dir2Path(dstDir);
-	
+
 	for (mapIt = fileMap.begin(); mapIt != fileMap.end(); ++mapIt)
 	{
 		if (mapIt->second.refFileID == (size_t)-1 ||
 			mapIt->second.dstFileID == (size_t)-1)
 			continue;
-		
+
 		srcName = srcFiles[mapIt->second.refFileID].fileName.c_str();
 		dstName = dstFiles[mapIt->second.dstFileID].fileName.c_str();
 		printf("%s -> %s\n", srcName, dstName);
-		
+
 		if (actions & ACT_RETAG)
 		{
 			srcFilePath = srcBasePath + srcName;
@@ -374,7 +374,7 @@ static void ExecuteTransfer(const char* srcDir, const VFINF_LIST& srcFiles, cons
 				rename(srcFilePath.c_str(), dstFilePath.c_str());
 		}
 	}
-	
+
 	return;
 }
 
@@ -391,18 +391,18 @@ static UINT8 CopyTag(const char* srcFile, const char* dstFile)
 	bool isGZ;
 	std::vector<UINT8> gd3Data;
 	std::vector<UINT8> fileData;
-	
+
 	hFileSrc = gzopen(srcFile, "rb");
 	if (hFileSrc == NULL)
 		return 0xF8;
-	
+
 	gzread(hFileSrc, hdrData, 0x40);
 	if (memcmp(&hdrData[0x00], "Vgm ", 0x04))
 	{
 		gzclose(hFileSrc);
 		return 0xF0;
 	}
-	
+
 	memcpy(&gd3Ofs, &hdrData[0x14], 0x04);
 	if (! gd3Ofs)
 	{
@@ -419,13 +419,13 @@ static UINT8 CopyTag(const char* srcFile, const char* dstFile)
 	memcpy(&gd3Len, &gd3Hdr[0x08], 0x04);
 	gd3Data.resize(gd3Len);
 	gzread(hFileSrc, &gd3Data[0x00], gd3Len);
-	
+
 	gzclose(hFileSrc);	hFileSrc = NULL;
-	
+
 	hFileDst = gzopen(dstFile, "rb");
 	if (hFileDst == NULL)
 		return 0xF9;
-	
+
 	gzread(hFileDst, hdrData, 0x40);
 	if (memcmp(&hdrData[0x00], "Vgm ", 0x04))
 	{
@@ -434,7 +434,7 @@ static UINT8 CopyTag(const char* srcFile, const char* dstFile)
 	}
 	isGZ = ! gzdirect(hFileDst);
 	gzrewind(hFileDst);
-	
+
 	memcpy(&eofOfs, &hdrData[0x04], 0x04);
 	eofOfs += 0x04;
 	memcpy(&gd3Ofs, &hdrData[0x14], 0x04);
@@ -443,44 +443,44 @@ static UINT8 CopyTag(const char* srcFile, const char* dstFile)
 	else if (! gd3Ofs)
 		gd3Ofs = eofOfs;
 	eofOfs = gd3Ofs + 0x0C + gd3Len;	// calculate new GD3 offset
-	
+
 	fileData.resize(gd3Ofs);	// load everything but the GD3 tag
 	gzread(hFileDst, &fileData[0x00], fileData.size());
 	gzclose(hFileDst);	hFileDst = NULL;
-	
+
 	tempOfs = eofOfs - 0x04;
 	memcpy(&fileData[0x04], &tempOfs, 0x04);	// set new EOF offset
 	tempOfs = gd3Ofs - 0x14;
 	memcpy(&fileData[0x14], &tempOfs, 0x04);	// set new GD3 offset
-	
+
 	if (! isGZ)
 	{
 		FILE* hFile;
-		
+
 		hFile = fopen(dstFile, "wb");
 		if (hFile == NULL)
 			return 0xFF;
-		
+
 		fwrite(&fileData[0x00], 0x01, gd3Ofs, hFile);
 		fwrite(gd3Hdr, 0x01, 0x0C, hFile);
 		fwrite(&gd3Data[0x00], 0x01, gd3Len, hFile);
-		
+
 		fclose(hFile);
 	}
 	else
 	{
 		gzFile hFile;
-		
+
 		hFile = gzopen(dstFile, "wb");
 		if (hFile == NULL)
 			return 0xFF;
-		
+
 		gzwrite(hFile, &fileData[0x00], gd3Ofs);
 		gzwrite(hFile, gd3Hdr, 0x0C);
 		gzwrite(hFile, &gd3Data[0x00], gd3Len);
-		
+
 		gzclose(hFile);
 	}
-	
+
 	return 0x00;
 }

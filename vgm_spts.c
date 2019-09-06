@@ -37,9 +37,9 @@ int main(int argc, char* argv[])
 	int argbase;
 	int ErrVal;
 	char FileName[0x100];
-	
+
 	printf("VGM Splitter (Sample Edition)\n------------\n\n");
-	
+
 	ErrVal = 0;
 	argbase = 1;
 	printf("File Name:\t");
@@ -54,7 +54,7 @@ int main(int argc, char* argv[])
 	}
 	if (! strlen(FileName))
 		return 0;
-	
+
 	if (! OpenVGMFile(FileName))
 	{
 		printf("Error opening the file!\n");
@@ -62,16 +62,16 @@ int main(int argc, char* argv[])
 		goto EndProgram;
 	}
 	printf("\n");
-	
+
 	SetTrimOptions(0x00, 0x00);
 	SplitVGMData(argc, argv);
-	
+
 	free(VGMData);
 	free(DstData);
-	
+
 EndProgram:
 	DblClickWait(argv[0]);
-	
+
 	return ErrVal;
 }
 
@@ -81,20 +81,20 @@ static bool OpenVGMFile(const char* FileName)
 	UINT32 CurPos;
 	UINT32 TempLng;
 	char* TempPnt;
-	
+
 	hFile = gzopen(FileName, "rb");
 	if (hFile == NULL)
 		return false;
-	
+
 	gzseek(hFile, 0x00, SEEK_SET);
 	gzread(hFile, &TempLng, 0x04);
 	if (TempLng != FCC_VGM)
 		goto OpenErr;
-	
+
 	gzseek(hFile, 0x00, SEEK_SET);
 	gzread(hFile, &VGMHead, sizeof(VGM_HEADER));
 	ZLIB_SEEKBUG_CHECK(VGMHead);
-	
+
 	// Header preperations
 	if (VGMHead.lngVersion < 0x00000150)
 	{
@@ -115,7 +115,7 @@ static bool OpenVGMFile(const char* FileName)
 	if (! VGMHead.lngDataOffset)
 		VGMHead.lngDataOffset = 0x0000000C;
 	VGMHead.lngDataOffset += 0x00000034;
-	
+
 	CurPos = VGMHead.lngDataOffset;
 	if (VGMHead.lngVersion < 0x00000150)
 		CurPos = 0x40;
@@ -125,7 +125,7 @@ static bool OpenVGMFile(const char* FileName)
 	else
 		TempLng = 0x00;
 	memset((UINT8*)&VGMHead + CurPos, 0x00, TempLng);
-	
+
 	// Read Data
 	VGMDataLen = VGMHead.lngEOFOffset;
 	VGMData = (UINT8*)malloc(VGMDataLen);
@@ -133,14 +133,14 @@ static bool OpenVGMFile(const char* FileName)
 		goto OpenErr;
 	gzseek(hFile, 0x00, SEEK_SET);
 	gzread(hFile, VGMData, VGMDataLen);
-	
+
 	gzclose(hFile);
-	
+
 	strcpy(FileBase, FileName);
 	TempPnt = strrchr(FileBase, '.');
 	if (TempPnt != NULL)
 		*TempPnt = 0x00;
-	
+
 	return true;
 
 OpenErr:
@@ -153,7 +153,7 @@ static void WriteVGMFile(const char* FileName)
 {
 	FILE* hFile;
 	const char* FileTitle;
-	
+
 	//printf("                                                                \r");
 	printf("\t\t\t\t\t\t\t\t\r");
 	FileTitle = strrchr(FileName, '\\');
@@ -161,18 +161,18 @@ static void WriteVGMFile(const char* FileName)
 		FileTitle = FileName;
 	else
 		FileTitle ++;
-	
+
 	hFile = fopen(FileName, "wb");
 	if (hFile == NULL)
 	{
 		printf("Error writing %s!\n", FileTitle);
 		return;
 	}
-	
+
 	fwrite(DstData, 0x01, DstDataLen, hFile);
 	fclose(hFile);
 	printf("%s written.\n", FileTitle);
-	
+
 	return;
 }
 
@@ -198,16 +198,16 @@ static void SplitVGMData(int argc, char* argv[])
 	char SplitTxt[0x100];
 	INT32 SplitSmpl;
 	bool IgnoreCmd;
-	
+
 	// +0x100 - Make sure to have enough room for additional delays
 	DstData = (UINT8*)malloc(VGMDataLen + 0x100);
 	CmdDelay = 0;
 	VGMPos = VGMHead.lngDataOffset;
-	
+
 	VGMSmplPos = 0x00;
 	SplitFile = 0x00;
 	StopVGM = false;
-	
+
 	CurArg = 2;
 	while(! StopVGM)
 	{
@@ -232,11 +232,11 @@ static void SplitVGMData(int argc, char* argv[])
 			printf("Invalid Sample Point!\n");
 			continue;
 		}
-		
+
 		TempLng = 0x00;
 		memcpy(&VGMData[0x1C], &TempLng, 0x04);	// Disable Loops
 		memcpy(&VGMData[0x20], &TempLng, 0x04);
-		
+
 #ifdef WIN32
 		CmdTimer = 0;
 #endif
@@ -249,7 +249,7 @@ static void SplitVGMData(int argc, char* argv[])
 			Command = VGMData[VGMPos + 0x00];
 			IsDelay = false;
 			IgnoreCmd = false;
-			
+
 			if (Command >= 0x70 && Command <= 0x8F)
 			{
 				switch(Command & 0xF0)
@@ -348,7 +348,7 @@ static void SplitVGMData(int argc, char* argv[])
 					}
 					break;
 				}
-				
+
 				switch(Command)
 				{
 				case 0x66:	// End Of File
@@ -527,7 +527,7 @@ static void SplitVGMData(int argc, char* argv[])
 				}
 			}
 			VGMPos += CmdLen;
-			
+
 			if (! IsDelay)
 			{
 				if (! IgnoreCmd)
@@ -548,23 +548,23 @@ static void SplitVGMData(int argc, char* argv[])
 				{
 					VGMSmplStart = VGMSmplPos;
 					CmdDelay = 0x00;
-				} 
+				}
 				if (VGMSmplPos >= SplitSmpl || StopVGM)
 				{
 					TempLng = VGMSmplPos - CmdDelay;
 					TrimVGMData(VGMSmplStart, 0x00, TempLng, false, true);
-					
+
 					SplitFile ++;
 					sprintf(TempStr, "%s_%02u.vgm", FileBase, SplitFile);
 					WriteVGMFile(TempStr);
-					
+
 					VGMSmplStart = VGMSmplPos;
 					break;
 				}
 			}
 			if (StopVGM)
 				break;
-			
+
 #ifdef WIN32
 			if (CmdTimer < GetTickCount())
 			{
@@ -581,6 +581,6 @@ static void SplitVGMData(int argc, char* argv[])
 	}
 	//printf("\t\t\t\t\t\t\t\t\r");
 	//printf("Done.\n");
-	
+
 	return;
 }
