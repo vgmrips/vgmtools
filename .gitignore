@@ -1,13 +1,17 @@
 *.exe
 *.o
 dro2vgm
+raw2vgm
+imf2vgm
 optdac
+opl_23
 optvgm32
 optvgmrf
 vgm2txt
 vgm_cmp
 vgm_cnt
 vgm_dbc
+vgm_dso
 vgm_facc
 vgm_mono
 vgm_ndlz
@@ -17,6 +21,7 @@ vgm_sptd
 vgm_spts
 vgm_sro
 vgm_tag
+vgm_tt
 vgm_trim
 vgm_vol
 vgmlpfnd
@@ -28,3 +33,5 @@ vc6/Release
 vc6/*.plg
 vc6/*.opt
 vc6/*.ncb
+build/
+
