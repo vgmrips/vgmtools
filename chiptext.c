@@ -1014,7 +1014,7 @@ void ym2151_write(char* TempStr, UINT8 Register, UINT8 Data)
 			sprintf(WriteStr, "%s, Enable Timer: %c%c, Timer IRQ Enable: %c%c, Reset Timer Status: %c%c",
 					WriteStr,
 					(Data & 0x01) ? 'A' : '-', (Data & 0x02) ? 'B' : '-',
-					(Data & 0x04) ? 'A' : '-', (Data & 0x08) ? 'B' : '-', 
+					(Data & 0x04) ? 'A' : '-', (Data & 0x08) ? 'B' : '-',
 					(Data & 0x10) ? 'A' : '-', (Data & 0x20) ? 'B' : '-');
 			break;
 		case 0x18:	// LFO frequency
@@ -1857,7 +1857,7 @@ void ymf278b_write(char* TempStr, UINT8 Port, UINT8 Register, UINT8 Data)
 				break;
 			case 0xF8:	// FM Mix Control
 			case 0xF9:	// PCM Mix Control
-				sprintf(WriteStr, "%S Mix L: 0x%01X = %u%%, 0x%01X = %u%%",
+				sprintf(WriteStr, "%s Mix L: 0x%01X = %u%%, 0x%01X = %u%%",
 						(Register == 0xF9) ? "PCM" : "FM",
 						(Data & 0x38) >> 3, GetLogVolPercent((Data & 0x38) >> 3, 0x02, 0xFF),
 						(Data & 0x07) >> 0, GetLogVolPercent((Data & 0x07) >> 0, 0x02, 0xFF));

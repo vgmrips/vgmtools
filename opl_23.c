@@ -440,14 +440,14 @@ static void CompressVGMData(void)
 						break;
 					case 0xC0:
 						if (TempByt == OPL2ChipMap[0x00] && (VGMPnt[0x02] & OPL3_RIGHT))
-							printf("Warning! Stereo mismatch at 0x%06!\n", VGMPos);
+							printf("Warning! Stereo mismatch at 0x%06X!\n", VGMPos);
 						else if (TempByt == OPL2ChipMap[0x01] && (VGMPnt[0x02] & OPL3_LEFT))
-							printf("Warning! Stereo mismatch at 0x%06!\n", VGMPos);
+							printf("Warning! Stereo mismatch at 0x%06X!\n", VGMPos);
 						break;
 					case 0xE0:
 					case 0xF0:
 						if (VGMPnt[0x02] & 0x04)
-							printf("Warning! Waveform %02 used at 0x%06!\n", VGMPnt[0x02], VGMPos);
+							printf("Warning! Waveform %02d used at 0x%06X!\n", VGMPnt[0x02], VGMPos);
 						break;
 					}
 					if (VGMPnt[0x01] < 0x20)
