@@ -40,12 +40,12 @@ int main(int argc, char* argv[])
 	int ErrVal;
 	int argbase;
 	char FileName[0x100];
-	
+
 	printf("Make VGM Frame Accurate\n-----------------------\n\n");
-	
+
 	ErrVal = 0;
 	argbase = 1;
-	
+
 	printf("File Name:\t");
 	if (argc <= argbase + 0)
 	{
@@ -58,7 +58,7 @@ int main(int argc, char* argv[])
 	}
 	if (! strlen(FileName))
 		return 0;
-	
+
 	if (! OpenVGMFile(FileName))
 	{
 		printf("Error opening the file!\n");
@@ -66,9 +66,9 @@ int main(int argc, char* argv[])
 		goto EndProgram;
 	}
 	printf("\n");
-	
+
 	RoundVGMData();
-	
+
 	if (argc > argbase + 1)
 		strcpy(FileName, argv[argbase + 1]);
 	else
@@ -79,13 +79,13 @@ int main(int argc, char* argv[])
 		strcat(FileName, "_frame.vgm");
 	}
 	WriteVGMFile(FileName);
-	
+
 	free(VGMData);
 	free(DstData);
-	
+
 EndProgram:
 	DblClickWait(argv[0]);
-	
+
 	return ErrVal;
 }
 
@@ -95,20 +95,20 @@ static bool OpenVGMFile(const char* FileName)
 	UINT32 CurPos;
 	UINT32 TempLng;
 	char* TempPnt;
-	
+
 	hFile = gzopen(FileName, "rb");
 	if (hFile == NULL)
 		return false;
-	
+
 	gzseek(hFile, 0x00, SEEK_SET);
 	gzread(hFile, &TempLng, 0x04);
 	if (TempLng != FCC_VGM)
 		goto OpenErr;
-	
+
 	gzseek(hFile, 0x00, SEEK_SET);
 	gzread(hFile, &VGMHead, sizeof(VGM_HEADER));
 	ZLIB_SEEKBUG_CHECK(VGMHead);
-	
+
 	// Header preperations
 	if (VGMHead.lngVersion < 0x00000150)
 	{
@@ -129,7 +129,7 @@ static bool OpenVGMFile(const char* FileName)
 	if (! VGMHead.lngDataOffset)
 		VGMHead.lngDataOffset = 0x0000000C;
 	VGMHead.lngDataOffset += 0x00000034;
-	
+
 	CurPos = VGMHead.lngDataOffset;
 	if (VGMHead.lngVersion < 0x00000150)
 		CurPos = 0x40;
@@ -139,7 +139,7 @@ static bool OpenVGMFile(const char* FileName)
 	else
 		TempLng = 0x00;
 	memset((UINT8*)&VGMHead + CurPos, 0x00, TempLng);
-	
+
 	// Read Data
 	VGMDataLen = VGMHead.lngEOFOffset;
 	VGMData = (UINT8*)malloc(VGMDataLen);
@@ -147,14 +147,14 @@ static bool OpenVGMFile(const char* FileName)
 		goto OpenErr;
 	gzseek(hFile, 0x00, SEEK_SET);
 	gzread(hFile, VGMData, VGMDataLen);
-	
+
 	gzclose(hFile);
-	
+
 	strcpy(FileBase, FileName);
 	TempPnt = strrchr(FileBase, '.');
 	if (TempPnt != NULL)
 		*TempPnt = 0x00;
-	
+
 	return true;
 
 OpenErr:
@@ -167,25 +167,25 @@ static void WriteVGMFile(const char* FileName)
 {
 	FILE* hFile;
 	const char* FileTitle;
-	
+
 	printf("\t\t\t\t\t\t\t\t\r");
 	FileTitle = strrchr(FileName, '\\');
 	if (FileTitle == NULL)
 		FileTitle = FileName;
 	else
 		FileTitle ++;
-	
+
 	hFile = fopen(FileName, "wb");
 	if (hFile == NULL)
 	{
 		printf("Error writing %s!\n", FileTitle);
 		return;
 	}
-	
+
 	fwrite(DstData, 0x01, DstDataLen, hFile);
 	fclose(hFile);
 	printf("%s written.\n", FileTitle);
-	
+
 	return;
 }
 
@@ -219,11 +219,11 @@ static void RoundVGMData(void)
 	INT32 RndPosMin;
 	INT32 RndPosMax;
 	INT32 RndPosMax1;
-	
+
 	DstData = (UINT8*)malloc(VGMDataLen);
 	VGMPos = VGMHead.lngDataOffset;
 	DstPos = VGMHead.lngDataOffset;
-	
+
 	switch(VGMHead.lngRate)
 	{
 	case 0:
@@ -252,14 +252,14 @@ static void RoundVGMData(void)
 	MaxDelay = (UINT16)(0xFFFF / RoundTo * RoundTo);
 	SampleCount = RoundU(VGMHead.lngTotalSamples);
 	LoopSmpl = RoundU(VGMHead.lngTotalSamples - VGMHead.lngLoopSamples);
-	
+
 	RndErrMin = 0;
 	RndErrMax = 0;
 	RndErrMax1 = 0;
 	RndPosMin = 0;
 	RndPosMax = 0;
 	RndPosMax1 = 0;
-	
+
 #ifdef WIN32
 	CmdTimer = 0;
 #endif
@@ -273,7 +273,7 @@ static void RoundVGMData(void)
 		CmdLen = 0x00;
 		Command = VGMData[VGMPos + 0x00];
 		IsDelay = false;
-		
+
 		CmdDelay = 0x00;
 		if (Command >= 0x70 && Command <= 0x8F)
 		{
@@ -373,7 +373,7 @@ static void RoundVGMData(void)
 				}
 				break;
 			}
-			
+
 			switch(Command)
 			{
 			case 0x66:	// End Of File
@@ -512,7 +512,7 @@ static void RoundVGMData(void)
 				break;
 			}
 		}
-		
+
 		if (VGMHead.lngLoopOffset && VGMPos == VGMHead.lngLoopOffset)
 			LoopPos = DstPos;
 		if (IsDelay)
@@ -547,12 +547,12 @@ static void RoundVGMData(void)
 						TempSht = (UINT16)TempLng;
 					else
 						TempSht = MaxDelay;
-					
+
 					DstData[DstPos + 0x00] = 0x61;
 					memcpy(&DstData[DstPos + 0x01], &TempSht, 0x02);
 					DstPos += 0x03;
 				}
-				
+
 				VGMSmplLast += TempSht;
 			}
 		}
@@ -564,7 +564,7 @@ static void RoundVGMData(void)
 		VGMPos += CmdLen;
 		if (StopVGM)
 			break;
-		
+
 #ifdef WIN32
 		if (CmdTimer < GetTickCount())
 		{
@@ -578,19 +578,19 @@ static void RoundVGMData(void)
 		}
 #endif
 	}
-	
+
 	if (VGMHead.lngLoopOffset && ! LoopPos)
 		printf("Warning! Failed to relocate Loop Point!\n");
-	
+
 	WriteVGMHeader(DstData, VGMData, DstPos, SampleCount,
 					LoopPos, SampleCount - LoopSmpl);
 	/*sprintf(TempStr, "%s_frame.vgm", FileBase);
 	WriteVGMFile(TempStr);*/
-	
+
 	printf("Maximum Rounding Difference:\n");
 	printf("\t%d at %06X\n\t%d at %06X\n\t%d at %06X (first frame only)\n",
 			RndErrMin, RndPosMin, RndErrMax, RndPosMax, RndErrMax1, RndPosMax1);
-	
+
 	return;
 }
 
@@ -602,7 +602,7 @@ static void WriteVGMHeader(UINT8* DstData, const UINT8* SrcData, const UINT32 EO
 	UINT32 DstPos;
 	UINT32 CmdLen;
 	UINT32 TempLng;
-	
+
 	memcpy(DstData, VGMData, VGMHead.lngDataOffset);	// Copy Header
 	memcpy(&DstData[0x18], &SampleCount, 0x04);
 	TempLng = LoopPos;
@@ -610,7 +610,7 @@ static void WriteVGMHeader(UINT8* DstData, const UINT8* SrcData, const UINT32 EO
 		TempLng -= 0x1C;
 	memcpy(&DstData[0x1C], &TempLng, 0x04);
 	memcpy(&DstData[0x20], &LoopSmpls, 0x04);
-	
+
 	DstPos = EOFPos;
 	if (VGMHead.lngGD3Offset && VGMHead.lngGD3Offset + 0x0B < VGMHead.lngEOFOffset)
 	{
@@ -620,18 +620,18 @@ static void WriteVGMHeader(UINT8* DstData, const UINT8* SrcData, const UINT32 EO
 		{
 			memcpy(&CmdLen, &VGMData[CurPos + 0x08], 0x04);
 			CmdLen += 0x0C;
-			
+
 			TempLng = DstPos - 0x14;
 			memcpy(&DstData[0x14], &TempLng, 0x04);
 			memcpy(&DstData[DstPos], &VGMData[CurPos], CmdLen);	// Copy GD3 Tag
 			DstPos += CmdLen;
 		}
 	}
-	
+
 	DstDataLen = DstPos;
 	TempLng = DstDataLen - 0x04;
 	memcpy(&DstData[0x04], &TempLng, 0x04);	// Write EOF Position
-	
+
 	return;
 }
 
@@ -654,7 +654,7 @@ static void SetRoundError(UINT32 SrcVal, UINT32 RndVal, INT32* ErrMin, INT32* Er
 						  INT32* PosMin, INT32* PosMax)
 {
 	INT32 TempLng;
-	
+
 	TempLng = SrcVal - RndVal;
 	if (TempLng < 0)
 	{
@@ -672,6 +672,6 @@ static void SetRoundError(UINT32 SrcVal, UINT32 RndVal, INT32* ErrMin, INT32* Er
 			*PosMax = VGMPos;
 		}
 	}
-	
+
 	return;
 }

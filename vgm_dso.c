@@ -84,9 +84,9 @@ int main(int argc, char* argv[])
 	char FileName[0x100];
 	UINT8 curBank;
 	UINT8 smplOverlap;
-	
+
 	printf("VGM DAC Stream Optimizer\n------------------------\n\n");
-	
+
 	ErrVal = 0;
 	argbase = 1;
 	printf("File Name:\t");
@@ -101,7 +101,7 @@ int main(int argc, char* argv[])
 	}
 	if (! strlen(FileName))
 		return 1;
-	
+
 	if (! OpenVGMFile(FileName))
 	{
 		printf("Error opening the file!\n");
@@ -109,11 +109,11 @@ int main(int argc, char* argv[])
 		goto EndProgram;
 	}
 	printf("\n");
-	
+
 	DstData = NULL;
 	memset(PCMBank, 0x00, sizeof(VGM_PCM_BANK) * PCM_BANK_COUNT);
 	memset(Bank93, 0x00, sizeof(SAMPLE_LIST) * PCM_BANK_COUNT);
-	
+
 	CancelFlag = false;
 	FindUsedROMData();
 	if (CancelFlag)
@@ -126,14 +126,14 @@ int main(int argc, char* argv[])
 		UINT32 curSmpl;
 		SAMPLE_LIST* tempBnk;
 		SAMPLE_INF* tempSmpl;
-		
+
 		printf("Data Block Usage\n---------------\n");
 		for (curBank = 0x00; curBank < PCM_BANK_COUNT; curBank ++)
 		{
 			tempBnk = &Bank93[curBank];
 			if (tempBnk->smplCnt == 0)
 				continue;
-			
+
 			printf("Start   End     Size  -- Datablock Type 0x%02X\n", curBank);
 			for (curSmpl = 0; curSmpl < tempBnk->smplCnt; curSmpl ++)
 			{
@@ -148,11 +148,11 @@ int main(int argc, char* argv[])
 		SAMPLE_LIST* tempBnk;
 		SAMPLE_INF* tempSmpl;
 		UINT32 smplPos;
-		
+
 		for (curBank = 0x00; curBank < PCM_BANK_COUNT; curBank ++)
 		{
 			tempBnk = &Bank93[curBank];
-			
+
 			smplPos = 0;
 			for (curSmpl = 0; curSmpl < tempBnk->smplCnt; curSmpl ++)
 			{
@@ -172,9 +172,9 @@ int main(int argc, char* argv[])
 		ErrVal = 0;
 		goto BreakProgress;
 	}
-	
+
 	OptimizeVGMSampleROM();
-	
+
 	if (argc > argbase + 1)
 		strcpy(FileName, argv[argbase + 1]);
 	else
@@ -184,8 +184,8 @@ int main(int argc, char* argv[])
 		strcpy(FileName, FileBase);
 		strcat(FileName, "_optimized.vgm");
 	}
-	WriteVGMFile(FileName); 
-	
+	WriteVGMFile(FileName);
+
 BreakProgress:
 	free(VGMData);
 	free(DstData);
@@ -195,10 +195,10 @@ BreakProgress:
 		free(PCMBank[curBank].Data);
 		free(Bank93[curBank].samples);
 	}
-	
+
 EndProgram:
 	DblClickWait(argv[0]);
-	
+
 	return ErrVal;
 }
 
@@ -208,20 +208,20 @@ static bool OpenVGMFile(const char* FileName)
 	UINT32 CurPos;
 	UINT32 TempLng;
 	char* TempPnt;
-	
+
 	hFile = gzopen(FileName, "rb");
 	if (hFile == NULL)
 		return false;
-	
+
 	gzseek(hFile, 0x00, SEEK_SET);
 	gzread(hFile, &TempLng, 0x04);
 	if (TempLng != FCC_VGM)
 		goto OpenErr;
-	
+
 	gzseek(hFile, 0x00, SEEK_SET);
 	gzread(hFile, &VGMHead, sizeof(VGM_HEADER));
 	ZLIB_SEEKBUG_CHECK(VGMHead);
-	
+
 	// Header preperations
 	if (VGMHead.lngVersion < 0x00000150)
 	{
@@ -242,7 +242,7 @@ static bool OpenVGMFile(const char* FileName)
 	if (! VGMHead.lngDataOffset)
 		VGMHead.lngDataOffset = 0x0000000C;
 	VGMHead.lngDataOffset += 0x00000034;
-	
+
 	CurPos = VGMHead.lngDataOffset;
 	if (VGMHead.lngVersion < 0x00000150)
 		CurPos = 0x40;
@@ -252,7 +252,7 @@ static bool OpenVGMFile(const char* FileName)
 	else
 		TempLng = 0x00;
 	memset((UINT8*)&VGMHead + CurPos, 0x00, TempLng);
-	
+
 	// Read Data
 	VGMDataLen = VGMHead.lngEOFOffset;
 	VGMData = (UINT8*)malloc(VGMDataLen);
@@ -260,14 +260,14 @@ static bool OpenVGMFile(const char* FileName)
 		goto OpenErr;
 	gzseek(hFile, 0x00, SEEK_SET);
 	gzread(hFile, VGMData, VGMDataLen);
-	
+
 	gzclose(hFile);
-	
+
 	strcpy(FileBase, FileName);
 	TempPnt = strrchr(FileBase, '.');
 	if (TempPnt != NULL)
 		*TempPnt = 0x00;
-	
+
 	return true;
 
 OpenErr:
@@ -279,13 +279,13 @@ OpenErr:
 static void WriteVGMFile(const char* FileName)
 {
 	FILE* hFile;
-	
+
 	hFile = fopen(FileName, "wb");
 	fwrite(DstData, 0x01, DstDataLen, hFile);
 	fclose(hFile);
-	
+
 	printf("File written.\n");
-	
+
 	return;
 }
 
@@ -305,21 +305,21 @@ static void FindUsedROMData(void)
 	bool StopVGM;
 	const UINT8* VGMPnt;
 	STREAM_INF* tempSInf;
-	
+
 	printf("Creating ROM-Usage Mask ...\n");
 	VGMPos = VGMHead.lngDataOffset;
-	
+
 #ifdef WIN32
 	CmdTimer = 0;
 #endif
 	memset(StreamInfo, 0x00, sizeof(STREAM_INF) * 0x100);
-	
+
 	StopVGM = false;
 	while(VGMPos < VGMHead.lngEOFOffset)
 	{
 		CmdLen = 0x00;
 		Command = VGMData[VGMPos + 0x00];
-		
+
 		if (Command >= 0x70 && Command <= 0x8F)
 		{
 			switch(Command & 0xF0)
@@ -338,7 +338,7 @@ static void FindUsedROMData(void)
 		else
 		{
 			VGMPnt = &VGMData[VGMPos];
-			
+
 			switch(Command)
 			{
 			case 0x66:	// End Of File
@@ -366,10 +366,10 @@ static void FindUsedROMData(void)
 			case 0x67:	// PCM Data Stream
 				TempByt = VGMPnt[0x02];
 				memcpy(&TempLng, &VGMPnt[0x03], 0x04);
-				
+
 				ChipID = (TempLng & 0x80000000) >> 31;
 				TempLng &= 0x7FFFFFFF;
-				
+
 				switch(TempByt & 0xC0)
 				{
 				case 0x00:	// Database Block
@@ -425,7 +425,7 @@ static void FindUsedROMData(void)
 				{
 					UINT32 dStart;
 					UINT32 dLen;
-					
+
 					dStart = ReadLE32(&VGMPnt[0x02]);
 					dLen = ReadLE32(&VGMPnt[0x07]);
 					AddSampleToList(tempSInf->bankID, dStart, dLen);
@@ -470,11 +470,11 @@ static void FindUsedROMData(void)
 				break;
 			}
 		}
-		
+
 		VGMPos += CmdLen;
 		if (StopVGM)
 			break;
-		
+
 #ifdef WIN32
 		if (CmdTimer < GetTickCount())
 		{
@@ -489,7 +489,7 @@ static void FindUsedROMData(void)
 #endif
 	}
 	printf("\t\t\t\t\t\t\t\t\r");
-		
+
 	return;
 }
 
@@ -517,13 +517,13 @@ static void OptimizeVGMSampleROM(void)
 	SAMPLE_LIST* tempBnk;
 	SAMPLE_INF* tempSmpl;
 	STREAM_INF* tempSInf;
-	
+
 	DstData = (UINT8*)malloc(VGMDataLen + 0x100);
 	VGMPos = VGMHead.lngDataOffset;
 	DstPos = VGMHead.lngDataOffset;
 	NewLoopS = 0x00;
 	memcpy(DstData, VGMData, VGMPos);	// Copy Header
-	
+
 #ifdef WIN32
 	CmdTimer = 0;
 #endif
@@ -533,19 +533,19 @@ static void OptimizeVGMSampleROM(void)
 		tempBnk = &Bank93[curBank];
 		if (tempPCM->DataSize == 0 || tempBnk->smplCnt == 0)
 			continue;
-		
+
 		TempLng = 0;
 		TempSht = 0x0000;
 		for (curSmpl = 0; curSmpl < tempBnk->smplCnt; curSmpl ++)
 		{
 			tempSmpl = &tempBnk->samples[curSmpl];
-			
+
 			if (TempLng < tempSmpl->startOfs)
 			{
 				WriteDataBlock(&DstPos, curBank, tempSmpl->startOfs - TempLng, &tempPCM->Data[TempLng]);
 				TempSht ++;
 			}
-			
+
 			tempSmpl->smplID = TempSht;
 			WriteDataBlock(&DstPos, curBank, tempSmpl->dataSize, &tempPCM->Data[tempSmpl->startOfs]);
 			TempSht ++;
@@ -568,26 +568,26 @@ static void OptimizeVGMSampleROM(void)
 			tempSInf->posCmd[0x01] = 0x00;
 			tempSInf->posCmd[0x02] = 0x00;
 		}
-		
+
 		for (Command = 0x00; Command < 0x03; Command ++)
 		{
 			if (! tempSInf->posCmd[Command])
 				continue;
-			
+
 			CmdLen = (Command == 0x02) ? 0x06 : 0x05;
 			printf("Copying data from for command %02X 0x%06X -> 0x%06X\n", 0x90 + Command, tempSInf->posCmd[Command], DstPos);
 			memcpy(&DstData[DstPos], &VGMData[tempSInf->posCmd[Command]], CmdLen);
 			DstPos += CmdLen;
 		}
 	}
-	
+
 	StopVGM = false;
 	while(VGMPos < VGMHead.lngEOFOffset)
 	{
 		CmdLen = 0x00;
 		Command = VGMData[VGMPos + 0x00];
 		WriteEvent = true;
-		
+
 		if (Command >= 0x70 && Command <= 0x8F)
 		{
 			switch(Command & 0xF0)
@@ -606,7 +606,7 @@ static void OptimizeVGMSampleROM(void)
 		else
 		{
 			VGMPnt = &VGMData[VGMPos];
-			
+
 			switch(Command)
 			{
 			case 0x66:	// End Of File
@@ -634,10 +634,10 @@ static void OptimizeVGMSampleROM(void)
 			case 0x67:	// PCM Data Stream
 				TempByt = VGMPnt[0x02];
 				memcpy(&TempLng, &VGMPnt[0x03], 0x04);
-				
+
 				ChipID = (TempLng & 0x80000000) >> 31;
 				TempLng &= 0x7FFFFFFF;
-				
+
 				switch(TempByt & 0xC0)
 				{
 				case 0x00:	// Database Block
@@ -683,7 +683,7 @@ static void OptimizeVGMSampleROM(void)
 				{
 					UINT32 dStart;
 					UINT32 dLen;
-					
+
 					tempBnk = &Bank93[tempSInf->bankID];
 					dStart = ReadLE32(&VGMPnt[0x02]);
 					dLen = ReadLE32(&VGMPnt[0x07]);
@@ -739,7 +739,7 @@ static void OptimizeVGMSampleROM(void)
 				break;
 			}
 		}
-		
+
 		// Note: In the case that the loop offset points to a Data Block,
 		//       it gets moved to the first command after it.
 		if (VGMPos == VGMHead.lngLoopOffset)
@@ -752,7 +752,7 @@ static void OptimizeVGMSampleROM(void)
 		VGMPos += CmdLen;
 		if (StopVGM)
 			break;
-		
+
 #ifdef WIN32
 		if (CmdTimer < GetTickCount())
 		{
@@ -774,7 +774,7 @@ static void OptimizeVGMSampleROM(void)
 		memcpy(&DstData[0x1C], &TempLng, 0x04);
 	}
 	printf("\t\t\t\t\t\t\t\t\r");
-	
+
 	if (VGMHead.lngGD3Offset && VGMHead.lngGD3Offset + 0x0B < VGMHead.lngEOFOffset)
 	{
 		VGMPos = VGMHead.lngGD3Offset;
@@ -783,7 +783,7 @@ static void OptimizeVGMSampleROM(void)
 		{
 			memcpy(&CmdLen, &VGMData[VGMPos + 0x08], 0x04);
 			CmdLen += 0x0C;
-			
+
 			TempLng = DstPos - 0x14;
 			memcpy(&DstData[0x14], &TempLng, 0x04);
 			memcpy(&DstData[DstPos], &VGMData[VGMPos], CmdLen);
@@ -793,7 +793,7 @@ static void OptimizeVGMSampleROM(void)
 	DstDataLen = DstPos;
 	TempLng = DstDataLen - 0x04;
 	memcpy(&DstData[0x04], &TempLng, 0x04);
-	
+
 	return;
 }
 
@@ -805,7 +805,7 @@ static void WriteDataBlock(UINT32* DstPos, UINT8 blkType, UINT32 dataSize, const
 	WriteLE32(&DstData[*DstPos + 0x03], dataSize);
 	memcpy(&DstData[*DstPos + 0x07], data, dataSize);
 	(*DstPos) += 0x07 + dataSize;
-	
+
 	return;
 }
 
@@ -815,27 +815,27 @@ static void AddPCMData(UINT8 Type, UINT32 DataSize, const UINT8* Data)
 	VGM_PCM_BANK* tempPCM;
 	VGM_PCM_DATA* tempBnk;
 	UINT8 BnkType;
-	
+
 	BnkType = Type & 0x3F;
 	if (BnkType >= PCM_BANK_COUNT)
 		return;
 	if (Type == 0x7F)
 		return;
-	
+
 	tempPCM = &PCMBank[BnkType];
 	CurBnk = tempPCM->BankCount;
 	tempPCM->BankCount ++;
 	tempPCM->Bank = (VGM_PCM_DATA*)realloc(tempPCM->Bank, sizeof(VGM_PCM_DATA) * tempPCM->BankCount);
-	
+
 	tempPCM->Data = realloc(tempPCM->Data, tempPCM->DataSize + DataSize);
 	tempBnk = &tempPCM->Bank[CurBnk];
 	tempBnk->DataStart = tempPCM->DataSize;
-	
+
 	tempBnk->DataSize = DataSize;
 	tempBnk->Data = tempPCM->Data + tempBnk->DataStart;
 	memcpy(tempBnk->Data, Data, DataSize);
 	tempPCM->DataSize += DataSize;
-	
+
 	return;
 }
 
@@ -845,11 +845,11 @@ static void AddSampleToList(UINT8 Type, UINT32 startOfs, UINT32 length)
 	UINT32 curSmpl;
 	SAMPLE_LIST* tempBnk;
 	SAMPLE_INF* tempSmpl;
-	
+
 	BnkType = Type & 0x3F;
 	if (BnkType >= PCM_BANK_COUNT)
 		return;
-	
+
 	tempBnk = &Bank93[BnkType];
 	for (curSmpl = 0; curSmpl < tempBnk->smplCnt; curSmpl ++)
 	{
@@ -860,11 +860,11 @@ static void AddSampleToList(UINT8 Type, UINT32 startOfs, UINT32 length)
 	curSmpl = tempBnk->smplCnt;
 	tempBnk->smplCnt ++;
 	tempBnk->samples = (SAMPLE_INF*)realloc(tempBnk->samples, sizeof(SAMPLE_INF) * tempBnk->smplCnt);
-	
+
 	tempSmpl = &tempBnk->samples[curSmpl];
 	tempSmpl->startOfs = startOfs;
 	tempSmpl->dataSize = length;
-	
+
 	return;
 }
 
@@ -877,13 +877,13 @@ static void SortSampleLists(void)
 {
 	UINT8 curBank;
 	SAMPLE_LIST* tempBnk;
-	
+
 	for (curBank = 0x00; curBank < PCM_BANK_COUNT; curBank ++)
 	{
 		tempBnk = &Bank93[curBank];
 		qsort(tempBnk->samples, tempBnk->smplCnt, sizeof(SAMPLE_INF), &SampleCompare);
 	}
-	
+
 	return;
 }
 

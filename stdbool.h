@@ -1,7 +1,7 @@
 // custom stdbool.h to for 1-byte bool types
 
 #ifndef _CSTM_STDBOOL_H_
-#define	_CSTM_STDBOOL_H_	
+#define	_CSTM_STDBOOL_H_
 
 #ifndef __cplusplus	// C++ already has the bool-type
 

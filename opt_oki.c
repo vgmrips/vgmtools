@@ -67,7 +67,7 @@ static void MakeDataStream(void);
 static void WriteDACStreamCmd(STRM_CTRL_CMD* StrmCmd, UINT32* DestPos);
 static void RewriteVGMData(void);
 
-#define printdbg	
+#define printdbg
 //#define printdbg	printf
 
 
@@ -108,9 +108,9 @@ int main(int argc, char* argv[])
 	int ErrVal;
 	char FileName[0x100];
 	UINT8 CurChip;
-	
+
 	printf("VGM OKI Optimizer\n-----------------\n\n");
-	
+
 	MaxDrumDelay = 500;
 	DumpDrums = false;
 	Skip80Sample = 0;
@@ -119,9 +119,9 @@ int main(int argc, char* argv[])
 	SplitCmd = 0x00;
 	ErrVal = 0;
 	argbase = 1;
-	
+
 	CHANGING_CLK_RATE = false;
-	
+
 	printf("File Name:\t");
 	if (argc <= argbase + 0)
 	{
@@ -134,7 +134,7 @@ int main(int argc, char* argv[])
 	}
 	if (! strlen(FileName))
 		return 0;
-	
+
 	if (! OpenVGMFile(FileName))
 	{
 		printf("Error opening the file!\n");
@@ -142,27 +142,27 @@ int main(int argc, char* argv[])
 		goto EndProgram;
 	}
 	printf("\n");
-	
+
 	VGMCtrlCmd = NULL;
 	EnumerateOkiWrite();
 	MakeDrumTable();
 	MakeDataStream();
-	
+
 	for (CurChip = 0x00; CurChip < ChipCnt; CurChip ++)
 	{
 		free(VGMWrite[CurChip]);	VGMWrite[CurChip] = NULL;
 		WriteAlloc[CurChip] = 0x00;
 		WriteCount[CurChip] = 0x00;
 	}
-	
+
 	RewriteVGMData();
-	
+
 	free(VGMCtrlCmd);	VGMCtrlCmd = NULL;
 	CtrlCmdAlloc = 0x00;
 	CtrlCmdCount = 0x00;
 	printf("Data Compression: %u -> %u (%.1f %%)\n",
 			DataSizeA, DataSizeB, 100.0 * DataSizeB / (float)DataSizeA);
-	
+
 	if (DataSizeB < DataSizeA)
 	{
 		if (argc > argbase + 1)
@@ -176,13 +176,13 @@ int main(int argc, char* argv[])
 		}
 		WriteVGMFile(FileName);
 	}
-	
+
 	free(VGMData);
 	free(DstData);
-	
+
 EndProgram:
 	DblClickWait(argv[0]);
-	
+
 	return ErrVal;
 }
 
@@ -192,20 +192,20 @@ static bool OpenVGMFile(const char* FileName)
 	UINT32 CurPos;
 	UINT32 TempLng;
 	char* TempPnt;
-	
+
 	hFile = gzopen(FileName, "rb");
 	if (hFile == NULL)
 		return false;
-	
+
 	gzseek(hFile, 0x00, SEEK_SET);
 	gzread(hFile, &TempLng, 0x04);
 	if (TempLng != FCC_VGM)
 		goto OpenErr;
-	
+
 	gzseek(hFile, 0x00, SEEK_SET);
 	gzread(hFile, &VGMHead, sizeof(VGM_HEADER));
 	ZLIB_SEEKBUG_CHECK(VGMHead);
-	
+
 	// Header preperations
 	if (VGMHead.lngVersion < 0x00000101)
 	{
@@ -237,7 +237,7 @@ static bool OpenVGMFile(const char* FileName)
 	if (! VGMHead.lngDataOffset)
 		VGMHead.lngDataOffset = 0x0000000C;
 	VGMHead.lngDataOffset += 0x00000034;
-	
+
 	CurPos = VGMHead.lngDataOffset;
 	if (VGMHead.lngVersion < 0x00000151)
 		CurPos = 0x40;
@@ -247,7 +247,7 @@ static bool OpenVGMFile(const char* FileName)
 	else
 		TempLng = 0x00;
 	memset((UINT8*)&VGMHead + CurPos, 0x00, TempLng);
-	
+
 	// Read Data
 	VGMDataLen = VGMHead.lngEOFOffset;
 	VGMData = (UINT8*)malloc(VGMDataLen);
@@ -255,14 +255,14 @@ static bool OpenVGMFile(const char* FileName)
 		goto OpenErr;
 	gzseek(hFile, 0x00, SEEK_SET);
 	gzread(hFile, VGMData, VGMDataLen);
-	
+
 	gzclose(hFile);
-	
+
 	strcpy(FileBase, FileName);
 	TempPnt = strrchr(FileBase, '.');
 	if (TempPnt != NULL)
 		*TempPnt = 0x00;
-	
+
 	return true;
 
 OpenErr:
@@ -274,7 +274,7 @@ OpenErr:
 static void WriteVGMFile(const char* FileName)
 {
 	FILE* hFile;
-	
+
 	hFile = fopen(FileName, "wb");
 	if (hFile == NULL)
 	{
@@ -283,9 +283,9 @@ static void WriteVGMFile(const char* FileName)
 	}
 	fwrite(DstData, 0x01, DstDataLen, hFile);
 	fclose(hFile);
-	
+
 	printf("File written.\n");
-	
+
 	return;
 }
 
@@ -304,11 +304,11 @@ static void EnumerateOkiWrite(void)
 	UINT32 CmdLen;
 	bool StopVGM;
 	DATA_WRITE* TempWrt;
-	
+
 	VGMLoopSmplOfs = VGMHead.lngTotalSamples - VGMHead.lngLoopSamples;
 	VGMPos = VGMHead.lngDataOffset;
 	VGMSmplPos = 0;
-	
+
 	ChipCnt = (VGMHead.lngHzOKIM6258 & 0x40000000) ? 2 : 1;
 	for (CurChip = 0x00; CurChip < ChipCnt; CurChip ++)
 	{
@@ -322,7 +322,7 @@ static void EnumerateOkiWrite(void)
 	}
 	for (CurChip = 0x00; CurChip < 0x02; CurChip ++)
 		WriteCount[CurChip] = 0x00;
-	
+
 #ifdef WIN32
 	CmdTimer = 0;
 #endif
@@ -331,7 +331,7 @@ static void EnumerateOkiWrite(void)
 	{
 		CmdLen = 0x00;
 		Command = VGMData[VGMPos + 0x00];
-		
+
 		if (Command >= 0x70 && Command <= 0x8F)
 		{
 			switch(Command & 0xF0)
@@ -385,7 +385,7 @@ static void EnumerateOkiWrite(void)
 					}
 					TempWrt = &VGMWrite[CurChip][WriteCount[CurChip]];
 					WriteCount[CurChip] ++;
-					
+
 					TempWrt->Port = VGMData[VGMPos + 0x01] & 0x7F;
 					TempWrt->Value = VGMData[VGMPos + 0x02];
 					TempWrt->SmplPos = VGMSmplPos;
@@ -417,7 +417,7 @@ static void EnumerateOkiWrite(void)
 				TempByt = VGMData[VGMPos + 0x02];
 				memcpy(&TempLng, &VGMData[VGMPos + 0x03], 0x04);
 				TempLng &= 0x7FFFFFFF;
-				
+
 				CmdLen = 0x07 + TempLng;
 				break;
 			case 0x90:	// DAC Ctrl: Setup Chip
@@ -467,11 +467,11 @@ static void EnumerateOkiWrite(void)
 				break;
 			}
 		}
-		
+
 		VGMPos += CmdLen;
 		if (StopVGM)
 			break;
-		
+
 #ifdef WIN32
 		if (CmdTimer < GetTickCount())
 		{
@@ -486,9 +486,9 @@ static void EnumerateOkiWrite(void)
 #endif
 	}
 	printf("\t\t\t\t\t\t\t\t\r");
-	
+
 	printf("%u OKI writes found.\n", WriteCount[0]);
-	
+
 	return;
 }
 
@@ -502,7 +502,7 @@ static void AddPlayWrite(DRUM_INF* DrumInf, DRUM_PLAY* DrumPlay)
 	}
 	DrumInf->PlayData[DrumInf->PlayCount] = *DrumPlay;
 	DrumInf->PlayCount ++;
-	
+
 	return;
 }
 
@@ -510,7 +510,7 @@ static void AddDrum(UINT32 Size, UINT8* Data, DRUM_PLAY* DrumPlay)
 {
 	UINT32 CurDrm;
 	DRUM_INF* TempDrm;
-	
+
 	if (Size == 0x00)
 	{
 		return;
@@ -518,7 +518,7 @@ static void AddDrum(UINT32 Size, UINT8* Data, DRUM_PLAY* DrumPlay)
 	else if (Size == 0x01)
 	{
 		DATA_WRITE* TempWrt;
-		
+
 		CurDrm = DrumPlay->WriteSt;
 		TempWrt = &VGMWrite[CurDrm >> 31][CurDrm & 0x7FFFFFFF];
 		if (TempWrt->Value == 0x80 || TempWrt->Value == 0x88 || TempWrt->Value == 0x08)
@@ -533,7 +533,7 @@ static void AddDrum(UINT32 Size, UINT8* Data, DRUM_PLAY* DrumPlay)
 		AddPlayWrite(&DrumTbl.DrumNull, DrumPlay);
 		return;
 	}
-	
+
 	for (CurDrm = 0x00; CurDrm < DrumTbl.DrmCount; CurDrm ++)
 	{
 		TempDrm = &DrumTbl.Drums[CurDrm];
@@ -561,9 +561,9 @@ static void AddDrum(UINT32 Size, UINT8* Data, DRUM_PLAY* DrumPlay)
 				{
 					char DrumDump_Name[MAX_PATH + 0x10];
 					FILE* hFile;
-					
+
 					sprintf(DrumDump_Name, "%s_%03X.raw", FileBase, CurDrm);
-					
+
 					hFile = fopen(DrumDump_Name, "wb");
 					if (hFile != NULL)
 					{
@@ -571,13 +571,13 @@ static void AddDrum(UINT32 Size, UINT8* Data, DRUM_PLAY* DrumPlay)
 						fclose(hFile);
 					}
 				}
-				
+
 				AddPlayWrite(TempDrm, DrumPlay);
 				return;
 			}
 		}
 	}
-	
+
 	// not found, add new drum sound
 	if (DrumTbl.DrmCount >= DrumTbl.DrmAlloc)
 	{
@@ -587,7 +587,7 @@ static void AddDrum(UINT32 Size, UINT8* Data, DRUM_PLAY* DrumPlay)
 	}
 	TempDrm = &DrumTbl.Drums[DrumTbl.DrmCount];
 	//printdbg("Adding Drum %u (0x%X bytes)\n", DrumTbl.DrmCount, Size);
-	
+
 	TempDrm->Data = (UINT8*)malloc(Size);
 	memcpy(TempDrm->Data, Data, Size);
 	TempDrm->Length = Size;
@@ -595,9 +595,9 @@ static void AddDrum(UINT32 Size, UINT8* Data, DRUM_PLAY* DrumPlay)
 	{
 		char DrumDump_Name[MAX_PATH + 0x10];
 		FILE* hFile;
-		
+
 		sprintf(DrumDump_Name, "%s_%03X.raw", FileBase, DrumTbl.DrmCount);
-		
+
 		hFile = fopen(DrumDump_Name, "wb");
 		if (hFile != NULL)
 		{
@@ -605,14 +605,14 @@ static void AddDrum(UINT32 Size, UINT8* Data, DRUM_PLAY* DrumPlay)
 			fclose(hFile);
 		}
 	}
-	
+
 	TempDrm->PlayCount = 0x00;
 	TempDrm->PlayAlloc = 0x100;
 	TempDrm->PlayData = (DRUM_PLAY*)malloc(TempDrm->PlayAlloc * sizeof(DRUM_PLAY));
 	DrumTbl.DrmCount ++;
-	
+
 	AddPlayWrite(TempDrm, DrumPlay);
-	
+
 	return;
 }
 
@@ -630,20 +630,20 @@ static void MakeDrumTable(void)
 	UINT8 CurClkDiv;
 	UINT8 DrumEnd;
 	UINT32 SkippedWrt;
-	
+
 	if (! WriteCount)
 		return;
-	
+
 	DrumTbl.DrmCount = 0x00;
 	DrumTbl.DrmAlloc = 0x100;
 	DrumTbl.Drums = (DRUM_INF*)malloc(DrumTbl.DrmAlloc * sizeof(DRUM_INF));
 	DrumTbl.DrumNull.PlayCount = 0x00;
 	DrumTbl.DrumNull.PlayAlloc = 0x1000;
 	DrumTbl.DrumNull.PlayData = (DRUM_PLAY*)malloc(DrumTbl.DrumNull.PlayAlloc * sizeof(DRUM_PLAY));
-	
+
 	DrmBufAlloc = 0x10000;	// 64 KB should be enough for now
 	DrumBuf = (UINT8*)malloc(DrmBufAlloc);
-	
+
 	printf("Generating Drum Table ...\n");
 	for (CurChip = 0x00; CurChip < ChipCnt; CurChip ++)
 	{
@@ -707,7 +707,7 @@ static void MakeDrumTable(void)
 			}
 			if (TempWrt->Port == 0x0C)
 				CurClkDiv = TempWrt->Value;
-			
+
 			if (DrumEnd)
 			{
 				if (EarlyDataWrt && DrmBufSize >= 2 && DrumEnd == 0x01)
@@ -722,19 +722,19 @@ static void MakeDrumTable(void)
 							LastWrt --;
 					}
 				}
-				
+
 				printdbg("new drum at SmplOfs %u (buffer %u bytes)\n", SmplLastWrt, DrmBufSize);
 				if (Skip80Sample == 1 && DrmBufSize > 1 &&
 					VGMWrite[CurChip][LastWrt].Value == Smpl80Value)
 				{
 					// Castlevania sends a 0x80 byte when stopping a sound
-					
+
 					// add drum without last data write
 					DrumPlay.WriteEnd = LastWrt - 1;
 					while(DrumPlay.WriteEnd && VGMWrite[CurChip][DrumPlay.WriteEnd].Port != 0x01)
 						DrumPlay.WriteEnd --;
 					AddDrum(DrmBufSize - 1, DrumBuf, &DrumPlay);
-					
+
 					// add that write seperately
 					DrumPlay.WriteSt = LastWrt | (CurChip << 31);
 					DrumPlay.WriteEnd = LastWrt;
@@ -747,7 +747,7 @@ static void MakeDrumTable(void)
 				{
 					// Star Mobile sends one or two 0x08 bytes before starting any sound
 					UINT32 splitWrites;
-					
+
 					// add drum without last data write
 					DrumPlay.WriteEnd = LastWrt - 1;
 					while(DrumPlay.WriteEnd && VGMWrite[CurChip][DrumPlay.WriteEnd].Port != 0x01)
@@ -763,7 +763,7 @@ static void MakeDrumTable(void)
 							DrumPlay.WriteEnd --;
 					}
 					AddDrum(DrmBufSize - splitWrites, DrumBuf, &DrumPlay);
-					
+
 					// add that write seperately
 					DrumPlay.WriteSt = LastWrt | (CurChip << 31);
 					DrumPlay.WriteEnd = LastWrt;
@@ -775,14 +775,14 @@ static void MakeDrumTable(void)
 					VGMWrite[CurChip][LastWrt].Value == Smpl80Value)
 				{
 					// Chase H.Q. sends 2x 0x88 before playing ANYTHING
-					
+
 					// add drum without last data write
 					DrumPlay.WriteEnd = LastWrt - 1;
 					while(DrumPlay.WriteEnd && VGMWrite[CurChip][DrumPlay.WriteEnd].Port != 0x01)
 						DrumPlay.WriteEnd --;
 					DrumPlay.WriteEnd --;
 					AddDrum(DrmBufSize - 2, DrumBuf, &DrumPlay);
-					
+
 					// add that write seperately
 					DrumPlay.WriteSt = LastWrt | (CurChip << 31);
 					DrumPlay.WriteEnd = LastWrt;
@@ -798,7 +798,7 @@ static void MakeDrumTable(void)
 					while(DrumPlay.WriteEnd && VGMWrite[CurChip][DrumPlay.WriteEnd].Port != 0x01)
 						DrumPlay.WriteEnd --;
 					AddDrum(DrmBufSize - 1, DrumBuf, &DrumPlay);
-					
+
 					// add that write seperately
 					DrumPlay.WriteSt = LastWrt | (CurChip << 31);
 					DrumPlay.WriteEnd = LastWrt;
@@ -806,7 +806,7 @@ static void MakeDrumTable(void)
 					DrmBufSize = 0x00;
 					continue;
 				}
-				
+
 				DrumPlay.WriteEnd = LastWrt;
 				AddDrum(DrmBufSize, DrumBuf, &DrumPlay);
 				DrmBufSize = 0x00;
@@ -819,7 +819,7 @@ static void MakeDrumTable(void)
 					DrmBufSize ++;
 				}
 			}
-			
+
 			if (TempWrt->Port == 0x01)
 			{
 				// add data command to buffer
@@ -832,7 +832,7 @@ static void MakeDrumTable(void)
 					DrumPlay.WriteSt = CurWrt | (CurChip << 31);
 				DrumBuf[DrmBufSize] = TempWrt->Value;
 				DrmBufSize ++;
-				
+
 				SmplLastWrt = TempWrt->SmplPos;
 				LastWrt = CurWrt;
 			}
@@ -841,13 +841,13 @@ static void MakeDrumTable(void)
 			VGMWrite[CurChip][LastWrt].Value == Smpl80Value)
 		{
 			// Castlevania sends a 0x80 byte when stopping a sound
-			
+
 			// add drum without last data write
 			DrumPlay.WriteEnd = LastWrt - 1;
 			while(DrumPlay.WriteEnd && VGMWrite[CurChip][DrumPlay.WriteEnd].Port != 0x01)
 				DrumPlay.WriteEnd --;
 			AddDrum(DrmBufSize - 1, DrumBuf, &DrumPlay);
-			
+
 			// add that write seperately
 			DrumPlay.WriteSt = LastWrt | (CurChip << 31);
 			DrumPlay.WriteEnd = LastWrt;
@@ -861,7 +861,7 @@ static void MakeDrumTable(void)
 		}
 	}
 	printf("%u drum sounds found\n", DrumTbl.DrmCount);
-	
+
 	return;
 }
 
@@ -876,7 +876,7 @@ static int drum_sort_compare(const void* p1, const void* p2)
 {
 	DRM_SORT* Drm1 = (DRM_SORT*)p1;
 	DRM_SORT* Drm2 = (DRM_SORT*)p2;
-	
+
 	if (Drm1->SortID < Drm2->SortID)
 		return -1;
 	else if (Drm1->SortID == Drm2->SortID)
@@ -893,7 +893,7 @@ static void MakeDataStream(void)
 {
 	UINT32 BaseFreq;
 	UINT8 LastDiv;
-	
+
 	UINT32 CurDrm;
 	UINT32 CurPlay;
 	UINT32 CurSrt;
@@ -909,18 +909,18 @@ static void MakeDataStream(void)
 	UINT32 SmplDiff;
 	UINT32 FreqVal;
 	UINT8 IsStopped;
-	
+
 	LastDiv = VGMHead.bytOKI6258Flags & 0x03;
 	BaseFreq = (VGMHead.lngHzOKIM6258 + dividers[LastDiv] / 2) / dividers[LastDiv];
 	printf("Calculated base freq: %u\n", BaseFreq);
-	
+
 	// create list of all played drums
 	DrmSrtCount = 0x00;
 	DrmSrtCount += DrumTbl.DrumNull.PlayCount;
 	for (CurDrm = 0x00; CurDrm < DrumTbl.DrmCount; CurDrm ++)
 		DrmSrtCount += DrumTbl.Drums[CurDrm].PlayCount;
 	DrumSort = (DRM_SORT*)malloc(DrmSrtCount * sizeof(DRM_SORT));
-	
+
 	printf("Sorting %u play commands...\n", DrmSrtCount);
 	TempSort = DrumSort;
 	TempDrm = &DrumTbl.DrumNull;
@@ -946,16 +946,16 @@ static void MakeDataStream(void)
 			TempSort ++;
 		}
 	}
-	
+
 	// and sort by WriteID
 	qsort(DrumSort, DrmSrtCount, sizeof(DRM_SORT), &drum_sort_compare);
-	
+
 	// Now general all the special DAC Stream commands.
-	
+
 	// (Command 90/91) * Chip Count + (Command 92/95) * played drums
 	CtrlCmdAlloc = 0x03 * ChipCnt + 0x02 * DrmSrtCount;	// should be just enough
 	VGMCtrlCmd = (STRM_CTRL_CMD*)malloc(CtrlCmdAlloc * sizeof(STRM_CTRL_CMD));
-	
+
 	CtrlCmdCount = 0x00;
 	for (CurChip = 0x00; CurChip < ChipCnt; CurChip ++)
 	{
@@ -967,7 +967,7 @@ static void MakeDataStream(void)
 		TempCmd->DataB1 = 0x17 | (CurChip << 7);	// 0x17 - OKIM6258 chip
 		TempCmd->DataB2 = 0x00;
 		TempCmd->DataB3 = 0x01;		// command 01: data write
-		
+
 		TempCmd = &VGMCtrlCmd[CtrlCmdCount];
 		CtrlCmdCount ++;
 		TempCmd->FileOfs = 0x00;
@@ -978,7 +978,7 @@ static void MakeDataStream(void)
 		TempCmd->DataB3 = 0x00;		// Step Base
 		LastFreq[CurChip] = 0;
 		IsStopped = 0x00;
-		
+
 //#ifndef CHANGING_RATE
 		if (! CHANGING_CLK_RATE)
 		{
@@ -992,7 +992,7 @@ static void MakeDataStream(void)
 		}
 //#endif
 	}
-	
+
 	for (CurSrt = 0x00; CurSrt < DrmSrtCount; CurSrt ++)
 	{
 		TempSort = &DrumSort[CurSrt];
@@ -1002,7 +1002,7 @@ static void MakeDataStream(void)
 			CurPlay = TempSort->PlayID;
 			CurChip = (TempDrm->PlayData[CurPlay].WriteSt & 0x80000000) >> 31;
 			CurWrt = TempDrm->PlayData[CurPlay].WriteSt & 0x7FFFFFFF;
-			
+
 			TempCmd = &VGMCtrlCmd[CtrlCmdCount];
 			CtrlCmdCount ++;
 			TempCmd->FileOfs = VGMWrite[CurChip][CurWrt].FilePos;
@@ -1015,12 +1015,12 @@ static void MakeDataStream(void)
 			IsStopped |= 1 << CurChip;
 			continue;
 		}
-		
+
 		TempDrm = &DrumTbl.Drums[TempSort->DrumID];
 		CurPlay = TempSort->PlayID;
 		CurChip = (TempDrm->PlayData[CurPlay].WriteSt & 0x80000000) >> 31;
 		CurWrt = TempDrm->PlayData[CurPlay].WriteSt & 0x7FFFFFFF;
-		
+
 		if (CHANGING_CLK_RATE)
 		{
 			// calculate frequency
@@ -1036,7 +1036,7 @@ static void MakeDataStream(void)
 				CmdDiff = 44100 * CmdDiff + SmplDiff / 2;
 				FreqVal = (UINT32)(CmdDiff / SmplDiff);
 				//printf("OKI Frequency [Drum %u, No. %u]: %u\n", TempSort->DrumID, CurPlay, FreqVal);
-				
+
 				CmdDiff = 0;
 				for (CurPlay = 0; CurPlay < 6; CurPlay ++)
 				{
@@ -1082,7 +1082,7 @@ static void MakeDataStream(void)
 			}
 		}	// end if (CHANGING_CLK_RATE)
 //#endif
-		
+
 		TempCmd = &VGMCtrlCmd[CtrlCmdCount];
 		CtrlCmdCount ++;
 		TempCmd->FileOfs = VGMWrite[CurChip][CurWrt].FilePos;
@@ -1093,14 +1093,14 @@ static void MakeDataStream(void)
 		IsStopped &= ~(1 << CurChip);
 	}
 	printf("Done.\n");
-	
+
 	return;
 }
 
 static void WriteDACStreamCmd(STRM_CTRL_CMD* StrmCmd, UINT32* DestPos)
 {
 	UINT32 DstPos;
-	
+
 	DstPos = *DestPos;
 	DstData[DstPos + 0x00] = StrmCmd->Command;
 	DstData[DstPos + 0x01] = StrmCmd->StreamID;
@@ -1132,7 +1132,7 @@ static void WriteDACStreamCmd(STRM_CTRL_CMD* StrmCmd, UINT32* DestPos)
 		break;
 	}
 	*DestPos = DstPos;
-	
+
 	return;
 }
 
@@ -1157,10 +1157,10 @@ static void RewriteVGMData(void)
 	bool WriteExtra;
 	UINT32 NewLoopS;
 	UINT32 StrmCmd;
-	
+
 	UINT16 LoopSmplID = (UINT16)-1;
 	UINT16 LastSmplID = (UINT16)-1;
-	
+
 	DstDataLen = VGMDataLen + 0x100;
 	DstData = (UINT8*)malloc(DstDataLen);
 	AllDelay = 0;
@@ -1169,12 +1169,12 @@ static void RewriteVGMData(void)
 	VGMSmplPos = 0;
 	NewLoopS = 0x00;
 	memcpy(DstData, VGMData, VGMPos);	// Copy Header
-	
+
 #ifdef WIN32
 	CmdTimer = 0;
 #endif
 	StopVGM = false;
-	
+
 	for (TempLng = 0x00; TempLng < DrumTbl.DrmCount; TempLng ++)
 	{
 		TempDrm = &DrumTbl.Drums[TempLng];
@@ -1186,12 +1186,12 @@ static void RewriteVGMData(void)
 		memcpy(&DstData[DstPos + 0x07], TempDrm->Data, TempDrm->Length);
 		DstPos += 0x07 + TempDrm->Length;
 	}
-	
+
 	for (StrmCmd = 0x00; StrmCmd < CtrlCmdCount; StrmCmd ++)
 	{
 		if (VGMCtrlCmd[StrmCmd].FileOfs)
 			break;
-		
+
 		//printdbg("Write DAC command %u, DstPos 0x%X\n", StrmCmd, DstPos);
 		WriteDACStreamCmd(&VGMCtrlCmd[StrmCmd], &DstPos);
 	}
@@ -1205,7 +1205,7 @@ static void RewriteVGMData(void)
 		//if (VGMPos == VGMHead.lngLoopOffset)
 		//	WriteExtra = true;
 		WriteExtra = (VGMPos == VGMHead.lngLoopOffset);
-		
+
 		if (Command >= 0x70 && Command <= 0x8F)
 		{
 			switch(Command & 0xF0)
@@ -1273,7 +1273,7 @@ static void RewriteVGMData(void)
 				TempByt = VGMData[VGMPos + 0x02];
 				memcpy(&TempLng, &VGMData[VGMPos + 0x03], 0x04);
 				TempLng &= 0x7FFFFFFF;
-				
+
 				CmdLen = 0x07 + TempLng;
 				break;
 			case 0x90:	// DAC Ctrl: Setup Chip
@@ -1323,7 +1323,7 @@ static void RewriteVGMData(void)
 				break;
 			}
 		}
-		
+
 		if (WriteEvent || WriteExtra)
 		{
 			if (VGMPos != VGMHead.lngLoopOffset)
@@ -1337,7 +1337,7 @@ static void RewriteVGMData(void)
 					TempSht = (UINT16)AllDelay;
 				else
 					TempSht = 0xFFFF;
-				
+
 				if (! TempSht)
 				{
 					// don't do anything - I just want to be safe
@@ -1393,13 +1393,13 @@ static void RewriteVGMData(void)
 			}
 			AllDelay = CmdDelay;
 			CmdDelay = 0x00;
-			
+
 			if (VGMPos == VGMHead.lngLoopOffset)
 			{
 				NewLoopS = DstPos;
 				LoopSmplID = LastSmplID;
 			}
-			
+
 			if (WriteEvent)
 			{
 				memcpy(&DstData[DstPos], &VGMData[VGMPos], CmdLen);
@@ -1449,7 +1449,7 @@ static void RewriteVGMData(void)
 		VGMPos += CmdLen;
 		if (StopVGM)
 			break;
-		
+
 #ifdef WIN32
 		if (CmdTimer < GetTickCount())
 		{
@@ -1475,7 +1475,7 @@ static void RewriteVGMData(void)
 		memcpy(&DstData[0x1C], &NewLoopS, 0x04);
 	}
 	printf("\t\t\t\t\t\t\t\t\r");
-	
+
 	if (VGMHead.lngGD3Offset)
 	{
 		VGMPos = VGMHead.lngGD3Offset;
@@ -1484,7 +1484,7 @@ static void RewriteVGMData(void)
 		{
 			memcpy(&CmdLen, &VGMData[VGMPos + 0x08], 0x04);
 			CmdLen += 0x0C;
-			
+
 			VGMHead.lngGD3Offset = DstPos;
 			TempLng = DstPos - 0x14;
 			memcpy(&DstData[0x14], &TempLng, 0x04);
@@ -1493,16 +1493,16 @@ static void RewriteVGMData(void)
 		}
 	}
 	DstDataLen = DstPos;
-	
+
 	if (VGMHead.lngVersion < 0x00000160)
 	{
 		VGMHead.lngVersion = 0x00000160;
 		memcpy(&DstData[0x08], &VGMHead.lngVersion, 0x04);
 	}
-	
+
 	TempLng = DstDataLen - 0x04;
 	memcpy(&DstData[0x04], &TempLng, 0x04);
-	
+
 	if (NewLoopS)
 	{
 		if (LoopSmplID != LastSmplID)
@@ -1511,6 +1511,6 @@ static void RewriteVGMData(void)
 			_getch();
 		}
 	}
-	
+
 	return;
 }

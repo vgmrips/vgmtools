@@ -10,17 +10,17 @@ void VGMLib_WriteDelay(UINT8* DstData, UINT32* Pos, UINT32 Delay, bool* WroteCmd
 	UINT16 CurDly;
 	UINT32 TempLng;
 	bool WrtCmdPCM;
-	
+
 	DstPos = *Pos;
 	WrtCmdPCM = (WroteCmd80 == NULL) ? false : *WroteCmd80;
-	
+
 	while(Delay)
 	{
 		if (Delay <= 0xFFFF)
 			CurDly = (UINT16)Delay;
 		else
 			CurDly = 0xFFFF;
-		
+
 		if (WrtCmdPCM)
 		{
 			// highest delay compression - Example:
@@ -40,7 +40,7 @@ void VGMLib_WriteDelay(UINT8* DstData, UINT32* Pos, UINT32 Delay, bool* WroteCmd
 			else if (DELAY_CHECK(CurDly,						// 8F 62 63
 								DELAY_60HZ + DELAY_50HZ, 0x0F))
 				CurDly -= DELAY_60HZ + DELAY_50HZ;
-			
+
 			/*if (CurDly >= 0x10 && CurDly <= 0x1F)
 				CurDly = 0x0F;
 			else if (CurDly >= 0x20)
@@ -109,7 +109,7 @@ void VGMLib_WriteDelay(UINT8* DstData, UINT32* Pos, UINT32 Delay, bool* WroteCmd
 		}
 		Delay -= CurDly;
 	}
-	
+
 	*Pos = DstPos;
 	return;
 }

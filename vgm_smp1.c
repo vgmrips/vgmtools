@@ -39,9 +39,9 @@ int main(int argc, char* argv[])
 	int argbase;
 	int ErrVal;
 	char FileName[0x100];
-	
+
 	printf("Remove 1 Sample Delays\n----------------------\n\n");
-	
+
 	ErrVal = 0;
 	MAX_SMALL_DELAY = 0x0000;
 	argbase = 1;
@@ -59,7 +59,7 @@ int main(int argc, char* argv[])
 	}
 	if (! MAX_SMALL_DELAY)
 		MAX_SMALL_DELAY = 1;
-	
+
 	printf("File Name:\t");
 	if (argc <= argbase + 0)
 	{
@@ -72,7 +72,7 @@ int main(int argc, char* argv[])
 	}
 	if (! strlen(FileName))
 		return 0;
-	
+
 	if (! OpenVGMFile(FileName))
 	{
 		printf("Error opening the file!\n");
@@ -80,9 +80,9 @@ int main(int argc, char* argv[])
 		goto EndProgram;
 	}
 	printf("\n");
-	
+
 	RoundVGMData();
-	
+
 	if (DidSomething)
 	{
 		if (argc > argbase + 1)
@@ -96,13 +96,13 @@ int main(int argc, char* argv[])
 		}
 		WriteVGMFile(FileName);
 	}
-	
+
 	free(VGMData);
 	free(DstData);
-	
+
 EndProgram:
 	DblClickWait(argv[0]);
-	
+
 	return ErrVal;
 }
 
@@ -112,20 +112,20 @@ static bool OpenVGMFile(const char* FileName)
 	UINT32 CurPos;
 	UINT32 TempLng;
 	char* TempPnt;
-	
+
 	hFile = gzopen(FileName, "rb");
 	if (hFile == NULL)
 		return false;
-	
+
 	gzseek(hFile, 0x00, SEEK_SET);
 	gzread(hFile, &TempLng, 0x04);
 	if (TempLng != FCC_VGM)
 		goto OpenErr;
-	
+
 	gzseek(hFile, 0x00, SEEK_SET);
 	gzread(hFile, &VGMHead, sizeof(VGM_HEADER));
 	ZLIB_SEEKBUG_CHECK(VGMHead);
-	
+
 	// Header preperations
 	if (VGMHead.lngVersion < 0x00000150)
 	{
@@ -146,7 +146,7 @@ static bool OpenVGMFile(const char* FileName)
 	if (! VGMHead.lngDataOffset)
 		VGMHead.lngDataOffset = 0x0000000C;
 	VGMHead.lngDataOffset += 0x00000034;
-	
+
 	CurPos = VGMHead.lngDataOffset;
 	if (VGMHead.lngVersion < 0x00000150)
 		CurPos = 0x40;
@@ -156,7 +156,7 @@ static bool OpenVGMFile(const char* FileName)
 	else
 		TempLng = 0x00;
 	memset((UINT8*)&VGMHead + CurPos, 0x00, TempLng);
-	
+
 	// Read Data
 	VGMDataLen = VGMHead.lngEOFOffset;
 	VGMData = (UINT8*)malloc(VGMDataLen);
@@ -164,14 +164,14 @@ static bool OpenVGMFile(const char* FileName)
 		goto OpenErr;
 	gzseek(hFile, 0x00, SEEK_SET);
 	gzread(hFile, VGMData, VGMDataLen);
-	
+
 	gzclose(hFile);
-	
+
 	strcpy(FileBase, FileName);
 	TempPnt = strrchr(FileBase, '.');
 	if (TempPnt != NULL)
 		*TempPnt = 0x00;
-	
+
 	return true;
 
 OpenErr:
@@ -184,25 +184,25 @@ static void WriteVGMFile(const char* FileName)
 {
 	FILE* hFile;
 	const char* FileTitle;
-	
+
 	printf("\t\t\t\t\t\t\t\t\r");
 	FileTitle = strrchr(FileName, '\\');
 	if (FileTitle == NULL)
 		FileTitle = FileName;
 	else
 		FileTitle ++;
-	
+
 	hFile = fopen(FileName, "wb");
 	if (hFile == NULL)
 	{
 		printf("Error writing %s!\n", FileTitle);
 		return;
 	}
-	
+
 	fwrite(DstData, 0x01, DstDataLen, hFile);
 	fclose(hFile);
 	printf("%s written.\n", FileTitle);
-	
+
 	return;
 }
 
@@ -227,11 +227,11 @@ static void RoundVGMData(void)
 	bool WriteEvent;
 	UINT32 LoopPos;
 	UINT32 DelayQueue;
-	
+
 	DstData = (UINT8*)malloc(VGMDataLen);
 	VGMPos = VGMHead.lngDataOffset;
 	DstPos = VGMHead.lngDataOffset;
-	
+
 	DidSomething = false;
 #ifdef WIN32
 	CmdTimer = 0;
@@ -247,7 +247,7 @@ static void RoundVGMData(void)
 		Command = VGMData[VGMPos + 0x00];
 		WasDelay = IsDelay;
 		IsDelay = false;
-		
+
 		CmdDelay = 0x00;
 		if (Command >= 0x70 && Command <= 0x8F)
 		{
@@ -347,7 +347,7 @@ static void RoundVGMData(void)
 				}
 				break;
 			}
-			
+
 			switch(Command)
 			{
 			case 0x66:	// End Of File
@@ -487,7 +487,7 @@ static void RoundVGMData(void)
 			}
 		}
 		WriteEvent = ! IsDelay;
-		
+
 		if (VGMHead.lngLoopOffset && VGMPos == VGMHead.lngLoopOffset)
 		{
 			LoopPos = DstPos;
@@ -518,7 +518,7 @@ static void RoundVGMData(void)
 						TempSht = (UINT16)CmdDelay;
 					else
 						TempSht = 0xFFFF;
-					
+
 					if (TempSht <= 0x10)
 					{
 						DstData[DstPos] = 0x70 | (TempSht - 0x01);
@@ -543,7 +543,7 @@ static void RoundVGMData(void)
 		VGMPos += CmdLen;
 		if (StopVGM)
 			break;
-		
+
 #ifdef WIN32
 		if (CmdTimer < GetTickCount())
 		{
@@ -558,12 +558,12 @@ static void RoundVGMData(void)
 #endif
 	}
 	VGMHead.lngTotalSamples = VGMSmplPos - DelayQueue;
-	
+
 	if (VGMHead.lngLoopOffset && ! LoopPos)
 		printf("Warning! Failed to relocate Loop Point!\n");
-	
+
 	WriteVGMHeader(DstData, VGMData, DstPos, LoopPos);
-	
+
 	return;
 }
 
@@ -574,15 +574,15 @@ static void WriteVGMHeader(UINT8* DstData, const UINT8* SrcData, const UINT32 EO
 	UINT32 DstPos;
 	UINT32 CmdLen;
 	UINT32 TempLng;
-	
+
 	memcpy(DstData, VGMData, VGMHead.lngDataOffset);	// Copy Header
-	
+
 	memcpy(&DstData[0x18], &VGMHead.lngTotalSamples, 0x04);
 	TempLng = LoopPos;
 	if (TempLng)
 		TempLng -= 0x1C;
 	memcpy(&DstData[0x1C], &TempLng, 0x04);
-	
+
 	DstPos = EOFPos;
 	if (VGMHead.lngGD3Offset && VGMHead.lngGD3Offset + 0x0B < VGMHead.lngEOFOffset)
 	{
@@ -592,17 +592,17 @@ static void WriteVGMHeader(UINT8* DstData, const UINT8* SrcData, const UINT32 EO
 		{
 			memcpy(&CmdLen, &VGMData[CurPos + 0x08], 0x04);
 			CmdLen += 0x0C;
-			
+
 			TempLng = DstPos - 0x14;
 			memcpy(&DstData[0x14], &TempLng, 0x04);
 			memcpy(&DstData[DstPos], &VGMData[CurPos], CmdLen);	// Copy GD3 Tag
 			DstPos += CmdLen;
 		}
 	}
-	
+
 	DstDataLen = DstPos;
 	TempLng = DstDataLen - 0x04;
 	memcpy(&DstData[0x04], &TempLng, 0x04);	// Write EOF Position
-	
+
 	return;
 }

@@ -90,7 +90,7 @@ const SYSTEM_SHORT SYSTEM_NAMES[] =
 	{"NES",		"Nintendo Entertainment System", "&#x30d5;&#x30a1;&#x30df;&#x30ea;&#x30fc;&#x30b3;&#x30f3;&#x30d4;&#x30e5;&#x30fc;&#x30bf;"},
 	{"FDS",		"Famicom Disk System", "&#x30d5;&#x30a1;&#x30df;&#x30ea;&#x30fc;&#x30b3;&#x30f3;&#x30d4;&#x30e5;&#x30fc;&#x30bf; "
 										"&#x30c7;&#x30a3;&#x30b9;&#x30af;&#x30b7;&#x30b9;&#x30c6;&#x30e0;"},
-	{"NESFDS",	"Nintendo Entertainment System / Famicom Disk System", 
+	{"NESFDS",	"Nintendo Entertainment System / Famicom Disk System",
 				"&#x30d5;&#x30a1;&#x30df;&#x30ea;&#x30fc;&#x30b3;&#x30f3;&#x30d4;&#x30e5;&#x30fc;&#x30bf; / "
 				"&#x30d5;&#x30a1;&#x30df;&#x30ea;&#x30fc;&#x30b3;&#x30f3;&#x30d4;&#x30e5;&#x30fc;&#x30bf; "
 				"&#x30c7;&#x30a3;&#x30b9;&#x30af;&#x30b7;&#x30b9;&#x30c6;&#x30e0;"},
@@ -121,9 +121,9 @@ int main(int argc, char* argv[])
 	bool FileCompr;
 	int ErrVal;
 	UINT8 RetVal;
-	
+
 	printf("VGM Tagger\n----------\n\n");
-	
+
 	ErrVal = 0;
 	if (argc <= 0x01)
 	{
@@ -135,7 +135,7 @@ int main(int argc, char* argv[])
 	{
 		printf("Help\n----\n");
 		printf("Usage: vgm_tag [-command1] [-command2] file1.vgm file2.vgz\n");
-		
+
 		printf("Command List\n------------\n");
 		printf("General Commands:\n");
 		printf("(no command)  like -ShowTag\n");
@@ -147,7 +147,7 @@ int main(int argc, char* argv[])
 		printf("\t-ShowTagU   like above, but tries to print real Unicode-Chars\n");
 		printf("\t-ShowTag8   like above, but UTF-8 is used to print Unicode-Chars\n");
 		printf("\n");
-		
+
 		printf("Tagging Commands:\n");
 		printf("Command format: -command:value or -command:\"value with spaces\"\n");
 		printf("\t-Title      Track Title\n");
@@ -165,7 +165,7 @@ int main(int argc, char* argv[])
 		printf("\t-NotesB     Notes and Comments (insert at beginning)\n");
 		printf("\t-NotesE     Notes and Comments (append to end)\n");
 		printf("\n");
-		
+
 		printf("*If the system's short name is given,");
 		printf("the Japanese system name is filled too.\n");
 		printf("  Otherwise the English system name is set and the Japanese one is cleared.\n");
@@ -183,7 +183,7 @@ int main(int argc, char* argv[])
 		}
 		goto EndProgram;
 	}
-	
+
 	for (CmdCnt = 0x01; CmdCnt < argc; CmdCnt ++)
 	{
 		if (*argv[CmdCnt] != '-')
@@ -194,7 +194,7 @@ int main(int argc, char* argv[])
 		printf("Error: No files specified!\n");
 		goto EndProgram;
 	}
-	
+
 	for (CurArg = CmdCnt; CurArg < argc; CurArg ++)
 	{
 		printf("File: %s ...\n", argv[CurArg]);
@@ -205,7 +205,7 @@ int main(int argc, char* argv[])
 			ErrVal |= 1;	// There was at least 1 opening-error.
 			continue;
 		}
-		
+
 		RetVal = TagVGM(CmdCnt - 0x01, argv + 0x01);
 		if (RetVal == 0x10)
 		{
@@ -230,10 +230,10 @@ int main(int argc, char* argv[])
 		}
 		printf("\n");
 	}
-	
+
 EndProgram:
 	DblClickWait(argv[0]);
-	
+
 	return ErrVal;
 }
 
@@ -243,29 +243,29 @@ static bool OpenVGMFile(const char* FileName, bool* Compressed)
 	UINT32 fccHeader;
 	UINT32 CurPos;
 	UINT32 TempLng;
-	
+
 	hFile = gzopen(FileName, "rb");
 	if (hFile == NULL)
 		return false;
-	
+
 	gzseek(hFile, 0x00, SEEK_SET);
 	gzread(hFile, &fccHeader, 0x04);
 	if (fccHeader != FCC_VGM)
 		goto OpenErr;
-	
+
 	*Compressed = ! gzdirect(hFile);
-	
+
 	gzseek(hFile, 0x00, SEEK_SET);
 	gzread(hFile, &VGMHead, 0x40);	// I don't need more data
 	ZLIB_SEEKBUG_CHECK(VGMHead);
-	
+
 	// relative -> absolute addresses
 	VGMHead.lngEOFOffset += 0x00000004;
 	if (VGMHead.lngGD3Offset)
 		VGMHead.lngGD3Offset += 0x00000014;
-	
+
 	VGMDataLen = VGMHead.lngEOFOffset;
-	
+
 	// Read GD3 Tag
 	if (VGMHead.lngGD3Offset)
 	{
@@ -275,11 +275,11 @@ static bool OpenVGMFile(const char* FileName, bool* Compressed)
 			VGMHead.lngGD3Offset = 0x00000000;
 			//goto OpenErr;
 	}
-	
+
 	if (VGMHead.lngGD3Offset)
 	{
 		VGMDataLen = VGMHead.lngGD3Offset;	// That's the actual VGM Data without Tag
-		
+
 		CurPos = VGMHead.lngGD3Offset;
 		gzseek(hFile, CurPos, SEEK_SET);
 		gzread(hFile, &VGMTag, 0x0C);
@@ -297,16 +297,16 @@ static bool OpenVGMFile(const char* FileName, bool* Compressed)
 		VGMTag.strCreator = ReadWStrFromFile(hFile, &CurPos, TempLng);
 		VGMTag.strNotes = ReadWStrFromFile(hFile, &CurPos, TempLng);
 	}
-	
+
 	// Read Data
 	VGMData = (UINT8*)malloc(VGMDataLen);
 	if (VGMData == NULL)
 		goto OpenErr;
 	gzseek(hFile, 0x00, SEEK_SET);
 	gzread(hFile, VGMData, VGMDataLen);
-	
+
 	gzclose(hFile);
-	
+
 	return true;
 
 OpenErr:
@@ -322,7 +322,7 @@ static wchar_t* ReadWStrFromFile(gzFile hFile, UINT32* FilePos, const UINT32 EOF
 	wchar_t* TempStr;
 	UINT32 StrLen;
 	UINT16 UnicodeChr;
-	
+
 	// Unicode 2-Byte -> 4-Byte conversion is not neccessary,
 	// but it's easier to handle wchar_t than unsigned short
 	// (note: wchar_t is 16-bit on Windows, but 32-bit on Linux)
@@ -330,7 +330,7 @@ static wchar_t* ReadWStrFromFile(gzFile hFile, UINT32* FilePos, const UINT32 EOF
 	TextStr = (wchar_t*)malloc((EOFPos - CurPos) / 0x02 * sizeof(wchar_t));
 	if (TextStr == NULL)
 		return NULL;
-	
+
 	gzseek(hFile, CurPos, SEEK_SET);
 	TempStr = TextStr;
 	StrLen = 0x00;
@@ -344,10 +344,10 @@ static wchar_t* ReadWStrFromFile(gzFile hFile, UINT32* FilePos, const UINT32 EOF
 		if (CurPos >= EOFPos)
 			break;
 	} while(*(TempStr - 1));
-	
+
 	TextStr = (wchar_t*)realloc(TextStr, StrLen * sizeof(wchar_t));
 	*FilePos = CurPos;
-	
+
 	return TextStr;
 }
 
@@ -355,7 +355,7 @@ static UINT8 ConvertUnicode2UTF8(char* Buffer, const UINT16 UnicodeChr)
 {
 	// Convert Unicode to UTF-8
 	// return legnth of written data
-	
+
 	if (UnicodeChr & 0xF800)
 	{
 		// 0800 - FFFF
@@ -382,7 +382,7 @@ static UINT8 ConvertUnicode2UTF8(char* Buffer, const UINT16 UnicodeChr)
 static bool WriteVGMFile(const char* FileName, const bool Compress)
 {
 	FGZ_PTR hFile;
-	
+
 	FileCompression = Compress;
 	if (! FileCompression)
 		hFile.f = fopen(FileName, "wb");
@@ -390,7 +390,7 @@ static bool WriteVGMFile(const char* FileName, const bool Compress)
 		hFile.gz = gzopen(FileName, "wb9");
 	if (hFile.f == NULL)
 		return false;
-	
+
 	// Write VGM Data (excluding GD3 Tag)
 	if (! FileCompression)
 	{
@@ -402,7 +402,7 @@ static bool WriteVGMFile(const char* FileName, const bool Compress)
 		gzseek(hFile.gz, 0x00, SEEK_SET);
 		gzwrite(hFile.gz, VGMData, VGMDataLen);
 	}
-	
+
 	// Write GD3 Tag
 	if (VGMHead.lngGD3Offset)
 	{
@@ -432,13 +432,13 @@ static bool WriteVGMFile(const char* FileName, const bool Compress)
 		WriteWStrToFile(hFile, VGMTag.strCreator);
 		WriteWStrToFile(hFile, VGMTag.strNotes);
 	}
-	
+
 	if (! FileCompression)
 		fclose(hFile.f);
 	else
 		gzclose(hFile.gz);
 	printf("Tag written.\n");
-	
+
 	return true;
 }
 
@@ -447,7 +447,7 @@ static UINT32 WriteWStrToFile(const FGZ_PTR hFile, const wchar_t* WString)
 	const wchar_t* TextStr;
 	UINT32 WrittenChars;
 	UINT16 UnicodeChr;
-	
+
 	TextStr = WString;
 	WrittenChars = 0x00;
 	while(*TextStr)
@@ -457,7 +457,7 @@ static UINT32 WriteWStrToFile(const FGZ_PTR hFile, const wchar_t* WString)
 			fwrite(&UnicodeChr, 0x02, 0x01, hFile.f);
 		else
 			gzwrite(hFile.gz, &UnicodeChr, 0x02);
-		
+
 		TextStr ++;
 		WrittenChars ++;
 	}
@@ -467,7 +467,7 @@ static UINT32 WriteWStrToFile(const FGZ_PTR hFile, const wchar_t* WString)
 		fwrite(&UnicodeChr, 0x02, 0x01, hFile.f);
 	else
 		gzwrite(hFile.gz, &UnicodeChr, 0x02);
-	
+
 	return WrittenChars;
 }
 
@@ -480,12 +480,12 @@ static void Copy2TagStr(wchar_t** TagStr, const char* DataStr)
 	const char* ChrStr;
 	UINT16 UnicodeChr;
 	char NCRStr[0x10];
-	
+
 	if (DataStr != NULL)
 		DataLen = strlen(DataStr);
 	else
 		DataLen = 0x00;
-	
+
 	*TagStr = (wchar_t*)realloc(*TagStr, (DataLen + 0x01) * sizeof(wchar_t));
 	SrcStr = DataStr;
 	DstStr = *TagStr;
@@ -532,9 +532,9 @@ static void Copy2TagStr(wchar_t** TagStr, const char* DataStr)
 					UnicodeChr = (UINT16)strtoul(NCRStr + 0x01, NULL, 0x10);
 				else
 					UnicodeChr = (UINT16)strtoul(NCRStr, NULL, 10);
-				
+
 				*DstStr = (wchar_t)UnicodeChr;
-				
+
 				SrcStr = ChrStr;
 				DstStr ++;
 				DataLen ++;
@@ -547,7 +547,7 @@ static void Copy2TagStr(wchar_t** TagStr, const char* DataStr)
 		DataLen ++;
 	}
 	*DstStr = 0x0000;
-	
+
 	return;
 }
 
@@ -565,34 +565,34 @@ static void CopySys2TagStr(wchar_t** TagStr, const SYSTEM_SHORT* System, bool Mo
 	UINT16 UnicodeChr;
 	char NCRStr[0x10];
 	bool DoWildcard;
-	
+
 	if (Mode == SYSMODE_ENG)
 		DataStr = System->NameE;
 	else if (Mode == SYSMODE_JAP)
 		DataStr = System->NameJ;
 	else
 		return;
-	
+
 	DataLen = strlen(DataStr);
-	
+
 	CmdPos = System->Abbr;
 	while(! (*CmdPos == 0x00 || *CmdPos == '*'))
 		CmdPos ++;
 	if (*CmdPos == 0x00)
 	{
 		CmdPos = NULL;
-		
+
 		DoWildcard = false;
 	}
 	else
 	{
 		CmdPos = CmdStr + (CmdPos - System->Abbr);
 		DoWildcard = true;
-		
+
 		DataLen += strlen(CmdPos) - 0x01;
 	}
 	CmdPos2 = System->Abbr;
-	
+
 	*TagStr = (wchar_t*)realloc(*TagStr, (DataLen + 0x01) * sizeof(wchar_t));
 	SrcStr = DataStr;
 	DstStr = *TagStr;
@@ -661,9 +661,9 @@ static void CopySys2TagStr(wchar_t** TagStr, const SYSTEM_SHORT* System, bool Mo
 					UnicodeChr = (UINT16)strtoul(NCRStr + 0x01, NULL, 0x10);
 				else
 					UnicodeChr = (UINT16)strtoul(NCRStr, NULL, 10);
-				
+
 				*DstStr = (wchar_t)UnicodeChr;
-				
+
 				SrcStr = ChrStr;
 				DstStr ++;
 				DataLen ++;
@@ -682,7 +682,7 @@ static void CopySys2TagStr(wchar_t** TagStr, const SYSTEM_SHORT* System, bool Mo
 		DataLen ++;
 	}
 	*DstStr = 0x0000;
-	
+
 	return;
 }
 
@@ -692,7 +692,7 @@ static bool CompareSystemNames(const char* StrA, const char* StrB)
 	{
 		if (*StrB == '*')
 			return true;	// Wildcard found
-		
+
 		if (*StrB != '?' || *StrA == '\0')
 		{
 			if (toupper(*StrA) != toupper(*StrB))
@@ -701,14 +701,14 @@ static bool CompareSystemNames(const char* StrA, const char* StrB)
 		StrA ++;
 		StrB ++;
 	}
-	
+
 	return true;
 }
 
 static UINT16 GetSystemString(const char* SystemName)
 {
 	UINT16 CurSys;
-	
+
 	CurSys = 0x00;
 	while(SYSTEM_NAMES[CurSys].Abbr != NULL)
 	{
@@ -716,7 +716,7 @@ static UINT16 GetSystemString(const char* SystemName)
 			return CurSys;
 		CurSys ++;
 	}
-	
+
 	return 0xFFFF;
 }
 
@@ -735,7 +735,7 @@ static UINT8 TagVGM(const int ArgCount, char* ArgList[])
 	UINT32 TempLng;
 	UINT8 TempByt;
 	UINT8 RetVal;
-	
+
 	if (! VGMHead.lngGD3Offset)
 	{
 		VGMTag.fccGD3 = 0x20336447;
@@ -751,7 +751,7 @@ static UINT8 TagVGM(const int ArgCount, char* ArgList[])
 		if (CurArg != 'Y')
 			return 0x01;
 	}
-	
+
 	// Execute Commands
 	RetVal = 0x10;	// nothing done - skip writing
 	if (! ArgCount)
@@ -763,14 +763,14 @@ static UINT8 TagVGM(const int ArgCount, char* ArgList[])
 			free(CmdStr);
 		//CmdStr = ArgList[CurArg] + 0x01;	// Skip the '-' at the beginning
 		CmdStr = strdup(ArgList[CurArg] + 0x01);	// I need a copy, since I remove the '=' character
-		
+
 		CmdData = strchr(CmdStr, ':');
 		if (CmdData != NULL)
 		{
 			*CmdData = 0x00;
 			CmdData ++;
 		}
-		
+
 		if (! stricmp(CmdStr, "ShowTag"))
 		{
 			ShowTag(0x00);
@@ -786,16 +786,16 @@ static UINT8 TagVGM(const int ArgCount, char* ArgList[])
 			ShowTag(0x02);
 			continue;
 		}
-		
+
 		if (! stricmp(CmdStr, "RmvEqual"))
 		{
 			if (CmdData != NULL)
 				TempByt = (toupper(CmdData[0x00]) == 'J') ? 1 : 0;
 			else
 				TempByt = 0;
-			printf("Removing redundant tags (default to %s): ", 
+			printf("Removing redundant tags (default to %s): ",
 					TempLng ? "Eng" : "Jap");
-			
+
 			TempLng = 0x00;
 			TempLng |= RemoveEqualTag(&VGMTag.strTrackNameE,	&VGMTag.strTrackNameJ,	TempByt) << 0;
 			TempLng |= RemoveEqualTag(&VGMTag.strGameNameE,		&VGMTag.strGameNameJ,	TempByt) << 1;
@@ -820,7 +820,7 @@ static UINT8 TagVGM(const int ArgCount, char* ArgList[])
 		else if (! stricmp(CmdStr, "RmvUnknown"))
 		{
 			printf("Removing \"Unknown Author\" tag: ");
-			
+
 			TempLng = 0x00;
 			TempLng |= RemoveUnknown(&VGMTag.strAuthorNameE) << 0;
 			TempLng |= RemoveUnknown(&VGMTag.strAuthorNameJ) << 1;
@@ -836,7 +836,7 @@ static UINT8 TagVGM(const int ArgCount, char* ArgList[])
 			printf("\n");
 			continue;
 		}
-		
+
 		RetVal = 0x00;
 		if (! stricmp(CmdStr, "RemoveTag"))
 		{
@@ -848,7 +848,7 @@ static UINT8 TagVGM(const int ArgCount, char* ArgList[])
 			}
 			break;
 		}
-		
+
 		if (! VGMHead.lngGD3Offset)
 		{
 			printf("Tag created.\n");
@@ -876,7 +876,7 @@ static UINT8 TagVGM(const int ArgCount, char* ArgList[])
 			Copy2TagStr(&VGMTag.strCreator, "");
 			Copy2TagStr(&VGMTag.strNotes, "");
 		}
-		
+
 		if (! stricmp(CmdStr, "ClearTag"))
 		{
 			printf("Tag cleared.\n");
@@ -982,11 +982,11 @@ static UINT8 TagVGM(const int ArgCount, char* ArgList[])
 				StrLen = wcslen(VGMTag.strNotes);	// +0x01 = Null-Terminator
 				NoteStr = (wchar_t*)malloc((StrLen + 0x01) * sizeof(wchar_t));
 				wcscpy(NoteStr, VGMTag.strNotes);
-				
+
 				// convert new String
 				TempStr = NULL;
 				Copy2TagStr(&TempStr, CmdData);
-				
+
 				// rewrite Notes-Tag
 				StrLen = wcslen(TempStr) + wcslen(VGMTag.strNotes);
 				VGMTag.strNotes = (wchar_t*)realloc(VGMTag.strNotes,
@@ -1001,11 +1001,11 @@ static UINT8 TagVGM(const int ArgCount, char* ArgList[])
 				StrLen = wcslen(VGMTag.strNotes);	// +0x01 = Null-Terminator
 				NoteStr = (wchar_t*)malloc((StrLen + 0x01) * sizeof(wchar_t));
 				wcscpy(NoteStr, VGMTag.strNotes);
-				
+
 				// convert new String
 				TempStr = NULL;
 				Copy2TagStr(&TempStr, CmdData);
-				
+
 				// rewrite Notes-Tag
 				StrLen = wcslen(VGMTag.strNotes) + wcslen(TempStr);
 				VGMTag.strNotes = (wchar_t*)realloc(VGMTag.strNotes,
@@ -1024,7 +1024,7 @@ static UINT8 TagVGM(const int ArgCount, char* ArgList[])
 	}
 	if (CmdStr != NULL)
 		free(CmdStr);
-	
+
 	if (RetVal != 0x10)
 	{
 		// only care about that if we modified something
@@ -1048,35 +1048,35 @@ static UINT8 TagVGM(const int ArgCount, char* ArgList[])
 		{
 			VGMHead.lngEOFOffset = VGMDataLen;
 		}
-		
+
 		// Write VGM Header
 		TempLng = VGMHead.lngEOFOffset - 0x04;
 		memcpy(&VGMData[0x04], &TempLng, 0x04);
 		TempLng = VGMHead.lngGD3Offset ? (VGMHead.lngGD3Offset - 0x14) : 0x00;
 		memcpy(&VGMData[0x14], &TempLng, 0x04);
 	}
-	
+
 	return RetVal;
 }
 
 static bool RemoveEqualTag(wchar_t** TagE, wchar_t** TagJ, UINT8 Mode)
 {
 	// Remove redundant tags
-	
+
 	if (*TagE == NULL || *TagJ == NULL)
 		return false;	// NULL - break
-	
+
 	if (wcscmp(*TagE, *TagJ))
 		return false;	// both are different
 	if (! wcslen(*TagE))
 		return false;	// both are empty
-	
+
 	// both are equal
 	if (! Mode)
 		Copy2TagStr(TagJ, "");
 	else
 		Copy2TagStr(TagE, "");
-	
+
 	return true;
 }
 
@@ -1084,10 +1084,10 @@ static bool RemoveUnknown(wchar_t** Tag)
 {
 	if (*Tag == NULL)
 		return false;	// NULL - break
-	
+
 	if (wcsicmp(*Tag, L"unknown") && wcsicmp(*Tag, L"Unknown Author"))
 		return false;
-	
+
 	Copy2TagStr(Tag, "");
 	return true;
 }
@@ -1095,13 +1095,13 @@ static bool RemoveUnknown(wchar_t** Tag)
 static void ShowTag(const UINT8 UnicodeMode)
 {
 	char* TempStr;
-	
+
 	if (! VGMHead.lngGD3Offset)
 	{
 		printf("This VGM File has no GD3 Tag!\n");
 		return;
 	}
-	
+
 	switch(UnicodeMode)
 	{
 	case 0x00:	// HTML NCRs
@@ -1188,7 +1188,7 @@ static void ShowTag(const UINT8 UnicodeMode)
 		free(TempStr);
 		break;
 	}
-	
+
 	return;
 }
 
@@ -1199,12 +1199,12 @@ char* ConvertWStr2ASCII_NCR(const wchar_t* WideStr)
 	char* DstStr;
 	UINT32 StrLen;
 	UINT16 UnicodeChr;
-	
+
 	// HTML NCR: &#xABCD;
 	// Length;   12345678
 	StrLen = wcslen(WideStr);
 	RetStr = (char*)malloc((StrLen * 0x08) + 0x01);	// space for 1 NCR for every char
-	
+
 	SrcStr = WideStr;
 	DstStr = RetStr;
 	while(*SrcStr)
@@ -1224,7 +1224,7 @@ char* ConvertWStr2ASCII_NCR(const wchar_t* WideStr)
 		SrcStr ++;
 	}
 	*DstStr = 0x00;
-	
+
 	return RetStr;
 }
 
@@ -1235,10 +1235,10 @@ char* ConvertWStr2UTF8(const wchar_t* WideStr)
 	char* DstStr;
 	UINT32 StrLen;
 	UINT16 UnicodeChr;
-	
+
 	StrLen = wcslen(WideStr);
 	RetStr = (char*)malloc((StrLen * 0x04) + 0x01);	// space for 4 Bytes per char
-	
+
 	SrcStr = WideStr;
 	DstStr = RetStr;
 	while(*SrcStr)
@@ -1248,7 +1248,7 @@ char* ConvertWStr2UTF8(const wchar_t* WideStr)
 		SrcStr ++;
 	}
 	*DstStr = 0x00;
-	
+
 	return RetStr;
 }
 
@@ -1256,7 +1256,7 @@ static wchar_t* wcscap(wchar_t* string)
 {
 	wchar_t* CurChr;
 	bool LastWasLetter;
-	
+
 	CurChr = string;
 	LastWasLetter = false;
 	while(*CurChr != L'\0')
@@ -1276,6 +1276,6 @@ static wchar_t* wcscap(wchar_t* string)
 		}
 		CurChr ++;
 	}
-	
+
 	return string;
 }

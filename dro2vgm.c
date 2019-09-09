@@ -67,12 +67,12 @@ int main(int argc, char* argv[])
 	int argbase;
 	int ErrVal;
 	char FileName[0x100];
-	
+
 	printf("DRO to VGM Converter\n--------------------\n\n");
-	
+
 	ErrVal = 0;
 	argbase = 1;
-	
+
 	printf("File Name:\t");
 	if (argc <= argbase + 0)
 	{
@@ -85,7 +85,7 @@ int main(int argc, char* argv[])
 	}
 	if (! strlen(FileName))
 		return 0;
-	
+
 	if (! OpenDROFile(FileName))
 	{
 		printf("Error opening the file!\n");
@@ -93,19 +93,19 @@ int main(int argc, char* argv[])
 		goto EndProgram;
 	}
 	printf("\n");
-	
+
 	ConvertDRO2VGM();
-	
+
 	strcpy(FileName, FileBase);
 	strcat(FileName, ".vgm");
 	WriteVGMFile(FileName);
-	
+
 	free(DROData);
 	free(VGMData);
-	
+
 EndProgram:
 	DblClickWait(argv[0]);
-	
+
 	return ErrVal;
 }
 
@@ -118,11 +118,11 @@ static bool OpenDROFile(const char* FileName)
 	UINT32 TempLng;
 	char* TempPnt;
 	DRO_VER_HEADER_1 DRO_V1;
-	
+
 	hFile = fopen(FileName, "rb");
 	if (hFile == NULL)
 		return false;
-	
+
 	fseek(hFile, 0x00, SEEK_SET);
 	fread(&fccHeader, 0x01, 0x04, hFile);
 	if (fccHeader != FCC_DRO1)
@@ -130,21 +130,21 @@ static bool OpenDROFile(const char* FileName)
 	fread(&fccHeader, 0x01, 0x04, hFile);
 	if (fccHeader != FCC_DRO2)
 		goto OpenErr;
-	
+
 	fseek(hFile, 0x00, SEEK_END);
 	DRODataLen = ftell(hFile);
-	
+
 	// Read Data
 	DROData = (UINT8*)malloc(DRODataLen);
 	if (DROData == NULL)
 		goto OpenErr;
 	fseek(hFile, 0x00, SEEK_SET);
 	DRODataLen = fread(DROData, 0x01, DRODataLen, hFile);
-	
+
 	CurPos = 0x00;
 	memcpy(&DROHead, &DROData[0x00], sizeof(DRO_HEADER));
 	CurPos += sizeof(DRO_HEADER);
-	
+
 	memcpy(&TempLng, &DROData[0x08], 0x04);
 	if (TempLng & 0xFF00FF00)
 	{
@@ -165,7 +165,7 @@ static bool OpenDROFile(const char* FileName)
 			DROHead.iVersionMajor = TempSht;
 		}
 	}
-	
+
 	switch(DROHead.iVersionMajor)
 	{
 	case 0:	// Version 0 (DosBox Version 0.61)
@@ -182,7 +182,7 @@ static bool OpenDROFile(const char* FileName)
 			CurPos += sizeof(DRO_VER_HEADER_1);
 			break;
 		}
-		
+
 		DROInf.iLengthPairs = DRO_V1.iLengthBytes >> 1;
 		DROInf.iLengthMS = DRO_V1.iLengthMS;
 		switch(DRO_V1.iHardwareType)
@@ -202,18 +202,18 @@ static bool OpenDROFile(const char* FileName)
 		DROInf.iShortDelayCode = 0x00;
 		DROInf.iLongDelayCode = 0x01;
 		DROInf.iCodemapLength = 0x00;
-		
+
 		break;
 	case 2:	// Version 2 (DosBox Version 0.73)
 		// sizeof(DRO_VER_HEADER_2) returns 0x10, but the exact size is 0x0E
 		memcpy(&DROInf, &DROData[CurPos], 0x0E);
 		CurPos += 0x0E;
-		
+
 		break;
 	default:
 		goto OpenErr;
 	}
-	
+
 	if (DROInf.iCodemapLength)
 	{
 		DROCodemap = (UINT8*)malloc(DROInf.iCodemapLength * sizeof(UINT8));
@@ -228,7 +228,7 @@ static bool OpenDROFile(const char* FileName)
 	CurPos += DROInf.iLengthPairs << 1;
 	if (CurPos < DRODataLen)
 		DRODataLen = CurPos;
-	
+
 	// Generate VGM Header
 	memset(&VGMHead, 0x00, sizeof(VGM_HEADER));
 	VGMHead.fccVGM = FCC_VGM;
@@ -251,14 +251,14 @@ static bool OpenDROFile(const char* FileName)
 		VGMHead.lngHzYM3812 = 3579545 | 0x40000000;
 		break;
 	}
-	
+
 	fclose(hFile);
-	
+
 	strcpy(FileBase, FileName);
 	TempPnt = strrchr(FileBase, '.');
 	if (TempPnt != NULL)
 		*TempPnt = 0x00;
-	
+
 	return true;
 
 OpenErr:
@@ -270,13 +270,13 @@ OpenErr:
 static void WriteVGMFile(const char* FileName)
 {
 	FILE* hFile;
-	
+
 	hFile = fopen(FileName, "wb");
 	fwrite(VGMData, 0x01, VGMDataLen, hFile);
 	fclose(hFile);
-	
+
 	printf("File written.\n");
-	
+
 	return;
 }
 
@@ -291,10 +291,10 @@ static void ConvertDRO2VGM(void)
 	UINT32 VGMSmplL;
 	UINT32 VGMSmplC;
 	UINT32 SmplVal;
-	
+
 	VGMDataLen = DRODataLen * 0x04; // this should be 200% safe
 	VGMData = (UINT8*)malloc(VGMDataLen);
-	
+
 	printf("DRO File Version: %u.%02u\n", DROHead.iVersionMajor, DROHead.iVersionMinor);
 	DROPos = DRODataStart;
 	VGMPos = VGMHead.lngDataOffset;
@@ -302,12 +302,12 @@ static void ConvertDRO2VGM(void)
 	CurMS = 0x00;
 	VGMSmplL = 0x00;
 	VGMSmplC = 0x00;
-	
+
 	CurChip = 0x00;
 	while(DROPos < DRODataLen)
 	{
 		CurCmd = DROData[DROPos + 0x00];
-		
+
 		if (DROHead.iVersionMajor <= 0x01)
 		{
 			if (CurCmd <= 0x04 && DROPos < 0x20)
@@ -349,11 +349,11 @@ static void ConvertDRO2VGM(void)
 					CurMS += TempSht;
 				else if (CurCmd == DROInf.iLongDelayCode)
 					CurMS += TempSht << 8;
-				
+
 				DROPos += 0x02;
 				break;
 			}
-			
+
 			VGMSmplC = (UINT32)(CurMS * 44.1f + 0.5f);
 		}
 		else if (DROHead.iVersionMajor <= 0x01 && (CurCmd == 0x02 || CurCmd == 0x03))
@@ -372,7 +372,7 @@ static void ConvertDRO2VGM(void)
 						TempSht = (UINT16)SmplVal;
 					else
 						TempSht = 0xFFFF;
-					
+
 					VGMData[VGMPos + 0x00] = 0x61;
 					memcpy(&VGMData[VGMPos + 0x01], &TempSht, 0x02);
 					VGMPos += 0x03;
@@ -380,7 +380,7 @@ static void ConvertDRO2VGM(void)
 				}
 				VGMSmplL = VGMSmplC;
 			}
-			
+
 			switch(DROHead.iVersionMajor)
 			{
 			case 0x00:
@@ -399,7 +399,7 @@ static void ConvertDRO2VGM(void)
 			}
 			CurVal = DROData[DROPos + 0x01];
 			DROPos += 0x02;
-			
+
 			ChipCmd = 0x00;
 			switch(DROInf.iHardwareType)
 			{
@@ -425,23 +425,23 @@ static void ConvertDRO2VGM(void)
 	}
 	VGMData[VGMPos + 0x00] = 0x66;
 	VGMPos += 0x01;
-	
+
 	if (VGMSmplL != VGMHead.lngTotalSamples)
 	{
 		printf("Warning! There was an error during delay calculations!\n");
 		printf("DRO ms Header: %u, counted: %u\n", DROInf.iLengthMS, CurMS);
 		printf("Please relog the file with DosBox 0.73 or higher.\n");
 	}
-	
+
 	VGMDataLen = VGMPos;
 	VGMHead.lngEOFOffset = VGMDataLen;
-	
+
 	SmplVal = VGMHead.lngDataOffset;
 	if (SmplVal > sizeof(VGM_HEADER))
 		SmplVal = sizeof(VGM_HEADER);
 	VGMHead.lngDataOffset -= 0x34;
 	VGMHead.lngEOFOffset -= 0x04;
 	memcpy(&VGMData[0x00], &VGMHead, SmplVal);
-	
+
 	return;
 }

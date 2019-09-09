@@ -91,12 +91,12 @@ int main(int argc, char* argv[])
 	char FileName[0x100];
 	UINT8 FileNo;
 	UINT32 TempLng;
-	
+
 	printf("VGM Merger\n----------\n\n");
-	
+
 	ErrVal = 0;
 	argbase = 0;
-	
+
 	argbase = 1;
 	while(argbase < argc && argv[argbase][0] == '-')
 	{
@@ -128,7 +128,7 @@ int main(int argc, char* argv[])
 		}
 	}
 	SrcVGM = (VGM_INF*)malloc(MAX_VGMS * sizeof(VGM_INF));
-	
+
 	for (FileNo = 0x00; FileNo < MAX_VGMS; FileNo ++)
 	{
 		printf("File #%u:\t", FileNo + 1);
@@ -143,7 +143,7 @@ int main(int argc, char* argv[])
 		}
 		if (! strlen(FileName))
 			return 0;
-		
+
 		if (! OpenVGMFile(FileName, FileNo))
 		{
 			printf("Error opening the file!\n");
@@ -158,9 +158,9 @@ int main(int argc, char* argv[])
 		}
 	}
 	printf("\n");
-	
+
 	MergeVGMData();
-	
+
 	if (argc > argbase + MAX_VGMS)
 		strcpy(FileName, argv[argbase + MAX_VGMS]);
 	else
@@ -171,14 +171,14 @@ int main(int argc, char* argv[])
 		strcat(FileName, "_merged.vgm");
 	}
 	WriteVGMFile(FileName);
-	
+
 	for (FileNo = 0x00; FileNo < MAX_VGMS; FileNo ++)
 		free(SrcVGM[FileNo].Data);
 	free(DstData);
-	
+
 EndProgram:
 	DblClickWait(argv[0]);
-	
+
 	return ErrVal;
 }
 
@@ -189,20 +189,20 @@ static bool OpenVGMFile(const char* FileName, const UINT8 VgmNo)
 	VGM_HEADER VGMHead;
 	UINT32 CurPos;
 	char* TempPnt;
-	
+
 	hFile = gzopen(FileName, "rb");
 	if (hFile == NULL)
 		return false;
-	
+
 	gzseek(hFile, 0x00, SEEK_SET);
 	gzread(hFile, &TempLng, 0x04);
 	if (TempLng != FCC_VGM)
 		goto OpenErr;
-	
+
 	gzseek(hFile, 0x00, SEEK_SET);
 	gzread(hFile, &VGMHead, sizeof(VGM_HEADER));
 	ZLIB_SEEKBUG_CHECK(VGMHead);
-	
+
 	// Header preperations
 	if (VGMHead.lngVersion < 0x00000101)
 	{
@@ -234,7 +234,7 @@ static bool OpenVGMFile(const char* FileName, const UINT8 VgmNo)
 	if (! VGMHead.lngDataOffset)
 		VGMHead.lngDataOffset = 0x0000000C;
 	VGMHead.lngDataOffset += 0x00000034;
-	
+
 	CurPos = VGMHead.lngDataOffset;
 	if (VGMHead.lngVersion < 0x00000150)
 		CurPos = 0x40;
@@ -244,7 +244,7 @@ static bool OpenVGMFile(const char* FileName, const UINT8 VgmNo)
 	else
 		TempLng = 0x00;
 	memset((UINT8*)&VGMHead + CurPos, 0x00, TempLng);
-	
+
 	// Read Data
 	SrcVGM[VgmNo].DataLen = VGMHead.lngEOFOffset;
 	SrcVGM[VgmNo].Data = (UINT8*)malloc(SrcVGM[VgmNo].DataLen);
@@ -253,9 +253,9 @@ static bool OpenVGMFile(const char* FileName, const UINT8 VgmNo)
 	gzseek(hFile, 0x00, SEEK_SET);
 	gzread(hFile, SrcVGM[VgmNo].Data, SrcVGM[VgmNo].DataLen);
 	SrcVGM[VgmNo].Head = VGMHead;
-	
+
 	gzclose(hFile);
-	
+
 	if (! VgmNo)
 	{
 		strcpy(FileBase, FileName);
@@ -263,7 +263,7 @@ static bool OpenVGMFile(const char* FileName, const UINT8 VgmNo)
 		if (TempPnt != NULL)
 			*TempPnt = 0x00;
 	}
-	
+
 	return true;
 
 OpenErr:
@@ -275,13 +275,13 @@ OpenErr:
 static void WriteVGMFile(const char* FileName)
 {
 	FILE* hFile;
-	
+
 	hFile = fopen(FileName, "wb");
 	fwrite(DstData, 0x01, DstDataLen, hFile);
 	fclose(hFile);
-	
+
 	printf("File written.\n");
-	
+
 	return;
 }
 
@@ -296,14 +296,14 @@ static void MergeVGMHeader(VGM_HEADER* DstHead, VGM_HEADER* SrcHead, CHIP_MAPS* 
 	UINT32* DstClock;
 	bool DualSupport;
 	CHIP_MAP* TempMap;
-	
+
 	if (DstHead->lngVersion != SrcHead->lngVersion)
 	{
 		printf("Warning! Merging VGM files with different versions!\n");
 		if (DstHead->lngVersion < SrcHead->lngVersion)
 			DstHead->lngVersion = SrcHead->lngVersion;
 	}
-	
+
 	DstHead->lngLoopOffset |= SrcHead->lngLoopOffset;	// I just need to know if there IS one
 	if (DstHead->lngLoopSamples != SrcHead->lngLoopSamples)
 	{
@@ -322,7 +322,7 @@ static void MergeVGMHeader(VGM_HEADER* DstHead, VGM_HEADER* SrcHead, CHIP_MAPS* 
 		else if (DstHead->bytLoopModifier != SrcHead->bytLoopModifier)
 			printf("Warning! Different Loop Modifier!\n");
 	}
-	
+
 	// merge chip clocks
 	memset(SrcChpMap, 0x00, sizeof(CHIP_MAPS));
 	TempMap = &SrcChpMap->SN76496;
@@ -352,7 +352,7 @@ static void MergeVGMHeader(VGM_HEADER* DstHead, VGM_HEADER* SrcHead, CHIP_MAPS* 
 			DstClock = &DstHead->lngHzGBDMG;
 			break;
 		}
-		
+
 		switch(CurChip)
 		{
 		case 0x00:	// SN76496
@@ -386,7 +386,7 @@ static void MergeVGMHeader(VGM_HEADER* DstHead, VGM_HEADER* SrcHead, CHIP_MAPS* 
 			break;
 		}
 		DualSupport &= ! NO_DUAL_MIXING;
-		
+
 		// check chip clock
 		if (*SrcClock)
 		{
@@ -398,7 +398,7 @@ static void MergeVGMHeader(VGM_HEADER* DstHead, VGM_HEADER* SrcHead, CHIP_MAPS* 
 			{
 				if ((*DstClock & 0x80000000) != (*SrcClock & 0x80000000))
 					printf("Warning! Different Clock-Bit 31 for %s!\n", CHIP_NAMES[CurChip]);
-				
+
 				if (! DualSupport || (*DstClock & 0x40000000) || (*SrcClock & 0x40000000))
 				{
 					printf("Warning! Merging multiple %s chips with the same type into "
@@ -413,7 +413,7 @@ static void MergeVGMHeader(VGM_HEADER* DstHead, VGM_HEADER* SrcHead, CHIP_MAPS* 
 					printf("Warning! Different chip clocks for %s!\n", CHIP_NAMES[CurChip]);
 			}
 		}
-		
+
 		// do special checks
 		switch(CurChip)
 		{
@@ -425,7 +425,7 @@ static void MergeVGMHeader(VGM_HEADER* DstHead, VGM_HEADER* SrcHead, CHIP_MAPS* 
 				else if (DstHead->shtPSG_Feedback != SrcHead->shtPSG_Feedback)
 					printf("Warning! Different Feedback for %s!\n", CHIP_NAMES[CurChip]);
 			}
-			
+
 			if (SrcHead->bytPSG_SRWidth)
 			{
 				if (! DstHead->bytPSG_SRWidth)
@@ -433,7 +433,7 @@ static void MergeVGMHeader(VGM_HEADER* DstHead, VGM_HEADER* SrcHead, CHIP_MAPS* 
 				else if (DstHead->bytPSG_SRWidth != SrcHead->bytPSG_SRWidth)
 					printf("Warning! Different SR Width for %s!\n", CHIP_NAMES[CurChip]);
 			}
-				
+
 			if (SrcHead->bytPSG_Flags)
 			{
 				if (! DstHead->bytPSG_Flags)
@@ -477,7 +477,7 @@ static void MergeVGMHeader(VGM_HEADER* DstHead, VGM_HEADER* SrcHead, CHIP_MAPS* 
 				else if (DstHead->bytAYType != SrcHead->bytAYType)
 					printf("Warning! Different Chip Type for %s!\n", CHIP_NAMES[CurChip]);
 			}
-			
+
 			if (SrcHead->bytAYFlag)
 			{
 				if (! DstHead->bytAYFlag)
@@ -487,13 +487,13 @@ static void MergeVGMHeader(VGM_HEADER* DstHead, VGM_HEADER* SrcHead, CHIP_MAPS* 
 			}
 			break;
 		}
-		
+
 		// move to next chip clock
 		SrcClock ++;
 		DstClock ++;
 		TempMap ++;
 	}
-	
+
 	return;
 }
 
@@ -544,10 +544,10 @@ static void MergeVGMData(void)
 	UINT8 PtchCmdData[0x08];
 	DATABLK_MAP* TempDBlk;
 	UINT16 DataBlkUsed[0x40];
-	
+
 	SrcPos = (UINT32*)malloc(MAX_VGMS * sizeof(UINT32));
 	EndReached = (bool*)malloc(MAX_VGMS * sizeof(bool));
-	
+
 	DstHead = SrcVGM[0x00].Head;
 	memset(&SrcVGM[0x00].ChipMap, 0x00, sizeof(SrcVGM[0x00].ChipMap));
 	for (FileID = 0x01; FileID < MAX_VGMS; FileID ++)
@@ -564,7 +564,7 @@ static void MergeVGMData(void)
 	}
 	memset(UsedStreams, 0x00, 0x20);
 	memset(DataBlkUsed, 0x00, sizeof(DataBlkUsed));
-	
+
 	DstPos = DstHead.lngDataOffset;
 	DstDataLen = 0x00;
 	DstSmplPos = 0;
@@ -597,10 +597,10 @@ static void MergeVGMData(void)
 	}
 	DstDataLen += 0x100;	// some additional space
 	DstData = (UINT8*)malloc(DstDataLen);
-	
+
 	NxtSmplPos = 0x00;
 	NewLoopPos = 0x00;
-	
+
 #ifdef WIN32
 	CmdTimer = 0;
 #endif
@@ -613,13 +613,13 @@ static void MergeVGMData(void)
 		{
 			if (EndReached[FileID])
 				continue;
-			
+
 			// find sample of next command
 			if (WriteEvent || SrcVGM[FileID].SmplPos < NxtSmplPos)	// Note: This line breaks the auto-completion somehow.
 				NxtSmplPos = SrcVGM[FileID].SmplPos;
 			WriteEvent = false;
 		}
-		
+
 		WasDblk = 0x00;
 		for (FileID = 0x00; FileID < MAX_VGMS; FileID ++)
 		{
@@ -629,7 +629,7 @@ static void MergeVGMData(void)
 				CmdDelay = 0;
 				PtchCmdFlags = 0x00;
 				Command = TempVGM->Data[TempVGM->Pos];
-				
+
 				// Make the VGMs looks nicer ;)
 				// (write data blocks of all VGMs first, other commands later)
 				if (! WasDblk)
@@ -644,14 +644,14 @@ static void MergeVGMData(void)
 					if (WasDblk == 0x01 && Command != 0x67)
 						break;
 				}
-				
+
 				CmdLen = GetCmdLen(Command);
 				WriteEvent = true;
 				if (TempVGM->Pos == TempVGM->Head.lngLoopOffset && ! NewLoopPos)
 					IsLoopPnt = true;
 				else
 					IsLoopPnt = false;
-				
+
 				if (Command >= 0x70 && Command <= 0x8F)
 				{
 					switch(Command & 0xF0)
@@ -715,7 +715,7 @@ static void MergeVGMData(void)
 						TempByt = TempVGM->Data[TempVGM->Pos + 0x02];
 						if ((TempByt & 0xC0) == 0x40 && TempByt != 0x7F)
 							TempByt &= 0x3F;
-						
+
 						switch(TempByt)
 						{
 						case 0x00:
@@ -805,7 +805,7 @@ static void MergeVGMData(void)
 							TempDBlk->BlockCnt ++;
 							DataBlkUsed[TempByt] ++;
 						}
-						
+
 						if (TempMap != NULL && TempMap->MapToDual)
 						{
 							PtchCmdFlags = 1 << 0x06;
@@ -813,7 +813,7 @@ static void MergeVGMData(void)
 						}
 						memcpy(&TempLng, &TempVGM->Data[TempVGM->Pos + 0x03], 0x04);
 						TempLng &= 0x7FFFFFFF;
-						
+
 						CmdLen = 0x07 + TempLng;
 						break;
 					case 0x68:	// PCM RAM write
@@ -858,14 +858,14 @@ static void MergeVGMData(void)
 							}
 							SET_BIT(UsedStreams, TempVGM->StrmMap[TempByt]);
 						}
-						
+
 						TempMap = &TempVGM->ChipMap.SN76496 + TempVGM->Data[TempVGM->Pos + 0x02];
 						if (TempMap->MapToDual)
 						{
 							PtchCmdFlags = 1 << 0x02;
 							PtchCmdData[0x02] = 0x80 | TempVGM->Data[TempVGM->Pos + 0x02];
 						}
-						
+
 						CmdLen = 0x05;
 						break;
 					case 0x91:	// DAC Ctrl: Set Data
@@ -976,7 +976,7 @@ static void MergeVGMData(void)
 					// placed here because I need to read all delays
 					if (TempVGM->SmplPos > NxtSmplPos)
 						break;	// exit while
-					
+
 					// Write Delay
 					DstDelay = NxtSmplPos - DstSmplPos;
 					while(DstDelay)
@@ -985,7 +985,7 @@ static void MergeVGMData(void)
 							TempSht = (UINT16)DstDelay;
 						else
 							TempSht = 0xFFFF;
-						
+
 						if (WroteCmd80)
 						{
 							// highest delay compression - Example:
@@ -1004,7 +1004,7 @@ static void MergeVGMData(void)
 								TempSht -= 1764;
 							else if (TempSht >= 1617 && TempSht <= 1632)	// 62 63
 								TempSht -= 1617;
-							
+
 							/*if (TempSht >= 0x10 && TempSht <= 0x1F)
 								TempSht = 0x0F;
 							else if (TempSht >= 0x20)
@@ -1068,10 +1068,10 @@ static void MergeVGMData(void)
 						DstDelay -= TempSht;
 						DstSmplPos += TempSht;
 					}
-					
+
 					if (IsLoopPnt)
 						NewLoopPos = DstPos;
-					
+
 					if (WriteEvent)
 					{
 						if (DstPos + CmdLen > DstDataLen)
@@ -1079,13 +1079,13 @@ static void MergeVGMData(void)
 							printf("Error! Allocated space too small!\n");
 							printf("Please report this bug.\n");
 							//return;
-							
+
 							DstData[DstPos] = 0x66;
 							DstPos ++;
 							VGMsRunning = 0x00;
 							break;
 						}
-						
+
 						// Write Event
 						WroteCmd80 = ((Command & 0xF0) == 0x80);
 						if (WroteCmd80)
@@ -1097,7 +1097,7 @@ static void MergeVGMData(void)
 							memcpy(&DstData[DstPos], &TempVGM->Data[TempVGM->Pos], CmdLen);
 						else
 							DstData[DstPos] = Command;	// write the 0x80-command correctly
-						
+
 						if (PtchCmdFlags)
 						{
 							for (TempByt = 0x00; TempByt < 0x04; TempByt ++)
@@ -1113,7 +1113,7 @@ static void MergeVGMData(void)
 				TempVGM->SmplPos += CmdDelay;
 			}	// end while(! EndReached)
 		}	// end for (FileID)
-		
+
 #ifdef WIN32
 		if (CmdTimer < GetTickCount())
 		{
@@ -1138,7 +1138,7 @@ static void MergeVGMData(void)
 		}
 	}
 	printf("\t\t\t\t\t\t\t\t\r");
-	
+
 	for (FileID = 0x00; FileID < MAX_VGMS; FileID ++)
 	{
 		TempVGM = &SrcVGM[FileID];
@@ -1150,7 +1150,7 @@ static void MergeVGMData(void)
 			{
 				memcpy(&CmdLen, &TempVGM->Data[NxtSmplPos + 0x08], 0x04);
 				CmdLen += 0x0C;
-				
+
 				DstHead.lngGD3Offset = DstPos - 0x14;
 				memcpy(&DstData[DstPos], &TempVGM->Data[NxtSmplPos], CmdLen);
 				DstPos += CmdLen;
@@ -1158,12 +1158,12 @@ static void MergeVGMData(void)
 			}
 		}
 	}
-	
+
 	DstDataLen = DstPos;
 	DstHead.lngEOFOffset = DstDataLen - 0x04;
 	DstPos = DstHead.lngDataOffset;
 	DstHead.lngDataOffset -= 0x34;
-	
+
 	// Copy Header
 	if (sizeof(VGM_HEADER) < DstPos)
 	{
@@ -1175,10 +1175,10 @@ static void MergeVGMData(void)
 	{
 		memcpy(&DstData[0x00], &DstHead, DstPos);
 	}
-	
+
 	free(SrcPos);
 	free(EndReached);
-	
+
 	return;
 }
 

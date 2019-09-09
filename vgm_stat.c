@@ -74,11 +74,11 @@ int main(int argc, char* argv[])
 	char* FileExt;
 	bool PLMode;
 	UINT32 TempLng;
-	
+
 	setlocale(LC_CTYPE, "");	// set to use system codepage
-	
+
 	printf("VGM Statistics\n--------------\n\n");
-	
+
 //printf("ZLib Version: %s\n", zlibVersion());
 	ErrVal = 0;
 	printf("File Path or PlayList:\t");
@@ -93,11 +93,11 @@ int main(int argc, char* argv[])
 	}
 	if (! strlen(FileName))
 		return 0;
-	
+
 	AllTotal = 0;
 	AllLoop = 0;
 	PLMode = false;
-	
+
 	if (FileName[strlen(FileName) - 1] != DIR_SEP)
 	{
 #ifdef WIN32
@@ -110,7 +110,7 @@ int main(int argc, char* argv[])
 			FileExt = strrchr(FileName, '.');
 			if (FileExt < strrchr(FileName, DIR_SEP))
 				FileExt = NULL;
-			
+
 			if (FileExt != NULL)
 			{
 				FileExt ++;
@@ -123,7 +123,7 @@ int main(int argc, char* argv[])
 			strcat(FileName, "/");
 		}
 	}
-	
+
 	TrackCount = 0;
 	TrackAlloc = 0;
 	TrackList = NULL;
@@ -132,7 +132,7 @@ int main(int argc, char* argv[])
 		ReadDirectory(FileName);
 	else
 		ReadPlaylist(FileName);
-	
+
 	TempLng = TrackCount;
 	TrkCntDigits = 0;
 	do
@@ -142,17 +142,17 @@ int main(int argc, char* argv[])
 	} while(TempLng);
 	if (TrkCntDigits < 2)
 		TrkCntDigits = 2;
-	
+
 #ifdef SHOW_FILE_STATS
 	ShowFileStats(NULL);
 	printf("\n\n");
 #endif
-	
+
 	ShowStatistics();
-	
+
 //EndProgram:
 	DblClickWait(argv[0]);
-	
+
 	return ErrVal;
 }
 
@@ -164,16 +164,16 @@ static bool OpenVGMFile(const char* FileName)
 	UINT32 TempLng;
 	char* TempPnt;
 	INT16 LoopCnt;
-	
+
 	hFile = gzopen(FileName, "rb");
 	if (hFile == NULL)
 		return false;
-	
+
 	gzseek(hFile, 0x00, SEEK_SET);
 	gzread(hFile, &fccHeader, 0x04);
 	if (fccHeader != FCC_VGM)
 		goto OpenErr;
-	
+
 	if (gzseek(hFile, 0x00, SEEK_SET) == -1)
 	{
 		printf("gzseek Error!!\n");
@@ -191,7 +191,7 @@ static bool OpenVGMFile(const char* FileName)
 	}
 	gzread(hFile, &VGMHead, sizeof(VGM_HEADER));
 	ZLIB_SEEKBUG_CHECK(VGMHead);
-	
+
 	// relative -> absolute addresses
 	VGMHead.lngEOFOffset += 0x00000004;
 	if (VGMHead.lngGD3Offset)
@@ -199,7 +199,7 @@ static bool OpenVGMFile(const char* FileName)
 	if (! VGMHead.lngDataOffset)
 		VGMHead.lngDataOffset = 0x0000000C;
 	VGMHead.lngDataOffset += 0x00000034;
-	
+
 	CurPos = VGMHead.lngDataOffset;
 	if (VGMHead.lngVersion < 0x00000150)
 		CurPos = 0x40;
@@ -209,10 +209,10 @@ static bool OpenVGMFile(const char* FileName)
 	else
 		TempLng = 0x00;
 	memset((UINT8*)&VGMHead + CurPos, 0x00, TempLng);
-	
+
 	if (! VGMHead.bytLoopModifier)
 		VGMHead.bytLoopModifier = 0x10;
-	
+
 //printf("\tTrack %u, Data Ofs 0x%X, Version %X\n", TrackCount, VGMHead.lngDataOffset, VGMHead.lngVersion);
 //printf("\tSamples Total: %u, Samples Loop: %u\n", VGMHead.lngTotalSamples, VGMHead.lngLoopOffset);
 //printf("\tGD3 Offset: 0x%X, EOF Offset: 0x%X\n", VGMHead.lngGD3Offset, VGMHead.lngEOFOffset);
@@ -224,7 +224,7 @@ static bool OpenVGMFile(const char* FileName)
 	}
 	CurTrkEntry = &TrackList[TrackCount];
 	TrackCount ++;
-	
+
 	// Read GD3 Tag
 	if (VGMHead.lngGD3Offset)
 	{
@@ -234,7 +234,7 @@ static bool OpenVGMFile(const char* FileName)
 			VGMHead.lngGD3Offset = 0x00000000;
 			//goto OpenErr;
 	}
-	
+
 	if (VGMHead.lngGD3Offset)
 	{
 		CurPos = VGMHead.lngGD3Offset;
@@ -259,7 +259,7 @@ static bool OpenVGMFile(const char* FileName)
 	{
 		VGMTag.strTrackNameE = L"";
 	}
-		
+
 	TempLng = wcslen(VGMTag.strTrackNameE);
 	if (TempLng)
 	{
@@ -293,15 +293,15 @@ static bool OpenVGMFile(const char* FileName)
 	}
 	CurTrkEntry->SmplTotal = VGMHead.lngTotalSamples;
 	CurTrkEntry->SmplLoop = VGMHead.lngLoopSamples;
-	
+
 	AllTotal += CurTrkEntry->SmplTotal;
 	LoopCnt = (2 * VGMHead.bytLoopModifier + 0x08) / 0x10 - VGMHead.bytLoopBase;
 	if (LoopCnt < 1)
 		LoopCnt = 1;
 	AllLoop += CurTrkEntry->SmplLoop * (LoopCnt - 1);
-	
+
 	gzclose(hFile);
-	
+
 	return true;
 
 OpenErr:
@@ -325,7 +325,7 @@ static wchar_t* ReadWStrFromFile(gzFile hFile, UINT32* FilePos, UINT32 EOFPos)
 	TextStr = (wchar_t*)malloc((EOFPos - CurPos) / 0x02 * sizeof(wchar_t));
 	if (TextStr == NULL)
 		return NULL;
-	
+
 	gzseek(hFile, CurPos, SEEK_SET);
 	TempStr = TextStr;
 	StrLen = 0x00;
@@ -339,10 +339,10 @@ static wchar_t* ReadWStrFromFile(gzFile hFile, UINT32* FilePos, UINT32 EOFPos)
 		if (CurPos >= EOFPos)
 			break;
 	} while(*(TempStr - 1));
-	
+
 	TextStr = (wchar_t*)realloc(TextStr, StrLen * sizeof(wchar_t));
 	*FilePos = CurPos;
-	
+
 	return TextStr;
 }
 
@@ -386,7 +386,7 @@ static void ReadDirectory(const char* DirName)
 #endif
 	strcpy(FileName, FilePath);
 	TempPnt = FileName + strlen(FileName);
-	
+
 #ifdef SHOW_FILE_STATS
 	printf("\t\t    Sample\t    Time\n");
 	printf("File Title\tTotal\tLoop\tTotal\tLoop\n\n");
@@ -452,14 +452,14 @@ static void ReadPlaylist(const char* FileName)
 	const char M3UV2_HEAD[] = "#EXTM3U";
 	const char M3UV2_META[] = "#EXTINF:";
 	UINT32 METASTR_LEN;
-	
+
 	FILE* hFile;
 	UINT32 LineNo;
 	bool IsV2Fmt;
 	char TempStr[MAX_PATH];
 	char FileVGM[MAX_PATH];
 	char* RetStr;
-	
+
 	RetStr = strrchr(FileName, '\\');
 	if (RetStr != NULL)
 	{
@@ -473,11 +473,11 @@ static void ReadPlaylist(const char* FileName)
 		strcpy(FilePath, "");
 	}
 //printf("  Base Path: %s\n", FilePath);
-	
+
 	hFile = fopen(FileName, "rt");
 	if (hFile == NULL)
 		return;
-	
+
 #ifdef SHOW_FILE_STATS
 	printf("\t\t    Sample\t    Time\n");
 	printf("File Title\tTotal\tLoop\tTotal\tLoop\n\n");
@@ -501,7 +501,7 @@ static void ReadPlaylist(const char* FileName)
 		}
 		if (! strlen(TempStr))
 			continue;
-		
+
 //printf("  Read Line: %s\n", TempStr);
 		if (! LineNo)
 		{
@@ -521,7 +521,7 @@ static void ReadPlaylist(const char* FileName)
 				continue;
 			}
 		}
-		
+
 		strcpy(FileVGM, FilePath);
 		strcat(FileVGM, TempStr);
 		RetStr = strrchr(TempStr, '\\');
@@ -529,7 +529,7 @@ static void ReadPlaylist(const char* FileName)
 			RetStr = TempStr;
 		else
 			RetStr ++;
-		
+
 //printf("  Full File Path: %s\n", FileVGM);
 		if (! OpenVGMFile(FileVGM))
 			printf("%s\tError opening the file!\n", RetStr);
@@ -539,9 +539,9 @@ static void ReadPlaylist(const char* FileName)
 #endif
 		LineNo ++;
 	}
-	
+
 	fclose(hFile);
-	
+
 	return;
 }
 
@@ -552,7 +552,7 @@ static void ShowFileStats(const char* FileTitle)
 	UINT32 SmplLoop;
 	char TimeTotal[0x10];
 	char TimeLoop[0x10];
-	
+
 	if (FileTitle != NULL)
 	{
 		SmplTotal = VGMHead.lngTotalSamples;
@@ -566,9 +566,9 @@ static void ShowFileStats(const char* FileTitle)
 	}
 	PrintSampleTime(TimeTotal, SmplTotal, false);
 	PrintSampleTime(TimeLoop, SmplLoop, true);
-	
+
 	printf("%s\t%u\t%u\t%s\t%s\n", FileTitle, SmplTotal, SmplLoop, TimeTotal, TimeLoop);
-	
+
 	return;
 }
 #endif
@@ -579,13 +579,13 @@ static void PrintSampleTime(char* buffer, const UINT32 Samples, bool LoopMode)
 	UINT16 HourVal;
 	UINT16 MinVal;
 	UINT16 SecVal;
-	
+
 	if (! Samples && LoopMode)
 	{
 		sprintf(buffer, " -");
 		return;
 	}
-	
+
 	SmplVal = Samples + 22050;	// Round to whole seconds
 	SmplVal /= 44100;
 	SecVal = (UINT16)(SmplVal % 60);
@@ -593,12 +593,12 @@ static void PrintSampleTime(char* buffer, const UINT32 Samples, bool LoopMode)
 	MinVal = (UINT16)(SmplVal % 60);
 	SmplVal /= 60;
 	HourVal = (UINT16)SmplVal;
-	
+
 	if (HourVal)
 		sprintf(buffer, "%2u:%02u:%02u", HourVal, MinVal, SecVal);
 	else
 		sprintf(buffer, "%2u:%02u", MinVal, SecVal);
-	
+
 	return;
 }
 
@@ -616,17 +616,17 @@ static void ShowStatistics(void)
 	char* TempStr;
 	UINT32 CurLine;
 	UINT32 LineCnt;
-	
+
 	TempStrAlloc = 0x00;
 	TempStr = NULL;
-	
+
 	printf("Song                        Length |Total |Loop\n");
 	printf("-----------------------------------+------+----\n");
 	for (CurTL = 0; CurTL < TrackCount; CurTL ++)
 	{
 		char* TitleWithNumber;
 		CurTrkEntry = &TrackList[CurTL];
-		
+
 		if (IsPlayList)
 		{
 			TitleWithNumber = (char*)malloc(TrkCntDigits + 1 + strlen(CurTrkEntry->Title) + 1);
@@ -636,63 +636,63 @@ static void ShowStatistics(void)
 		{
 			TitleWithNumber = strdup(CurTrkEntry->Title);
 		}
-		
+
 		LineCnt = GetTitleLines(&TempStrAlloc, &TempStr, TitleWithNumber);
 		TitleStr = (LineCnt) ? TempStr : TitleWithNumber;
 		if (! LineCnt)
 			LineCnt ++;
-		
+
 		for (CurLine = 0; CurLine < LineCnt; CurLine ++)
 		{
 			if (CurLine)
 				printf("\n");
-			
+
 			TitleLen = strlen(TitleStr);
 			if (TitleLen <= MAX_TITLE_CHARS)
 				Spaces = MAX_TITLE_CHARS - TitleLen;
 			else
 				Spaces = 0;
-			
+
 			printf("%.*s", MAX_TITLE_CHARS, TitleStr);
-			
+
 			TitleStr += TitleLen + 1;
 		}
-		
+
 		while(Spaces)
 		{
 			printf(" ");
 			Spaces --;
 		}
-		
+
 		PrintSampleTime(TimeTotal, CurTrkEntry->SmplTotal, false);
 		PrintSampleTime(TimeLoop, CurTrkEntry->SmplLoop, true);
-		
+
 		printf("%s  %s\n", TimeTotal, TimeLoop);
 		free(TitleWithNumber);
 	}
 	printf("\n");
-	
+
 	if (TempStr != NULL)
 	{
 		free(TempStr);	TempStr = NULL;
 	}
-	
+
 	TitleStr = "Total Length";
 	TitleLen = strlen(TitleStr);
 	Spaces = MAX_TITLE_CHARS - TitleLen;
-	
+
 	printf("%.*s", MAX_TITLE_CHARS, TitleStr);
 	while(Spaces)
 	{
 		printf(" ");
 		Spaces --;
 	}
-	
+
 	PrintSampleTime(TimeTotal, AllTotal, false);
 	PrintSampleTime(TimeLoop, AllTotal + AllLoop, false);
-	
+
 	printf("%s  %s\n", TimeTotal, TimeLoop);
-	
+
 	return;
 }
 
@@ -704,17 +704,17 @@ UINT32 GetTitleLines(UINT32* StrAlloc, char** String, const char* TitleStr)
 	UINT32 NoAlphaPos;
 	const char* SrcPtr;
 	char* DstPtr;
-	
+
 	CurPos = strlen(TitleStr);
 	if (CurPos <= MAX_TITLE_CHARS)
 		return 0;	// didn't do anything
-	
+
 	if (*StrAlloc < CurPos + 0x10)
 	{
 		*StrAlloc = (CurPos + 0x20) & ~0x0F;
 		*String = (char*)realloc(*String, *StrAlloc);
 	}
-	
+
 	SrcPtr = TitleStr;
 	DstPtr = *String;
 	NoAlphaPos = SpcPos = CurPos = 0;
@@ -728,7 +728,7 @@ UINT32 GetTitleLines(UINT32* StrAlloc, char** String, const char* TitleStr)
 	{
 		if (SrcPtr[CurPos] == ' ')
 			SpcPos = CurPos;
-		
+
 		if (CurPos >= MAX_TITLE_CHARS)
 		{
 			if (SpcPos)	// Space found
@@ -755,7 +755,7 @@ UINT32 GetTitleLines(UINT32* StrAlloc, char** String, const char* TitleStr)
 				SrcPtr += CurPos - 1;
 				DstPtr += CurPos + 1;
 			}
-			
+
 			CurPos = (DstPtr - *String) + strlen(SrcPtr);
 			if (*StrAlloc < CurPos + 0x10)
 			{
@@ -764,7 +764,7 @@ UINT32 GetTitleLines(UINT32* StrAlloc, char** String, const char* TitleStr)
 				*String = (char*)realloc(*String, *StrAlloc);
 				DstPtr = *String + SpcPos;
 			}
-			
+
 			NoAlphaPos = SpcPos = CurPos = 0;
 			if (IsPlayList)
 			{
@@ -778,14 +778,14 @@ UINT32 GetTitleLines(UINT32* StrAlloc, char** String, const char* TitleStr)
 			}
 			CurLine ++;
 		}
-		
+
 		if (! isalnum(SrcPtr[CurPos]))
 			NoAlphaPos = CurPos;
-		
+
 		DstPtr[CurPos] = SrcPtr[CurPos];
 		CurPos ++;
 	}
 	DstPtr[CurPos] = '\0';
-	
+
 	return CurLine;
 }
