@@ -1362,7 +1362,7 @@ static void InitializeVGM(UINT8** DstDataRef, UINT32* DstPosRef)
 					if ((TempReg->RegMask[WrtReg] & 0x7F) == 0x01)
 					{
 						DstData[DstPos + 0x00] = ChipCmd;
-						DstData[DstPos + 0x01] = (CurCSet << 7) | CurReg;
+						DstData[DstPos + 0x01] = (CurCSet << 7) | WrtReg;
 						DstData[DstPos + 0x02] = TempReg->RegData.R08[WrtReg];
 						DstPos += 0x03;
 					}

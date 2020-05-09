@@ -613,9 +613,11 @@ bool ym2612_write(UINT8 Port, UINT8 Register, UINT8 Data)
 	RegVal = (Port << 8) | Register;
 	switch(RegVal)
 	{
-	case 0x024:	// Timer Registers
-	case 0x025:
-	case 0x026:
+	case 0x024:	// Timer A high
+	case 0x025:	// Timer A low
+		// TODO: don't remove when CSM mode is used (reg 0x027, data 0xC0)
+		return false;
+	case 0x026:	// Timer B
 		return false;
 	// no OPN Prescaler Registers for YM2612
 	case 0x027:
@@ -959,9 +961,11 @@ bool ym2203_write(UINT8 Register, UINT8 Data)
 		return false;*/
 	switch(Register)
 	{
-	case 0x24:	// Timer Registers
-	case 0x25:
-	case 0x26:
+	case 0x24:	// Timer A high
+	case 0x25:	// Timer A low
+		// TODO: don't remove when CSM mode is used (reg 0x27, data 0xC0)
+		return false;
+	case 0x26:	// Timer B
 		return false;
 	case 0x27:
 		Data &= 0xC0;	// mask out all timer-relevant bits
@@ -1067,9 +1071,11 @@ bool ym2608_write(UINT8 Port, UINT8 Register, UINT8 Data)
 	RegVal = (Port << 8) | Register;
 	switch(RegVal)
 	{
-	case 0x024:	// Timer Registers
-	case 0x025:
-	case 0x026:
+	case 0x024:	// Timer A high
+	case 0x025:	// Timer A low
+		// TODO: don't remove when CSM mode is used (reg 0x027, data 0xC0)
+		return false;
+	case 0x026:	// Timer B
 		return false;
 	case 0x027:
 		Data &= 0xC0;	// mask out all timer-relevant bits
@@ -1198,12 +1204,14 @@ bool ym2610_write(UINT8 Port, UINT8 Register, UINT8 Data)
 	RegVal = (Port << 8) | Register;
 	switch(RegVal)
 	{
-	case 0x24:	// Timer Registers
-	case 0x25:
-	case 0x26:
+	case 0x024:	// Timer A high
+	case 0x025:	// Timer A low
+		// TODO: don't remove when CSM mode is used (reg 0x027, data 0xC0)
+		return false;
+	case 0x026:	// Timer B
 		return false;
 	// no OPN Prescaler Registers for YM2610
-	case 0x27:
+	case 0x027:
 		Data &= 0xC0;	// mask out all timer-relevant bits
 
 		if (! chip->RegFirst[RegVal] && Data == chip->RegData[RegVal])
@@ -1212,7 +1220,7 @@ bool ym2610_write(UINT8 Port, UINT8 Register, UINT8 Data)
 		chip->RegFirst[RegVal] = 0x00;
 		chip->RegData[RegVal] = Data;
 		break;
-	case 0x28:
+	case 0x028:
 		Channel = Data & 0x07;
 
 		if (! chip->KeyFirst[Channel] && Data == chip->KeyOn[Channel])
@@ -2652,7 +2660,10 @@ bool x1_010_write(UINT16 offset, UINT8 val)
 	X1_010_DATA *chip = &ChDat->X1_010;
 
 	// Key on without loop flag set: chip will clear the key on flag once playback is finished
-	if(offset < 0x80 && (offset&0x07) == 0x00 && val&0x01 && !(val&0x04))
+	// TODO: handle looping properly:
+	//	(val&2)==0 [PCM mode] -> always one-shot
+	//	(val&2)==2 [waveform mode] -> (val&4) == one-shot enable
+	if(offset < 0x80 && (offset&0x07) == 0x00 && (val&0x01))
 		chip->RegFirst[offset] = 1;
 
 	if(offset >= 0x2000)
