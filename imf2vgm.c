@@ -200,7 +200,6 @@ static void ConvertIMF2VGM(void)
 {
 	UINT16 CurDelay;
 	UINT32 VGMSmplL;
-	UINT32 VGMSmplC;
 	float  VGMSmplFraction;
 	UINT32 SmplVal;
 
@@ -248,6 +247,12 @@ static void ConvertIMF2VGM(void)
 	VGMData[VGMPos++] = 0x20;
 	while(IMFPos < IMFDataEnd)
 	{
+		UINT16 IMFDelayInIMFTicks;
+		UINT32 IMFDelayInPITTicks;
+		float IMFDelayInMilliseconds;
+		float IMFDelayInVGMSamplesFloat;
+		UINT32 IMFDelayInVGMSamplesInt;
+
 		if (VGMPos >= VGMDataLen - 0x08)
 		{
 			VGMDataLen += 0x8000;
@@ -258,7 +263,7 @@ static void ConvertIMF2VGM(void)
 		VGMData[VGMPos + 0x02] = IMFData[IMFPos + 0x01];	// data
 		VGMPos += 0x03;
 
-		UINT16 IMFDelayInIMFTicks = (IMFData[IMFPos + 2] | (IMFData[IMFPos + 3] << 8));
+		IMFDelayInIMFTicks = (IMFData[IMFPos + 2] | (IMFData[IMFPos + 3] << 8));
 		IMFPos += 0x04;
 
 		/* Convert the delay time, specified relative to the IMF's rate (IMFDelayInIMFTicks)...
@@ -266,10 +271,10 @@ static void ConvertIMF2VGM(void)
 		   - from that to the number of milliseconds (IMFDelayInMilliseconds);
 		   - from that to the number of 44.1 kHz samples.
 		   Store the fractional component in VGMSmplFraction so that it is not lost between successive delays. */
-		UINT32 IMFDelayInPITTicks = IMFDelayInIMFTicks * PITPeriod;
-		float IMFDelayInMilliseconds = (float) IMFDelayInPITTicks * 11 / 13125;
-		float IMFDelayInVGMSamplesFloat = IMFDelayInMilliseconds * 44100 / 1000 + VGMSmplFraction;
-		UINT32 IMFDelayInVGMSamplesInt = IMFDelayInVGMSamplesFloat;
+		IMFDelayInPITTicks = IMFDelayInIMFTicks * PITPeriod;
+		IMFDelayInMilliseconds = (float) IMFDelayInPITTicks * 11 / 13125;
+		IMFDelayInVGMSamplesFloat = IMFDelayInMilliseconds * 44100 / 1000 + VGMSmplFraction;
+		IMFDelayInVGMSamplesInt = IMFDelayInVGMSamplesFloat;
 		VGMSmplFraction = IMFDelayInVGMSamplesFloat - IMFDelayInVGMSamplesInt;
 
 		VGMSmplL += IMFDelayInVGMSamplesInt; // Add the delay in 44.1 kHz samples to the total VGM file length in samples
