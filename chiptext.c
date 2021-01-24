@@ -735,11 +735,11 @@ static void opn_write(char* TempStr, UINT8 Mode, UINT8 Port, UINT8 Register,
 					OnOff(Data & 0x80));
 			break;
 		case 0x29:	// SCH,xx,xxx,EN_ZERO,EN_BRDY,EN_EOS,EN_TB,EN_TA
-			if (! (FMOPN_TYPES[Mode] & OPN_TYPE_DAC))
+			if (Mode != OPN_YM2608)
 				goto WriteRegData;
 
-			sprintf(TempStr, "OPNA Mode: %s (%u FM channels), IRQ Mask: 0x%02X",
-					Enable(Data & 0x80), (Data & 0x80) ? 6 : 3, Data & 0x1F);
+			sprintf(TempStr, "%s Mode (%u FM channels), IRQ Mask: 0x%02X",
+					(Data & 0x80) ? "OPNA" : "OPN", (Data & 0x80) ? 6 : 3, Data & 0x1F);
 			break;
 		case 0x2A:	// DAC data (YM2612)
 			if (! (FMOPN_TYPES[Mode] & OPN_TYPE_DAC))

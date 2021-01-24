@@ -901,7 +901,7 @@ static void YM_DELTAT_ADPCM_Write(YM_DELTAT *DELTAT, UINT8 r, UINT8 v)
 			SampleLen = DELTAT->end - DELTAT->start;
 			if (DELTAT->end < DELTAT->start)
 			{
-				printf("Warning: Invalid Sample Length: %06X (%06X . %06X)\n", SampleLen, DELTAT->start, DELTAT->end);
+				printf("Warning: Invalid Sample Length: %06X (%06X .. %06X)\n", SampleLen, DELTAT->start, DELTAT->end);
 				if (DELTAT->end + 0x10000 < DELTAT->start)
 					return;
 				SampleLen += 0x10000;	// workaround
