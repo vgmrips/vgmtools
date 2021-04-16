@@ -922,6 +922,7 @@ static void CompressVGMData(void)
 		}
 	}
 	DstDataLen = DstPos;
+	VGMHead.lngEOFOffset = DstDataLen;	// set EOF offset for next pass
 	TempLng = DstDataLen - 0x04;
 	memcpy(&DstData[0x04], &TempLng, 0x04);
 
