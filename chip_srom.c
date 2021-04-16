@@ -2722,13 +2722,19 @@ void ymf278b_write(UINT8 Port, UINT8 Register, UINT8 Data)
 
 				if (AddrSt < chip->RAMBase)
 				{
+					if (AddrEnd > chip->ROMSize)
+						AddrEnd = chip->ROMSize;
 					MemData = chip->ROMData;
 					MemUsage = chip->ROMUsage;
 				}
 				else
 				{
+					if (AddrEnd < chip->RAMBase)
+						AddrEnd = chip->RAMBase;
 					AddrSt -= chip->RAMBase;
 					AddrEnd -= chip->RAMBase;
+					if (AddrEnd > chip->RAMSize)
+						AddrEnd = chip->RAMSize;
 					MemData = chip->RAMData;
 					MemUsage = chip->RAMUsage;
 				}
@@ -2800,6 +2806,8 @@ void ymf278b_write(UINT8 Port, UINT8 Register, UINT8 Data)
 				}
 				else
 				{
+					if (AddrEnd < chip->RAMBase)
+						AddrEnd = chip->RAMBase;
 					AddrSt -= chip->RAMBase;
 					AddrEnd -= chip->RAMBase;
 					printf("mark Sample %u, RAM offset 0x%06X\n", slot->SmplID, AddrSt);
