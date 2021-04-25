@@ -25,6 +25,12 @@ add_executable(opl_23
 )
 target_link_libraries(opl_23 ${ZLIB_LIBRARIES})
 
+add_executable(optvgm
+    optvgm.cpp
+    pcm_optimizer.cpp
+)
+target_link_libraries(optvgm ${ZLIB_LIBRARIES})
+
 
 add_executable(optvgmrf
     optvgmrf.c
