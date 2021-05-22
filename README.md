@@ -3,34 +3,34 @@ by Valley Bell (@valleybell)
 
 ## Tool List
 ---
-[dro2vgm - DRO to VGM Converter]()  
-[imf2vgm - IMF to VGM Converter]()  
-[opl_23 - OPL 2<->3 Converter]()  
-[opt_oki - VGM OKIM6258 Optimizer]()  
-[optdac - VGM DAC Optimizer]()  
-[optvgm32 - VGM PWM Optimizer]()  
-[optvgmrf - VGM RF-PCM Optimizer]()  
-[raw2vgm - RAW to VGM Converter]()  
-[vgm_cmp - VGM Compressor]()  
-[vgm_cnt - VGM Command Counter]()  
-[vgm_dbc - VGM Data Block Compressor]()  
-[vgm_dso - VGM DAC Stream Optimizer]()  
-[vgm_facc - Make VGM Frame Accurate]()  
-[vgm_mono - VGM Mono]()  
-[vgm_ndlz - VGM Undualizer]()  
-[vgm_ptch - VGM Patcher]()  
-[vgm_smp1 - Remove 1 Sample Delays]()  
-[vgm_sptd - VGM Splitter (Delay Edition)]()  
-[vgm_spts - VGM Splitter (Sample Edition)]()  
-[vgm_sro - VGM Sample-ROM Optimizer]()  
-[vgm_stat - VGM Statistics]()  
-[vgm_tag - VGM Tagger]()  
-[vgm_tt - VGM Tag Transfer]()  
-[vgm_trim - VGM Trimmer]()  
-[vgm_vol - VGM Volume Detector]()  
-[vgm2txt - VGM Text Writer]()  
-[vgmlpfnd - VGM Loop Finder]()  
-[vgmmerge - VGM Merger]()  
+[dro2vgm - DRO to VGM Converter](#dro-to-vgm-converter-dro2vgm)  
+[imf2vgm - IMF to VGM Converter](#imf-to-vgm-converter-imf2vgm)  
+[opl_23 - OPL 2<->3 Converter](#opl-2-3-converter-opl_23)  
+[opt_oki - VGM OKIM6258 Optimizer](#vgm-okim6258-optimizer-opt_oki)  
+[optdac - VGM DAC Optimizer](#vgm-dac-optimizer-optdac)  
+[optvgm32 - VGM PWM Optimizer](#vgm-pwm-optimizer-optvgm32)  
+[optvgmrf - VGM RF-PCM Optimizer](#vgm-rf-pcm-optimizer-optvgmrf)  
+[raw2vgm - RAW to VGM Converter](#raw-to-vgm-converter-raw2vgm)  
+[vgm_cmp - VGM Compressor](#vgm-compressor-vgm_cmp)  
+[vgm_cnt - VGM Command Counter](#vgm-command-counter-vgm_cnt)  
+[vgm_dbc - VGM Data Block Compressor](#vgm-data-block-compressor-vgm_dbc)  
+[vgm_dso - VGM DAC Stream Optimizer](#vgm-dac-stream-optimizer-vgm_dso)  
+[vgm_facc - Make VGM Frame Accurate](#make-vgm-frame-accurate-vgm_facc)  
+[vgm_mono - VGM Mono](#vgm-mono-vgm_mono)  
+[vgm_ndlz - VGM Undualizer](#vgm-undualizer-vgm_ndlz)  
+[vgm_ptch - VGM Patcher](#vgm-patcher-vgm_ptch)  
+[vgm_smp1 - Remove 1 Sample Delays](#remove-1-sample-delays-vgm_smp1)  
+[vgm_sptd - VGM Splitter (Delay Edition)](#vgm-splitter-delay-edition-vgm_sptd)  
+[vgm_spts - VGM Splitter (Sample Edition)](#vgm-splitter-sample-edition-vgm_spts)  
+[vgm_sro - VGM Sample-ROM Optimizer](#vgm-sample-rom-optimizer-vgm_sro)  
+[vgm_stat - VGM Statistics](#vgm-statistics-vgm_stat)  
+[vgm_tag - VGM Tagger](#vgm-tagger-vgm_tag)  
+[vgm_tt - VGM Tag Transfer](#vgm-tag-transfer-vgm_tt)  
+[vgm_trim - VGM Trimmer](#vgm-trimmer-vgm_trim)  
+[vgm_vol - VGM Volume Detector](#vgm-volume-detector-vgm_vol)  
+[vgm2txt - VGM Text Writer](#vgm-text-writer-vgm2txt)  
+[vgmlpfnd - VGM Loop Finder](#vgm-loop-finder-vgmlpfnd)  
+[vgmmerge - VGM Merger](#vgm-merger-vgmmerge)  
 
 ### DRO to VGM Converter (dro2vgm)
 ---
@@ -322,6 +322,11 @@ This tool prints song length/loop length statistics for a folder or M3U playlist
 This tool allows VGM tagging via commandline, HTML NCRs can be used in place of Unicode characters.
 
 
+### VGM Tag Transfer (vgm_tt)
+---
+This tool transfers tags and/or file names of VGMs from one folder to the VGMs of another folder, based on song/loop length.
+
+
 ### VGM Trimmer (vgm_trim)
 ---
 This is a simple vgm trimmer. It's recommended to use it if you have a completely clean loop (e.g. one found with the VGM Loop Finder).
@@ -367,11 +372,6 @@ You can use this, if the instruments don't want to sound right even with silence
 - There can be problems at the beginning of a vgm due to stripped commands, but usually music engines send enough commands or even spam the chips so that should be no problem.
   * If this is still a problem, please contact me and I'll implement a mode that can simulate VGMTool's way of trimming.
 - `-state` is not yet supported for all chips.
-
-
-### VGM Tag Transfer (vgm_tt)
----
-This tool transfers tags and/or file names of VGMs from one folder to the VGMs of another folder, based on song/loop length.
 
 
 ### VGM Volume Detector (vgm_vol)
@@ -456,7 +456,6 @@ Usage: `vgmmerge [-f:#] [-nodual] Input1.vgm Input2.vgm [Output.vgm]`
 
 
 ## General Notes
----
 - Almost all inputs can also be given through the command line.
 - No tool will overwrite an original file, unless you specify an output-filename that matches the input-filename.
     * By default the resulting file has always the name "sourcefile_something.vgm", but will be overwritten without any question.
