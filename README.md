@@ -2,7 +2,6 @@
 by Valley Bell (@valleybell)
 
 ## Tool List
----
 [dro2vgm - DRO to VGM Converter](#dro-to-vgm-converter-dro2vgm)  
 [imf2vgm - IMF to VGM Converter](#imf-to-vgm-converter-imf2vgm)  
 [opl_23 - OPL 2<->3 Converter](#opl-2-3-converter-opl_23)  
