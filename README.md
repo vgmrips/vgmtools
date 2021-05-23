@@ -68,14 +68,14 @@ It can help you if you accidentally logged music with the wrong "oplmode" settin
 
 The tool can convert in 3 ways and performs additional actions, depending on the mode.
 
-* Mode 3d2: convert OPL3 to Dual OPL2 (L/R hard-panned)
+* Mode `3d2`: convert OPL3 to Dual OPL2 (L/R hard-panned)
 	- enforces "waveform select" enable (register 01h, data 20h)
 	- warns when Dual OPL2 panning will be different from original OPL3 panning
 	- warns when OPL3-specific waveforms are used
-* Mode d23: convert Dual OPL2 to OPL3
+* Mode `d23`: convert Dual OPL2 to OPL3
 	- enables OPL3 mode
 	- enforces OPL3 panning to match Dual OPL2 panning
-* Mode d22: convert Dual OPL2 to Single OPL2
+* Mode `d22`: convert Dual OPL2 to Single OPL2
 	- checks that _**every**_ command was written to both OPL2 chips (so that it can be reduced to single OPL2) and warns if not
 
 
@@ -165,15 +165,21 @@ Notes:
 ---
 This tool counts the commands/notes for each chip.
 
+TODO: better description
+
 
 ### VGM Data Block Compressor (vgm_dbc)
 ---
 This tool optimizes VGM "Sample Database" blocks using lossless bit-packing, where possible.
 
+TODO: better description
+
 
 ### VGM DAC Stream Optimizer (vgm_dso)
 ---
 This tool optimizes VGMs that use DAC Stream command 0x93 (Play From Offset) to use command 0x95 (Play Data Block)
+
+TODO: better description
 
 
 ### Make VGM Frame Accurate (vgm_facc)
@@ -184,7 +190,7 @@ You can set the Frame Rate with VGMTool ("Playback rate").
 
 All rates are accepted as long as a can be rounded to whole samples (44100 % Rate = 0).
 
-**WARNING:** - You should NOT use this tool unless you know EXACTLY what you are doing!
+**WARNING:** You should NOT use this tool unless you know EXACTLY what you are doing!
 
 The only time you may want to use this tool is when:
 
@@ -193,7 +199,7 @@ The only time you may want to use this tool is when:
 
 Even then, make sure the left/right errors aren't too high, else you will introduce jitter.
 
-After a conversion is finished, the rounding statistics are displayed. They show the maximum rounding errors (OldSample - RoundedSample). 
+After a conversion is finished, the rounding statistics are displayed. They show the maximum rounding errors (OldSample - RoundedSample) relative to the beginning of the frames. 
 
 Line 1: Left Error [always negative or 0]
 
@@ -212,15 +218,21 @@ Note: Even delays of 65535 samples are rounded. (e.g. to 65415 for 60 Hz)
 ---
 This tool makes VGMs mono, works with YM2610, YMF278B, YMW258/MultiPCM and X1-010.
 
+TODO: better description
+
 
 ### VGM Undualizer (vgm_ndlz)
 ---
 This tool splits one VGM with "2x chip" into two VGMs with "1x chip" each.
 
+TODO: better description
+
 
 ### VGM Patcher (vgm_ptch)
 ---
-This tool general VGM patching utility, allows editing the VGM header (chip clocks/chip settings), checking/fixing VGMs and stripping chips/channels.
+general VGM patching utility, allows editing the VGM header (chip clocks/chip settings), checking/fixing VGMs and stripping chips/channels.
+
+TODO: better description
 
 
 ### Remove 1 Sample Delays (vgm_smp1)
@@ -229,18 +241,18 @@ This tool helps to reduce the size of VGMs by removing delays of 1 sample length
 
 Example:
 
-	`Delay 12 - Event A - Delay 1 - Event B - Delay 5`
+	Delay 12 - Event A - Delay 1 - Event B - Delay 5
 
 is rounded to:
 
-	`Delay 12 - Event A - Event B - Delay 6`
+	Delay 12 - Event A - Event B - Delay 6
 
 You may use this tool with:
 
 - VGMs that use the SN76489 and variants (SEGA PSG, T6W28, ...)
   - minor size reduction without audible artifacts
 - VGMs converted from DRO files
-  - use with "-delay:50", might *remove* glitches that happen due to frequency writes being split by a 1/1000 Hz delay
+  - use with `-delay:50`, might *remove* glitches that happen due to frequency writes being split by a 1/1000 Hz delay
 
 You should **NOT** use this tool with:
 - anything not mentioned above (using this tool is especially dangerous to commands for FM chips)
@@ -315,15 +327,21 @@ Notes:
 ---
 This tool prints song length/loop length statistics for a folder or M3U playlist.
 
+TODO: better description
+
 
 ### VGM Tagger (vgm_tag)
 ---
 This tool allows VGM tagging via commandline, HTML NCRs can be used in place of Unicode characters.
 
+TODO: better description
+
 
 ### VGM Tag Transfer (vgm_tt)
 ---
 This tool transfers tags and/or file names of VGMs from one folder to the VGMs of another folder, based on song/loop length.
+
+TODO: better description
 
 
 ### VGM Trimmer (vgm_trim)
@@ -332,17 +350,15 @@ This is a simple vgm trimmer. It's recommended to use it if you have a completel
 
 You will be asked for a file name and three sample positions.
 
-
-`Start Sample:	the 1st sample of the new VGM file (default: 0)`
-
-`Loop Sample:	sample to which the VGM loops back (default: 0)`
-* Special Values:
+- Start Sample: the 1st sample of the new VGM file (default: 0)
+- Loop Sample: sample to which the VGM loops back (default: 0)
+  - Special Values:
 	- `0` - Looping off
 	- `-1` - Loop from Start Sample (you must use this if Start Sample is 0)
 	- `-2` - Keep old Loop Point (if there was no loop there will be no loop)
 
-`End Sample:	sample, where the VGM ends or loops back (default: 0, data of this sample is killed if EndSample < TotalSamples)`
-* Special Values:
+- End Sample: sample, where the VGM ends or loops back (default: 0, data of this sample is deleted if EndSample < TotalSamples)`
+  - Special Values:
 	- `0` - actually not a special value, but can be used to cancel trimming
 	- `-1` - use Total Samples-Value
 
@@ -376,6 +392,8 @@ You can use this, if the instruments don't want to sound right even with silence
 ### VGM Volume Detector (vgm_vol)
 ---
 This tool detects the peak volume of WAV files logged from VGMs.
+
+TODO: better description
 
 
 ### VGM Text Writer (vgm2txt)
