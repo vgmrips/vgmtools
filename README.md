@@ -32,7 +32,7 @@ by Valley Bell (@valleybell)
 [vgmmerge - VGM Merger](#vgm-merger-vgmmerge)  
 
 ### DRO to VGM Converter (dro2vgm)
----
+
 This tool converts DRO files (DOSBox RAW OPL) to VGM.
 
 These DRO-versions are supported:
@@ -47,7 +47,7 @@ Note: The program may print a warning about incorrect delays. That's caused by o
 
 
 ### IMF to VGM Converter (imf2vgm)
----
+
 This tool converts IMF files (id Software Music Format) to VGM.
 
 It supports IMF type-0 and type-1 files. The type is autodetected, but you can override the auto-detection with "-Type0" or "-Type1".
@@ -62,7 +62,7 @@ The resulting VGMs can be forced to loop with the "-Loop" parameter.
 
 
 ### OPL 2<->3 Converter (opl_23)
----
+
 This handy tool allows you to convert between "single OPL2", "dual OPL2" and OPL3 VGMs.
 It can help you if you accidentally logged music with the wrong "oplmode" setting in DOSBox.
 
@@ -80,7 +80,7 @@ The tool can convert in 3 ways and performs additional actions, depending on the
 
 
 ### VGM OKIM6258 Optimizer (opt_oki)
----
+
 ***NOTE:** still in alpha and not for public use*
 
 This tool scans streamed OKIM6258 data (from VGM logs of X68000 games) and optimizes them into "play sample" commands for the VGM "DAC Stream" system.
@@ -100,7 +100,7 @@ Settings to be made are the source code variables:
 
 
 ### VGM DAC Optimizer (optdac)
----
+
 This tool cleans up YM2612 DAC writes.
 
 I wrote this tool for optimizing logs of the MegaDrive version of "Worms".
@@ -116,7 +116,7 @@ This is a very special case though and using the tool on games that don't consta
 
 
 ### VGM PWM Optimizer (optvgm32)
----
+
 ***NOTE:** still in pre-alpha and not for public use*
 
 This tool is supposed to optimize the Sega 32X PWM data writes into data blocks.
@@ -125,7 +125,7 @@ I never got the actual detection of "repeating data" done, so right now it just 
 
 
 ### VGM RF-PCM Optimizer (optvgmrf)
----
+
 If you know optvgm, you know what optvgmrf does. (Internally it works completely different, but the result is the same.)
 
 This tool optimized VGM files, that use PCM chips of the RF-family (RF5C68 and Sega MegaCD's RF5C164).
@@ -136,7 +136,7 @@ The resulting output-file will be updated to vgm v1.60.
 
 
 ### RAW to VGM Converter (raw2vgm)
----
+
 This tool converts RAW files (Rdos Raw OPL Capture) to VGM.
 
 The resulting VGMs can be forced to loop with the "-Loop" parameter.
@@ -144,7 +144,7 @@ If the RAW file uses two OPL chips, the VGM will use two centered YM3812 chips.
 
 
 ### VGM Compressor (vgm_cmp)
----
+
 This tool can greatly reduce the size of a VGM by stripping unneccessary commands. Delays are also highly optimized.
 
 The file size of compressed files usually decreases to 50-60% (Sega Master System with YM2413) or 15-40% (NeoGeo Pocket).
@@ -162,28 +162,28 @@ Notes:
 
 
 ### VGM Command Counter (vgm_cnt)
----
+
 This tool counts the commands/notes for each chip.
 
 TODO: better description
 
 
 ### VGM Data Block Compressor (vgm_dbc)
----
+
 This tool optimizes VGM "Sample Database" blocks using lossless bit-packing, where possible.
 
 TODO: better description
 
 
 ### VGM DAC Stream Optimizer (vgm_dso)
----
+
 This tool optimizes VGMs that use DAC Stream command 0x93 (Play From Offset) to use command 0x95 (Play Data Block)
 
 TODO: better description
 
 
 ### Make VGM Frame Accurate (vgm_facc)
----
+
 This tool does exactly what is says - it rounds all delays to frames.
 
 You can set the Frame Rate with VGMTool ("Playback rate").
@@ -215,28 +215,28 @@ Note: Even delays of 65535 samples are rounded. (e.g. to 65415 for 60 Hz)
 
 
 ### VGM Mono (vgm_mono)
----
+
 This tool makes VGMs mono, works with YM2610, YMF278B, YMW258/MultiPCM and X1-010.
 
 TODO: better description
 
 
 ### VGM Undualizer (vgm_ndlz)
----
+
 This tool splits one VGM with "2x chip" into two VGMs with "1x chip" each.
 
 TODO: better description
 
 
 ### VGM Patcher (vgm_ptch)
----
+
 general VGM patching utility, allows editing the VGM header (chip clocks/chip settings), checking/fixing VGMs and stripping chips/channels.
 
 TODO: better description
 
 
 ### Remove 1 Sample Delays (vgm_smp1)
----
+
 This tool helps to reduce the size of VGMs by removing delays of 1 sample length.
 
 Example:
@@ -261,7 +261,7 @@ You should **NOT** use this tool with:
 
 
 ### VGM Splitter (Delay Edition, vgm_sptd)
----
+
 This tool splits a vgm file into smaller pieces. This is useful if you record many songs to one file (e.g. in MAME or MESS).
 
 It splits after a certain delay which you have to enter after the filename. It's given in samples, 1 second has 44100 samples in VGMs. (default is 32768)
@@ -272,7 +272,7 @@ Note: Sometimes it seems to produce some empty files if you use delay values >= 
 
 
 ### VGM Splitter (Sample Edition, vgm_spts)
----
+
 This tool splits a vgm file into smaller pieces. This is useful if you record many songs to one file (e.g. in MAME or MESS).
 
 The difference to the tool above is, that you have to enter the sample where you want to split the file. Entering 0 (simply pressing enter without typing has the same effect) closes the program.
@@ -286,7 +286,7 @@ Notes:
 
 
 ### VGM Sample-ROM Optimizer (vgm_sro)
----
+
 Like vgm_cmp, this tool can greatly reduce the size of a VGM. It strips unused data from Sample-ROMs.
 
 The file size of optimized files usually decreases to 5-10%.
@@ -324,28 +324,28 @@ Notes:
 
 
 ### VGM Statistics (vgm_stat)
----
+
 This tool prints song length/loop length statistics for a folder or M3U playlist.
 
 TODO: better description
 
 
 ### VGM Tagger (vgm_tag)
----
+
 This tool allows VGM tagging via commandline, HTML NCRs can be used in place of Unicode characters.
 
 TODO: better description
 
 
 ### VGM Tag Transfer (vgm_tt)
----
+
 This tool transfers tags and/or file names of VGMs from one folder to the VGMs of another folder, based on song/loop length.
 
 TODO: better description
 
 
 ### VGM Trimmer (vgm_trim)
----
+
 This is a simple vgm trimmer. It's recommended to use it if you have a completely clean loop (e.g. one found with the VGM Loop Finder).
 
 You will be asked for a file name and three sample positions.
@@ -390,14 +390,14 @@ You can use this, if the instruments don't want to sound right even with silence
 
 
 ### VGM Volume Detector (vgm_vol)
----
+
 This tool detects the peak volume of WAV files logged from VGMs.
 
 TODO: better description
 
 
 ### VGM Text Writer (vgm2txt)
----
+
 This tool converts a VGM to a text file.
 
 It's not as good as the vgm2txt of VGMTool (it doesn't print note names or frequencies), but supports VGM version 1.60 and almost all current chips.
@@ -408,7 +408,7 @@ Notes:
 
 
 ### VGM Loop Finder (vgmlpfnd)
----
+
 This tool can be a big help if you search for loop points.
 
 It searches for blocks that match exactly, but have a different position in the file. Delays are ignored to make things possible.
@@ -460,7 +460,7 @@ To speed the search and make it possible to find loops the following commands ar
 
 
 ### VGM Merger (vgmmerge)
----
+
 This small tool merges two (or more) vgms into one.
 
 That's it. Really. You can use it e.g. to combine 2 mid2vgm files to get YM2413 + YM2612.
