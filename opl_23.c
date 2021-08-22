@@ -29,6 +29,7 @@ char FileBase[0x100];
 #define CONV_3toDUAL2	0x00
 #define CONV_DUAL2to3	0x01
 #define CONV_DUAL2to2	0x02
+#define CONV_3to2		0x03
 UINT8 ConvMode;
 #define OPL3_LEFT	0x10
 #define OPL3_RIGHT	0x20
@@ -66,6 +67,11 @@ int main(int argc, char* argv[])
 			ConvMode = CONV_DUAL2to2;
 			argbase ++;
 		}
+		else if (! stricmp(argv[argbase], "-32"))
+		{
+			ConvMode = CONV_3to2;
+			argbase ++;
+		}
 		else
 		{
 			break;
@@ -75,9 +81,10 @@ int main(int argc, char* argv[])
 	{
 		printf("Usage: opl_23 -mode input.vgm [output.vgm]\n");
 		printf("Modes:\n");
+		printf("    32  - OPL3 -> (Single) OPL2\n");
 		printf("    3d2 - OPL3 -> Dual OPL2\n");
-		printf("    d23 - Dual OPL2 -> OPL3\n");
 		printf("    d22 - Dual OPL2 -> Single OPL2\n");
+		printf("    d23 - Dual OPL2 -> OPL3\n");
 		return 0;
 	}
 
@@ -100,6 +107,7 @@ int main(int argc, char* argv[])
 	switch(ConvMode)
 	{
 	case CONV_3toDUAL2:
+	case CONV_3to2:
 		if (VGMHead.lngHzYMF262)
 		{
 			if (VGMHead.lngHzYMF262 & 0x40000000)
@@ -109,7 +117,9 @@ int main(int argc, char* argv[])
 			else
 			{
 				NeedProcessing = true;
-				NewClk_OPL2 = 0xC0000000 | (VGMHead.lngHzYMF262 / 4);
+				NewClk_OPL2 = VGMHead.lngHzYMF262 / 4;
+				if (ConvMode == CONV_3toDUAL2)
+					NewClk_OPL2 |= 0xC0000000;
 				NewClk_OPL3 = 0x00;
 			}
 		}
@@ -447,13 +457,32 @@ static void CompressVGMData(void)
 					case 0xE0:
 					case 0xF0:
 						if (VGMPnt[0x02] & 0x04)
-							printf("Warning! Waveform %02d used at 0x%06X!\n", VGMPnt[0x02], VGMPos);
+							printf("Warning! Waveform %02u used at 0x%06X!\n", VGMPnt[0x02], VGMPos);
 						break;
 					}
 					if (VGMPnt[0x01] < 0x20)
 						VGMPnt[0x00] = TempByt ? 0xAA : 0x5A;
 					else
 						VGMPnt[0x00] = OPL2ChipMap[TempByt] ? 0xAA : 0x5A;
+				}
+				else if (ConvMode == CONV_3to2)
+				{
+					if (TempByt == 1 && VGMPnt[0x01] == 0x05)
+					{
+						if (VGMPnt[0x02] & 0x01)
+							printf("Warning! True OPL3 mode enabled at 0x%06X!\n", VGMPos);
+					}
+					if (TempByt == 0)
+					{
+						VGMPnt[0x00] = 0x5A;
+					}
+					else
+					{
+						// dummy out the command
+						VGMPnt[0x00] = 0x61;
+						VGMPnt[0x01] = 0x00;
+						VGMPnt[0x02] = 0x00;
+					}
 				}
 				CmdLen = 0x03;
 				break;
