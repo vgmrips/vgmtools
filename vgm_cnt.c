@@ -184,6 +184,8 @@ static void CountVGMData()
 	const UINT8* VGMPnt;
 
 	memset(ChipState, 0x00, sizeof(CHIP_STATE) * 0x02 * CHIP_COUNT);
+	ChipState[0x00][0x18].ChnReg = 0xFF;
+	ChipState[0x01][0x18].ChnReg = 0xFF;
 	for (CurChip = 0x00; CurChip < CHIP_COUNT; CurChip ++)
 	{
 		switch(CurChip)
@@ -510,10 +512,10 @@ static void CountVGMData()
 						DoChipCommand(CurChip, 0x0D, 0xFFFF, TempByt);
 						break;
 					case 0x85:	// YMF271 ROM Image
-						DoChipCommand(CurChip, 0x0F, 0xFFFF, TempByt);
+						DoChipCommand(CurChip, 0x0E, 0xFFFF, TempByt);
 						break;
 					case 0x86:	// YMZ280B ROM Image
-						DoChipCommand(CurChip, 0x0E, 0xFFFF, TempByt);
+						DoChipCommand(CurChip, 0x0F, 0xFFFF, TempByt);
 						break;
 					case 0x87:	// YMF278B RAM Image
 						DoChipCommand(CurChip, 0x0D, 0xFFFF, TempByt);
@@ -625,7 +627,7 @@ static void CountVGMData()
 				CmdLen = 0x03;
 				break;
 			case 0x5D:	// YMZ280B write
-				DoChipCommand(CurChip, 0x0E, VGMPnt[0x01], VGMPnt[0x02]);
+				DoChipCommand(CurChip, 0x0F, VGMPnt[0x01], VGMPnt[0x02]);
 				CmdLen = 0x03;
 				break;
 			case 0xD0:	// YMF278B write
@@ -633,7 +635,7 @@ static void CountVGMData()
 				CmdLen = 0x04;
 				break;
 			case 0xD1:	// YMF271 write
-				DoChipCommand(CurChip, 0x0F, (VGMPnt[0x01] << 8) | VGMPnt[0x02], VGMPnt[0x03]);
+				DoChipCommand(CurChip, 0x0E, (VGMPnt[0x01] << 8) | VGMPnt[0x02], VGMPnt[0x03]);
 				CmdLen = 0x04;
 				break;
 			case 0xB1:	// RF5C164 register write
@@ -955,7 +957,7 @@ static void DoChipCommand(UINT8 ChipSet, UINT8 ChipID, UINT16 Reg, UINT16 Data)
 		{
 		}
 		break;
-	case 0x0E:	// YM271
+	case 0x0E:	// YMF271
 		if (Reg < 0x400)
 		{
 			if (((Reg >> 4) & 0x0F) == 0x00)
@@ -1023,12 +1025,12 @@ static void DoChipCommand(UINT8 ChipSet, UINT8 ChipID, UINT16 Reg, UINT16 Data)
 	case 0x18:	// OKIM6295
 		if (Reg == 0x00)
 		{
-			if (TempChp->ChnReg == 0xFF)
+			if (TempChp->ChnReg != 0xFF)
 			{
-				for (CurChn = 0x00; CurChn < 0x08; CurChn ++)
+				for (CurChn = 0x00; CurChn < 0x04; CurChn ++)
 				{
 					if (Data & (0x10 << CurChn))
-						DoKeyOnOff(TempChp, CurChn, 0x00, 0x00);
+						DoKeyOnOff(TempChp, CurChn, 0x01, 0x00);
 				}
 
 				TempChp->ChnReg = 0xFF;
@@ -1039,7 +1041,7 @@ static void DoChipCommand(UINT8 ChipSet, UINT8 ChipID, UINT16 Reg, UINT16 Data)
 			}
 			else
 			{
-				for (CurChn = 0x00; CurChn < 0x08; CurChn ++)
+				for (CurChn = 0x00; CurChn < 0x04; CurChn ++)
 				{
 					if (Data & (0x08 << CurChn))
 						DoKeyOnOff(TempChp, CurChn, 0x00, 0x00);
