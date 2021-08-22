@@ -107,7 +107,8 @@ int main(int argc, char* argv[])
 		printf("    -Strip        Strip the data of a chip and/or channel\n");
 		printf("                   Format: -Strip:Chip[-Num][:Ch,Ch,...];Chip\n");
 		printf("                   e.g.: -Strip:PSG:0,1,2,Noise,Stereo;YM2151\n");
-		printf("                   Note: Channel-Stripping isn't yet done.\n");
+		printf("                         -Strip:YM2612-0;OKIM6295-1\n");
+		printf("                   Note: Stripping does not (yet) work with all chips.\n");
 		printf("\n");
 		printf("                   Tip: Stripping without commands optimizes the delays.\n");
 		printf("\n");
@@ -210,7 +211,7 @@ int main(int argc, char* argv[])
 		printf("    Pokey         *\n");
 		printf("    QSound        *0..15\n");
 		printf("    DacCtrl        0..255\n");
-		printf("* not yet working\n");
+		printf("* strip whole chip only, no channel stripping\n");
 		printf("\n");
 		goto EndProgram;
 	}
@@ -3122,16 +3123,22 @@ static void StripVGMData(void)
 				break;
 			case 0x50:	// SN76496 write
 				WriteEvent = sn76496_write(VGMPnt[0x01]);
+				if (WriteEvent && ChipID && StripVGM[0].SN76496.All)
+					VGMPnt[0x00] = Command;
 				CmdLen = 0x02;
 				break;
 			case 0x51:	// YM2413 write
 				WriteEvent = ym2413_write(VGMPnt[0x01], VGMPnt[0x02]);
+				if (WriteEvent && ChipID && StripVGM[0].YM2413.All)
+					VGMPnt[0x00] = Command;
 				CmdLen = 0x03;
 				break;
 			case 0x52:	// YM2612 write port 0
 			case 0x53:	// YM2612 write port 1
 				TempByt = Command & 0x01;
 				WriteEvent = ym2612_write(TempByt, VGMPnt[0x01], VGMPnt[0x02]);
+				if (WriteEvent && ChipID && StripVGM[0].YM2612.All)
+					VGMPnt[0x00] = Command;
 				CmdLen = 0x03;
 				break;
 			case 0x67:	// PCM Data Stream
@@ -3152,18 +3159,26 @@ static void StripVGMData(void)
 						if (StripVGM[ChipID].YM2612.All ||
 							(StripVGM[ChipID].YM2612.ChnMask & (0x01 << 6)))
 							WriteEvent = false;
+						if (WriteEvent && ChipID && StripVGM[0].YM2612.All)
+							VGMPnt[0x06] &= ~0x80;
 						break;
 					case 0x01:	// RF5C68 PCM Database
 						if (StripVGM[ChipID].RF5C68.All)
 							WriteEvent = false;
+						if (WriteEvent && ChipID && StripVGM[0].RF5C68.All)
+							VGMPnt[0x06] &= ~0x80;
 						break;
 					case 0x02:	// RF5C164 PCM Database
 						if (StripVGM[ChipID].RF5C164.All)
 							WriteEvent = false;
+						if (WriteEvent && ChipID && StripVGM[0].RF5C164.All)
+							VGMPnt[0x06] &= ~0x80;
 						break;
 					default:
 						if (StripVGM[ChipID].Unknown)
 							WriteEvent = false;
+						if (WriteEvent && ChipID && StripVGM[0].Unknown)
+							VGMPnt[0x06] &= ~0x80;
 						break;
 					}
 					break;
@@ -3173,73 +3188,105 @@ static void StripVGMData(void)
 					case 0x80:	// SegaPCM ROM
 						if (StripVGM[ChipID].SegaPCM.All)
 							WriteEvent = false;
+						if (WriteEvent && ChipID && StripVGM[0].SegaPCM.All)
+							VGMPnt[0x06] &= ~0x80;
 						break;
 					case 0x81:	// YM2608 DELTA-T ROM Image
 						if (StripVGM[ChipID].YM2608.All)
 							WriteEvent = false;
+						if (WriteEvent && ChipID && StripVGM[0].YM2608.All)
+							VGMPnt[0x06] &= ~0x80;
 						break;
 					case 0x82:	// YM2610 ADPCM ROM Image
 					case 0x83:	// YM2610 DELTA-T ROM Image
 						if (StripVGM[ChipID].YM2610.All)
 							WriteEvent = false;
+						if (WriteEvent && ChipID && StripVGM[0].YM2610.All)
+							VGMPnt[0x06] &= ~0x80;
 						break;
 					case 0x84:	// YMF278B ROM Image
 					case 0x87:	// YMF278B RAM Image
 						if (StripVGM[ChipID].YMF278B_All || StripVGM[ChipID].YMF278B_WT.All)
 							WriteEvent = false;
+						if (WriteEvent && ChipID && StripVGM[0].YMF278B_All)
+							VGMPnt[0x06] &= ~0x80;
 						break;
 					case 0x85:	// YMF271 ROM Image
 						if (StripVGM[ChipID].YMF271.All)
 							WriteEvent = false;
+						if (WriteEvent && ChipID && StripVGM[0].YMF271.All)
+							VGMPnt[0x06] &= ~0x80;
 						break;
 					case 0x86:	// YMZ280B ROM Image
 						if (StripVGM[ChipID].YMZ280B.All)
 							WriteEvent = false;
+						if (WriteEvent && ChipID && StripVGM[0].YMZ280B.All)
+							VGMPnt[0x06] &= ~0x80;
 						break;
 					case 0x88:	// Y8950 DELTA-T ROM Image
 						if (StripVGM[ChipID].Y8950.All)
 							WriteEvent = false;
+						if (WriteEvent && ChipID && StripVGM[0].Y8950.All)
+							VGMPnt[0x06] &= ~0x80;
 						break;
 					case 0x89:	// MultiPCM ROM Image
 						if (StripVGM[ChipID].MultiPCM.All)
 							WriteEvent = false;
+						if (WriteEvent && ChipID && StripVGM[0].MultiPCM.All)
+							VGMPnt[0x06] &= ~0x80;
 						break;
 					case 0x8A:	// UPD7759 ROM Image
 						if (StripVGM[ChipID].UPD7759.All)
 							WriteEvent = false;
+						if (WriteEvent && ChipID && StripVGM[0].UPD7759.All)
+							VGMPnt[0x06] &= ~0x80;
 						break;
 					case 0x8B:	// OKIM6295 ROM Image
 						if (StripVGM[ChipID].OKIM6295.All)
 							WriteEvent = false;
+						if (WriteEvent && ChipID && StripVGM[0].OKIM6295.All)
+							VGMPnt[0x06] &= ~0x80;
 						break;
 					case 0x8C:	// K054539 ROM Image
 						if (StripVGM[ChipID].K054539.All)
 							WriteEvent = false;
+						if (WriteEvent && ChipID && StripVGM[0].K054539.All)
+							VGMPnt[0x06] &= ~0x80;
 						break;
 					case 0x8D:	// C140 ROM Image
 						if (StripVGM[ChipID].C140.All)
 							WriteEvent = false;
+						if (WriteEvent && ChipID && StripVGM[0].C140.All)
+							VGMPnt[0x06] &= ~0x80;
 						break;
 					case 0x8E:	// K053260 ROM Image
 						if (StripVGM[ChipID].K053260.All)
 							WriteEvent = false;
+						if (WriteEvent && ChipID && StripVGM[0].K053260.All)
+							VGMPnt[0x06] &= ~0x80;
 						break;
 					case 0x8F:	// Q-Sound ROM Image
 						if (StripVGM[ChipID].QSound.All)
 							WriteEvent = false;
+						if (WriteEvent && ChipID && StripVGM[0].QSound.All)
+							VGMPnt[0x06] &= ~0x80;
 						break;
 					}
 					break;
 				case 0xC0:	// RAM Write
 					switch(TempByt)
 					{
-					case 0xC0:	// RF5C68 RAM Database
+					case 0xC0:	// RF5C68 RAM
 						if (StripVGM[ChipID].RF5C68.All)
 							WriteEvent = false;
+						if (WriteEvent && ChipID && StripVGM[0].RF5C68.All)
+							VGMPnt[0x06] &= ~0x80;
 						break;
-					case 0xC1:	// RF5C164 RAM Database
+					case 0xC1:	// RF5C164 RAM
 						if (StripVGM[ChipID].RF5C164.All)
 							WriteEvent = false;
+						if (WriteEvent && ChipID && StripVGM[0].RF5C164.All)
+							VGMPnt[0x06] &= ~0x80;
 						break;
 					}
 					break;
@@ -3255,62 +3302,95 @@ static void StripVGMData(void)
 				break;
 			case 0x4F:	// GG Stereo
 				WriteEvent = GGStereo(VGMPnt[0x01]);
+				if (WriteEvent && ChipID && StripVGM[0].SN76496.All)
+					VGMPnt[0x00] = Command;
 				CmdLen = 0x02;
 				break;
 			case 0x54:	// YM2151 write
 				WriteEvent = ym2151_write(VGMPnt[0x01], VGMPnt[0x02]);
+				if (WriteEvent && ChipID && StripVGM[0].YM2151.All)
+					VGMPnt[0x00] = Command;
 				CmdLen = 0x03;
 				break;
 			case 0xC0:	// Sega PCM memory write
 				memcpy(&TempSht, &VGMPnt[0x01], 0x02);
+				ChipID = (TempSht & 0x8000) >> 15;
+				TempSht &= 0x7FFF;
+				SetChipSet(ChipID);
+
 				WriteEvent = segapcm_mem_write(TempSht, VGMPnt[0x03]);
+				if (WriteEvent && ChipID && StripVGM[0].SegaPCM.All)
+					VGMPnt[0x02] &= ~0x80;
 				CmdLen = 0x04;
 				break;
 			case 0xB0:	// RF5C68 register write
-				WriteEvent = rf5c68_reg_write(VGMPnt[0x01], &VGMPnt[0x02]);
+				ChipID = (VGMPnt[0x01] & 0x80) >> 7;
+				SetChipSet(ChipID);
+				WriteEvent = rf5c68_reg_write(VGMPnt[0x01] & 0x7F, &VGMPnt[0x02]);
+				if (WriteEvent && ChipID && StripVGM[0].RF5C68.All)
+					VGMPnt[0x01] &= ~0x80;
 				CmdLen = 0x03;
 				break;
 			case 0xC1:	// RF5C68 memory write
 				memcpy(&TempSht, &VGMPnt[0x01], 0x02);
+				//ChipID = 0;
 				WriteEvent = rf5c68_mem_write(TempSht, VGMPnt[0x03]);
+				//if (WriteEvent && ChipID && StripVGM[0].RF5C68.All)
+				//	VGMPnt[0x0#] &= ~0x80;
 				CmdLen = 0x04;
 				break;
 			case 0x55:	// YM2203
 				WriteEvent = ym2203_write(VGMPnt[0x01], VGMPnt[0x02]);
+				if (WriteEvent && ChipID && StripVGM[0].YM2203.All)
+					VGMPnt[0x00] = Command;
 				CmdLen = 0x03;
 				break;
 			case 0x56:	// YM2608 write port 0
 			case 0x57:	// YM2608 write port 1
 				TempByt = Command & 0x01;
 				WriteEvent = ym2608_write(TempByt, VGMPnt[0x01], VGMPnt[0x02]);
+				if (WriteEvent && ChipID && StripVGM[0].YM2608.All)
+					VGMPnt[0x00] = Command;
 				CmdLen = 0x03;
 				break;
 			case 0x58:	// YM2610 write port 0
 			case 0x59:	// YM2610 write port 1
 				TempByt = Command & 0x01;
 				WriteEvent = ym2610_write(TempByt, VGMPnt[0x01], VGMPnt[0x02]);
+				if (WriteEvent && ChipID && StripVGM[0].YM2610.All)
+					VGMPnt[0x00] = Command;
 				CmdLen = 0x03;
 				break;
 			case 0x5A:	// YM3812 write
 				WriteEvent = ym3812_write(VGMPnt[0x01], VGMPnt[0x02]);
+				if (WriteEvent && ChipID && StripVGM[0].YM3812.All)
+					VGMPnt[0x00] = Command;
 				CmdLen = 0x03;
 				break;
 			case 0x5B:	// YM3526 write
 				WriteEvent = ym3526_write(VGMPnt[0x01], VGMPnt[0x02]);
+				if (WriteEvent && ChipID && StripVGM[0].YM3526.All)
+					VGMPnt[0x00] = Command;
 				CmdLen = 0x03;
 				break;
 			case 0x5C:	// Y8950 write
 				WriteEvent = y8950_write(VGMPnt[0x01], VGMPnt[0x02]);
+				if (WriteEvent && ChipID && StripVGM[0].Y8950.All)
+					VGMPnt[0x00] = Command;
 				CmdLen = 0x03;
 				break;
 			case 0x5E:	// YMF262 write port 0
 			case 0x5F:	// YMF262 write port 1
 				TempByt = Command & 0x01;
 				WriteEvent = ymf262_write(TempByt, VGMPnt[0x01], VGMPnt[0x02]);
+				if (WriteEvent && ChipID && StripVGM[0].YMF262.All)
+					VGMPnt[0x00] = Command;
 				CmdLen = 0x03;
 				break;
 			case 0x5D:	// YMZ280B write
 				WriteEvent = ymz280b_write(VGMPnt[0x01], VGMPnt[0x02]);
+				if (WriteEvent && ChipID && StripVGM[0].YMZ280B.All)
+					VGMPnt[0x00] = Command;
 				CmdLen = 0x03;
 				break;
 			case 0xD0:	// YMF278B register write
@@ -3325,6 +3405,8 @@ static void StripVGMData(void)
 					WriteEvent = false;	// Don't kill the WaveTable-On Command at Reg 0x105
 				if (StripVGM[ChipID].YMF278B_WT.All && VGMPnt[0x01] == 0x02)
 					WriteEvent = false;
+				if (WriteEvent && ChipID && StripVGM[0].YMF278B_All)
+					VGMPnt[0x01] &= ~0x80;
 				CmdLen = 0x04;
 				break;
 			case 0xD1:	// YMF271 register write
@@ -3332,16 +3414,21 @@ static void StripVGMData(void)
 				WriteEvent = true;
 				if (StripVGM[ChipID].YMF271.All)
 					WriteEvent = false;
+				if (WriteEvent && ChipID && StripVGM[0].YMF271.All)
+					VGMPnt[0x01] &= ~0x80;
 				CmdLen = 0x04;
 				break;
 			case 0xB1:	// RF5C164 register write
-				SetChipSet(0x00);
-				WriteEvent = rf5c164_reg_write(VGMPnt[0x01], &VGMPnt[0x02]);
+				ChipID = (VGMPnt[0x01] & 0x80) >> 7;
+				SetChipSet(ChipID);
+				WriteEvent = rf5c164_reg_write(VGMPnt[0x01] & 0x7F, &VGMPnt[0x02]);
+				if (WriteEvent && ChipID && StripVGM[0].RF5C164.All)
+					VGMPnt[0x01] &= ~0x80;
 				CmdLen = 0x03;
 				break;
 			case 0xC2:	// RF5C164 memory write
-				SetChipSet(0x00);
 				memcpy(&TempSht, &VGMPnt[0x01], 0x02);
+				//ChipID = 0;
 				WriteEvent = rf5c164_mem_write(TempSht, VGMPnt[0x03]);
 				CmdLen = 0x04;
 				break;
@@ -3352,17 +3439,33 @@ static void StripVGMData(void)
 				CmdLen = 0x03;
 				break;
 			case 0x68:	// PCM RAM write
-				ChipID = 0x00;
-				TempByt = VGMPnt[0x02];
+				ChipID = (VGMPnt[0x02] & 0x80) >> 7;
+				TempByt = VGMPnt[0x02] & 0x7F;
 				switch(TempByt)
 				{
-				case 0xC0:	// RF5C68 RAM Database
+				case 0x01:	// RF5C68
 					if (StripVGM[ChipID].RF5C68.All)
 						WriteEvent = false;
+					if (WriteEvent && ChipID && StripVGM[0].RF5C68.All)
+						VGMPnt[0x02] &= ~0x80;
 					break;
-				case 0xC1:	// RF5C164 RAM Database
+				case 0x02:	// RF5C164
 					if (StripVGM[ChipID].RF5C164.All)
 						WriteEvent = false;
+					if (WriteEvent && ChipID && StripVGM[0].RF5C164.All)
+						VGMPnt[0x02] &= ~0x80;
+					break;
+				//case 0x06:	// SCSP
+				//	if (StripVGM[ChipID].SCSP.All)
+				//		WriteEvent = false;
+				//	if (WriteEvent && ChipID && StripVGM[0].SCSP.All)
+				//		VGMPnt[0x02] &= ~0x80;
+				//	break;
+				case 0x07:	// NES APU
+					if (StripVGM[ChipID].NESAPU.All)
+						WriteEvent = false;
+					if (WriteEvent && ChipID && StripVGM[0].NESAPU.All)
+						VGMPnt[0x02] &= ~0x80;
 					break;
 				}
 				CmdLen = 0x0C;
@@ -3371,84 +3474,112 @@ static void StripVGMData(void)
 				ChipID = (VGMPnt[0x01] & 0x80) >> 7;
 				if (StripVGM[ChipID].AY8910.All)
 					WriteEvent = false;
+				if (WriteEvent && ChipID && StripVGM[0].AY8910.All)
+					VGMPnt[0x01] &= ~0x80;
 				CmdLen = 0x03;
 				break;
 			case 0xB3:	// GameBoy DMG write
 				ChipID = (VGMPnt[0x01] & 0x80) >> 7;
 				if (StripVGM[ChipID].GBDMG.All)
 					WriteEvent = false;
+				if (WriteEvent && ChipID && StripVGM[0].GBDMG.All)
+					VGMPnt[0x01] &= ~0x80;
 				CmdLen = 0x03;
 				break;
 			case 0xB4:	// NES APU write
 				ChipID = (VGMPnt[0x01] & 0x80) >> 7;
 				if (StripVGM[ChipID].NESAPU.All)
 					WriteEvent = false;
+				if (WriteEvent && ChipID && StripVGM[0].NESAPU.All)
+					VGMPnt[0x01] &= ~0x80;
 				CmdLen = 0x03;
 				break;
 			case 0xB5:	// MultiPCM write
 				ChipID = (VGMPnt[0x01] & 0x80) >> 7;
 				if (StripVGM[ChipID].MultiPCM.All)
 					WriteEvent = false;
+				if (WriteEvent && ChipID && StripVGM[0].MultiPCM.All)
+					VGMPnt[0x01] &= ~0x80;
 				CmdLen = 0x03;
 				break;
 			case 0xC3:	// MultiPCM memory write
 				ChipID = (VGMPnt[0x01] & 0x80) >> 7;
 				if (StripVGM[ChipID].MultiPCM.All)
 					WriteEvent = false;
+				if (WriteEvent && ChipID && StripVGM[0].MultiPCM.All)
+					VGMPnt[0x01] &= ~0x80;
 				CmdLen = 0x04;
 				break;
 			case 0xB6:	// UPD7759 write
 				ChipID = (VGMPnt[0x01] & 0x80) >> 7;
 				if (StripVGM[ChipID].UPD7759.All)
 					WriteEvent = false;
+				if (WriteEvent && ChipID && StripVGM[0].UPD7759.All)
+					VGMPnt[0x01] &= ~0x80;
 				CmdLen = 0x03;
 				break;
 			case 0xB7:	// OKIM6258 write
 				ChipID = (VGMPnt[0x01] & 0x80) >> 7;
 				if (StripVGM[ChipID].OKIM6258.All)
 					WriteEvent = false;
+				if (WriteEvent && ChipID && StripVGM[0].OKIM6258.All)
+					VGMPnt[0x01] &= ~0x80;
 				CmdLen = 0x03;
 				break;
 			case 0xB8:	// OKIM6295 write
 				ChipID = (VGMPnt[0x01] & 0x80) >> 7;
 				if (StripVGM[ChipID].OKIM6295.All)
 					WriteEvent = false;
+				if (WriteEvent && ChipID && StripVGM[0].OKIM6295.All)
+					VGMPnt[0x01] &= ~0x80;
 				CmdLen = 0x03;
 				break;
 			case 0xD2:	// SCC1 write
 				ChipID = (VGMPnt[0x01] & 0x80) >> 7;
 				if (StripVGM[ChipID].K051649.All)
 					WriteEvent = false;
+				if (WriteEvent && ChipID && StripVGM[0].K051649.All)
+					VGMPnt[0x01] &= ~0x80;
 				CmdLen = 0x04;
 				break;
 			case 0xD3:	// K054539 write
 				ChipID = (VGMPnt[0x01] & 0x80) >> 7;
 				if (StripVGM[ChipID].K054539.All)
 					WriteEvent = false;
+				if (WriteEvent && ChipID && StripVGM[0].K054539.All)
+					VGMPnt[0x01] &= ~0x80;
 				CmdLen = 0x04;
 				break;
 			case 0xB9:	// HuC6280 write
 				ChipID = (VGMPnt[0x01] & 0x80) >> 7;
 				if (StripVGM[ChipID].HuC6280.All)
 					WriteEvent = false;
+				if (WriteEvent && ChipID && StripVGM[0].HuC6280.All)
+					VGMPnt[0x01] &= ~0x80;
 				CmdLen = 0x03;
 				break;
 			case 0xD4:	// C140 write
 				ChipID = (VGMPnt[0x01] & 0x80) >> 7;
-				SetChipSet((VGMPnt[0x01] & 0x80) >> 7);
+				SetChipSet(ChipID);
 				WriteEvent = c140_write(VGMPnt[0x01] & 0x7F, VGMPnt[0x02], VGMPnt[0x03]);
+				if (WriteEvent && ChipID && StripVGM[0].C140.All)
+					VGMPnt[0x01] &= ~0x80;
 				CmdLen = 0x04;
 				break;
 			case 0xBA:	// K053260 write
 				ChipID = (VGMPnt[0x01] & 0x80) >> 7;
 				if (StripVGM[ChipID].K053260.All)
 					WriteEvent = false;
+				if (WriteEvent && ChipID && StripVGM[0].K053260.All)
+					VGMPnt[0x01] &= ~0x80;
 				CmdLen = 0x03;
 				break;
 			case 0xBB:	// Pokey write
 				ChipID = (VGMPnt[0x01] & 0x80) >> 7;
 				if (StripVGM[ChipID].Pokey.All)
 					WriteEvent = false;
+				if (WriteEvent && ChipID && StripVGM[0].Pokey.All)
+					VGMPnt[0x01] &= ~0x80;
 				CmdLen = 0x03;
 				break;
 			case 0xC4:	// Q-Sound write
@@ -3741,20 +3872,25 @@ static bool StripClock(bool* StripAllPtr, UINT32* ClockPtr)
 {
 	bool* StpAll1 = (bool*)((STRIP_DATA*)StripAllPtr + 1);	// StripVGM[1].###.All
 
-	if (*StpAll1)
-		*ClockPtr &= ~0x40000000;	// strip Chip 1 clock
-
 	if (*ClockPtr & 0x40000000)
-		return false;	// Chip 1 still in use - don't stip chip 0 clock
-
-	// if Chip 0 to be stripped and Chip 1 is not used
-	if (*StripAllPtr)
 	{
-		*ClockPtr = 0;	// strip Chip 0 clock
-		return true;
+		// Chips 0+1 are be stripped
+		if (*StripAllPtr && *StpAll1)
+		{
+			*ClockPtr = 0;	// strip chip clock
+			return true;	// strip all chip parameters
+		}
+		// either of the chips remains used
+		*ClockPtr &= ~0x40000000;	// strip Dual Chip flag
 	}
 	else
 	{
-		return false;
+		// if Chip 0 to be stripped and Chip 1 is not used
+		if (*StripAllPtr)
+		{
+			*ClockPtr = 0;	// strip Chip 0 clock
+			return true;	// strip all chip parameters
+		}
 	}
+	return false;	// keep chip parameters
 }
