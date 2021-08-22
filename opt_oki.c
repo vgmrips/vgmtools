@@ -713,7 +713,8 @@ static void MakeDrumTable(void)
 				if (EarlyDataWrt && DrmBufSize >= 2 && DrumEnd == 0x01)
 				{
 					// Add the very last sample BEFORE the split command to the actual sample
-					if (VGMWrite[CurChip][LastWrt].Value == Smpl80Value)
+					UINT32 delay = VGMWrite[CurChip][LastWrt].SmplPos - TempWrt->SmplPos;
+					if (VGMWrite[CurChip][LastWrt].Value == Smpl80Value && delay < 20)
 					{
 						SkippedWrt = LastWrt;
 						LastWrt --;

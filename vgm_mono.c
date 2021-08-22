@@ -271,6 +271,7 @@ static void CompressVGMData(void)
 	UINT8 X1Channel;
 	UINT8 X1Flags[0x10];
 	UINT8* X1VolWrites[0x10];	// need to cache because sample volume register has another purpose in wavetable mode
+	UINT8 RFChannel[2];
 
 	//DstData = (UINT8*)malloc(VGMDataLen + 0x100);
 	VGMPos = VGMHead.lngDataOffset;
@@ -465,6 +466,34 @@ static void CompressVGMData(void)
 			case 0x53:	// YM2612 write port 1
 				TempByt = Command & 0x01;
 				//WriteEvent = ym2612_write(TempByt, VGMPnt[0x01], VGMPnt[0x02]);
+
+				TempSht = (TempByt << 8) | (VGMPnt[0x01] << 0);
+				if ((TempSht & 0xFC) == 0xB4)	// FM Stereo
+				{
+					TempByt = ((TempSht >> 8) * 3) + (TempSht & 0x03);
+					if ((VGMPnt[0x02] & 0xC0) == 0xC0)
+					{
+						ChnBoth[TempByt] = VGMPos;
+					}
+					else
+					{
+						ChnBoth[TempByt] = 0x00;
+						if ((VGMPnt[0x02] & 0xC0))
+							VGMPnt[0x02] |= 0xC0;
+					}
+				}
+				else if (TempSht == 0x028)
+				{
+					if (VGMPnt[0x02] & 0xF0)
+					{
+						TempByt = (((VGMPnt[0x02] & 0x04) >> 2) * 3) + (VGMPnt[0x02] & 0x03);
+						if (ChnBoth[TempByt])
+						{
+							printf("Warning: Stereo on both channels! Pos: %06X (Key Cmd: %06X)\n", ChnBoth[TempByt], VGMPos);
+							ChnBoth[TempByt] = 0x00;
+						}
+					}
+				}
 				CmdLen = 0x03;
 				break;
 			case 0x67:	// PCM Data Stream
@@ -541,6 +570,38 @@ static void CompressVGMData(void)
 				break;
 			case 0xB0:	// RF5C68 register write
 				//WriteEvent = rf5c68_reg_write(VGMPnt[0x01], VGMPnt[0x02]);
+				if (VGMPnt[0x01] == 0x01)
+				{
+					TempByt = 0x10 | RFChannel[0];
+
+					if (VGMPnt[0x02] != 0x0F && VGMPnt[0x02] != 0xF0)
+					{
+						ChnBoth[TempByt] = VGMPos;
+						printf("Warning: Stereo on both channels! Pos: %06X (Key Cmd: %06X)\n", ChnBoth[TempByt], VGMPos);
+					}
+					else
+					{
+						ChnBoth[TempByt] = 0x00;
+						VGMPnt[0x02] = 0xBB;
+					}
+				}
+				else if (VGMPnt[0x01] == 0x07)
+				{
+					if (VGMPnt[0x02] & 0x40)
+						RFChannel[0] = VGMPnt[0x02] & 0x07;
+				}
+				else if (VGMPnt[0x01] == 0x08)
+				{
+					/*if (VGMPnt[0x02] & 0x78)
+					{
+						TempByt = VGMPnt[0x02] & 0x07;
+						if (ChnBoth[TempByt])
+						{
+							printf("Warning: Stereo on both channels! Pos: %06X (Key Cmd: %06X)\n", ChnBoth[TempByt], VGMPos);
+							ChnBoth[TempByt] = 0x00;
+						}
+					}*/
+				}
 				CmdLen = 0x03;
 				break;
 			case 0xC1:	// RF5C68 memory write
