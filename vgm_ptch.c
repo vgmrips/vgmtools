@@ -2076,7 +2076,7 @@ static UINT8 CheckVGMFile(UINT8 Mode)
 		if (! VGMHead.lngDataOffset || (! BadCmdFound && ! ChipCommandIsValid(Command)))
 		{
 			VGMErr |= 0x04;
-			printf("Bad Data Offset!");
+			printf("Bad Data Offset 0x%X!", CurPos);
 
 			StopVGM = false;
 			while(CurPos < VGMDataLen)
@@ -2669,7 +2669,9 @@ static bool ChipCommandIsValid(UINT8 Command)
 		return true;
 	if ((Command & 0xF0) == 0x70)
 		return true;
-	if (Command == 0x67)
+	if (Command == 0x67 || Command == 0x68)
+		return true;
+	if (Command >= 0x90 && Command <= 0x95)
 		return true;
 	if (Command == 0x31 && (VGMHead.lngHzAY8910 || VGMHead.lngHzYM2203))
 		return true;

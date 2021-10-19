@@ -85,6 +85,8 @@ UINT32 DstDataLen;
 char FileBase[0x100];
 bool CancelFlag;
 
+bool removeEmpty;
+
 int main(int argc, char* argv[])
 {
 	int argbase;
@@ -96,6 +98,22 @@ int main(int argc, char* argv[])
 
 	ErrVal = 0;
 	argbase = 1;
+	removeEmpty = false;
+
+	argbase = 1;
+	while(argbase < argc && argv[argbase][0] == '-')
+	{
+		if (! stricmp(argv[argbase], "-strip-empty"))
+		{
+			removeEmpty = true;
+			argbase ++;
+		}
+		else
+		{
+			break;
+		}
+	}
+
 	printf("File Name:\t");
 	if (argc <= argbase + 0)
 	{
@@ -1020,6 +1038,8 @@ static void OptimizeVGMSampleROM(void)
 						{
 							TempRgn = &TempRRL->Regions[CurRgn];
 							DataLen = TempRgn->AddrEnd - TempRgn->AddrStart;
+							if (removeEmpty && DataLen == 0)
+								continue;
 							// Note: There are empty ROM Blocks to set the ROM Size
 							CmdLen = 0x08 + DataLen;
 							DataStart = TempRgn->AddrStart;
