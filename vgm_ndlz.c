@@ -40,13 +40,13 @@ UINT32 SrcPos;
 INT32 SrcSmplPos;
 VGM_INF DstVGM[MAX_VGMS];
 
-char FileBase[0x100];
+char FileBase[MAX_PATH];
 
 int main(int argc, char* argv[])
 {
 	int argbase;
 	int ErrVal;
-	char FileName[0x100];
+	char FileName[MAX_PATH];
 	UINT8 FileID;
 
 	printf("VGM Undualizer\n--------------\n\n");
@@ -60,7 +60,7 @@ int main(int argc, char* argv[])
 	}
 	else
 	{
-		strcpy(FileName, argv[argbase + 0]);
+		strncpy(FileName, argv[argbase + 0], MAX_PATH-1);
 		printf("%s\n", FileName);
 	}
 	if (! strlen(FileName))
@@ -79,7 +79,7 @@ int main(int argc, char* argv[])
 
 	for (FileID = 0x00; FileID < MAX_VGMS; FileID ++)
 	{
-		sprintf(FileName, "%s_%u.vgm", FileBase, FileID);
+		snprintf(FileName, MAX_PATH, "%s_%u.vgm", FileBase, FileID);
 		WriteVGMFile(FileName, &DstVGM[FileID]);
 		free(DstVGM[FileID].Data);
 	}
@@ -151,7 +151,7 @@ static bool OpenVGMFile(const char* FileName)
 
 	gzclose(hFile);
 
-	strcpy(FileBase, FileName);
+	strncpy(FileBase, FileName, MAX_PATH-1);
 	TempPnt = strrchr(FileBase, '.');
 	if (TempPnt != NULL)
 		*TempPnt = 0x00;
