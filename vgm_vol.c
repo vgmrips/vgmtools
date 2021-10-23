@@ -52,7 +52,7 @@ int main(int argc, char* argv[])
 	int argbase;
 	int ErrVal;
 	char FileName[MAX_PATH];
-	char InputStr[0x100];
+	char InputStr[BUFFER_SIZE];
 #ifdef WIN32
 	char* FileExt;
 	bool PLMode;
@@ -74,7 +74,7 @@ int main(int argc, char* argv[])
 	}
 	else
 	{
-		strcpy(FileName, argv[argbase + 0]);
+		strncpy(FileName, argv[argbase + 0], MAX_PATH - 1);
 		printf("%s\n", FileName);
 	}
 	if (! strlen(FileName))
@@ -87,7 +87,7 @@ int main(int argc, char* argv[])
 	}
 	else
 	{
-		strcpy(InputStr, argv[argbase + 1]);
+		strncpy(InputStr, argv[argbase + 1], BUFFER_SIZE - 1);
 		printf("%s\n", InputStr);
 	}
 	RecVolume = (float)strtod(InputStr, NULL);
@@ -282,7 +282,7 @@ static void ReadDirectory(const char* DirName)
 	char* TempPnt;
 	char* FileExt;
 
-	strcpy(FilePath, DirName);
+	strncpy(FilePath, DirName, MAX_PATH - 1);
 	TempPnt = strrchr(FilePath, '\\');
 	if (TempPnt == NULL)
 		strcpy(FilePath, "");
@@ -290,8 +290,9 @@ static void ReadDirectory(const char* DirName)
 	TempPnt = strrchr(FilePath, '\\');
 	if (TempPnt != NULL)
 		TempPnt[0x01] = 0x00;
-	strcpy(FileName, FilePath);
-	strcat(FileName, "*.wav");
+	snprintf(FileName, MAX_PATH, "%s*.wav", FilePath);
+	// strcpy(FileName, FilePath);
+	// strcat(FileName, "*.wav");
 
 	hFindFile = FindFirstFile(FileName, &FindFileData);
 	if (hFindFile == INVALID_HANDLE_VALUE)
@@ -300,7 +301,7 @@ static void ReadDirectory(const char* DirName)
 		printf("Error reading directory!\n");
 		return;
 	}
-	strcpy(FileName, FilePath);
+	strncpy(FileName, FilePath, MAX_PATH - 1);
 	TempPnt = FileName + strlen(FileName);
 
 	do
@@ -350,7 +351,7 @@ static void ReadPlaylist(const char* FileName)
 		RetStr ++;
 		strncpy(TempStr, FileName, RetStr - FileName);
 		TempStr[RetStr - FileName] = 0x00;
-		strcpy(FilePath, TempStr);
+		strncpy(FilePath, TempStr, MAX_PATH - 1);
 	}
 	else
 	{
@@ -404,8 +405,9 @@ static void ReadPlaylist(const char* FileName)
 		if (RetStr != NULL)
 			strcpy(RetStr + 1, "wav");
 
-		strcpy(FileVGM, FilePath);
-		strcat(FileVGM, TempStr);
+		snprintf(FileVGM, MAX_PATH, "%s%s", FilePath, TempStr);
+		// strcpy(FileVGM, FilePath);
+		// strcat(FileVGM, TempStr);
 		RetStr = strrchr(TempStr, '\\');
 		if (RetStr == NULL)
 			RetStr = TempStr;
