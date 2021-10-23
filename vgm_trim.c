@@ -60,7 +60,7 @@ int main(int argc, char* argv[])
 	{
 		if (! stricmp(argv[argbase] + 1, "help"))
 		{
-			printf("Usage: vgm_trim [-state] [-nonotewarn] [-o] File.vgm\n");
+			printf("Usage: %s [-state] [-nonotewarn] [-o] File.vgm\n",argv[0]);
 			printf("                StartSmpl LoopSmpl EndSmpl [OutFile.vgm]\n");
 			printf("\n");
 			printf("Options:\n");
