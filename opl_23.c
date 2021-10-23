@@ -169,7 +169,7 @@ int main(int argc, char* argv[])
 		else
 			strcpy(FileName, "");
 		if (FileName[0] == '\0')
-			sprintf(FileName, "%s_opl%u.vgm", FileBase, OPLout);
+			snprintf(FileName, MAX_PATH, "%s_opl%u.vgm", FileBase, OPLout);
 		WriteVGMFile(FileName);
 	}
 
