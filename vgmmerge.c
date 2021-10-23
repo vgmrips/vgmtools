@@ -80,7 +80,7 @@ VGM_INF* SrcVGM;
 UINT8* DstData;
 UINT32 DstDataLen;
 INT32 DstSmplPos;
-char FileBase[0x100];
+char FileBase[MAX_PATH];
 
 UINT8 ErrMsgs;
 
@@ -88,7 +88,7 @@ int main(int argc, char* argv[])
 {
 	int ErrVal;
 	int argbase;
-	char FileName[0x100];
+	char FileName[MAX_PATH];
 	UINT8 FileNo;
 	UINT32 TempLng;
 
@@ -138,7 +138,7 @@ int main(int argc, char* argv[])
 		}
 		else
 		{
-			strcpy(FileName, argv[argbase + FileNo]);
+			strncpy(FileName, argv[argbase + FileNo], MAX_PATH-1);
 			printf("%s\n", FileName);
 		}
 		if (! strlen(FileName))
@@ -162,13 +162,14 @@ int main(int argc, char* argv[])
 	MergeVGMData();
 
 	if (argc > argbase + MAX_VGMS)
-		strcpy(FileName, argv[argbase + MAX_VGMS]);
+		strncpy(FileName, argv[argbase + MAX_VGMS], MAX_PATH-1);
 	else
 		strcpy(FileName, "");
 	if (FileName[0] == '\0')
 	{
-		strcpy(FileName, FileBase);
-		strcat(FileName, "_merged.vgm");
+		snprintf(FileName, MAX_PATH, "%s_merged.vgm", FileBase);
+		// strcpy(FileName, FileBase);
+		// strcat(FileName, "_merged.vgm");
 	}
 	WriteVGMFile(FileName);
 
@@ -258,7 +259,7 @@ static bool OpenVGMFile(const char* FileName, const UINT8 VgmNo)
 
 	if (! VgmNo)
 	{
-		strcpy(FileBase, FileName);
+		strncpy(FileBase, FileName, MAX_PATH-1);
 		TempPnt = strrchr(FileBase, '.');
 		if (TempPnt != NULL)
 			*TempPnt = 0x00;
