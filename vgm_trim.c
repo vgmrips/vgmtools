@@ -220,7 +220,7 @@ int main(int argc, char* argv[])
 		strncpy(FileName, "",FILENAME_MAX-1);
 	if (FileName[0] == '\0')
 	{
-		snprintf(FileName, FILENAME_MAX, "%s_trimmed.vgm", FileBase);
+		snprintf(FileName, FILENAME_MAX, "%s_%d_%d_%d_trimmed.vgm", FileBase, StartSmpl, LoopSmpl, EndSmpl);
 		//strcpy(FileName, FileBase);
 		//strcat(FileName, "_trimmed.vgm");
 	}
