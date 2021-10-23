@@ -45,6 +45,7 @@ UINT32 MIN_EQU_SIZE = 0x0400;
 UINT32 START_POS = 0x00;
 
 bool TechnicalOutput = false;
+bool RunVgmtrim = false;
 bool SilentMode;
 bool LabelMode;	// Output Audacity labels
 VGM_HEADER VGMHead;
@@ -58,12 +59,12 @@ VGM_CMD* VGMCommand;
 UINT32 EndPosCount;
 UINT32* EndPosArr;
 UINT32 LabelID;
+char FileName[FILENAME_MAX];
 
 int main(int argc, char* argv[])
 {
 	int argbase;
 	int ErrVal;
-	char FileName[FILENAME_MAX];
 	char InputTxt[BUFFER_SIZE];
 	UINT32 TempLng;
 
@@ -72,7 +73,12 @@ int main(int argc, char* argv[])
 	argbase = 1;
 	while(argbase < argc && argv[argbase][0] == '-')
 	{
-		if (! stricmp(argv[argbase], "-technical") || ! stricmp(argv[argbase], "-t") )
+		if (! stricmp(argv[argbase], "-run") || ! stricmp(argv[argbase], "-r") )
+		{
+			RunVgmtrim = true;
+			argbase ++;
+		}
+		else if (! stricmp(argv[argbase], "-technical") || ! stricmp(argv[argbase], "-t") )
 		{
 			TechnicalOutput = true;
 			argbase ++;
@@ -816,6 +822,12 @@ static bool EqualityCheck(UINT32 CmpCmd, UINT32 SrcCmd, UINT32 CmdCount)
 
 			PrintMinSec(CmdSrcE->Sample - CmdSrcS->Sample, TempStr);
 			printf("\t%u\t%s\n", CmdCount, TempStr);
+		}
+		if (RunVgmtrim)
+		{
+			char szTemp[FILENAME_MAX];
+			snprintf(szTemp, FILENAME_MAX, "vgm_trim %s 0 %u %u", FileName, CmdSrcS->Sample, CmdCpyS->Sample);
+			system(szTemp);
 		}
 	}
 
