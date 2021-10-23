@@ -13,7 +13,10 @@
 #include "VGMFile.h"
 #include "common.h"
 
-
+#define BUFFER_SIZE 255
+#ifndef FILENAME_MAX
+	#define FILENAME_MAX 255
+#endif
 //#define TECHNICAL_OUTPUT
 
 
@@ -49,7 +52,7 @@ UINT32 VGMDataLen;
 UINT8* VGMData;
 UINT32 VGMPos;
 INT32 VGMSmplPos;
-char FileBase[0x100];
+char FileBase[FILENAME_MAX];
 UINT32 VGMCmdCount;
 VGM_CMD* VGMCommand;
 UINT32 EndPosCount;
@@ -60,8 +63,8 @@ int main(int argc, char* argv[])
 {
 	int argbase;
 	int ErrVal;
-	char FileName[0x100];
-	char InputTxt[0x100];
+	char FileName[FILENAME_MAX];
+	char InputTxt[BUFFER_SIZE];
 	UINT32 TempLng;
 
 	SilentMode = false;
@@ -101,7 +104,7 @@ int main(int argc, char* argv[])
 	}
 	else
 	{
-		strcpy(FileName, argv[argbase + 0]);
+		strncpy(FileName, argv[argbase + 0],FILENAME_MAX-1);
 		fprintf(stderr, "%s\n", FileName);
 	}
 	if (! strlen(FileName))
@@ -115,7 +118,7 @@ int main(int argc, char* argv[])
 	}
 	else
 	{
-		strcpy(InputTxt, argv[argbase + 1]);
+		strncpy(InputTxt, argv[argbase + 1],BUFFER_SIZE-1);
 		if (! SilentMode)
 			fprintf(stderr, "%s\n", InputTxt);
 	}
@@ -131,7 +134,7 @@ int main(int argc, char* argv[])
 	}
 	else
 	{
-		strcpy(InputTxt, argv[argbase + 2]);
+		strncpy(InputTxt, argv[argbase + 2],BUFFER_SIZE-1);
 		if (! SilentMode)
 			fprintf(stderr, "%s\n", InputTxt);
 	}
@@ -147,7 +150,7 @@ int main(int argc, char* argv[])
 	}
 	else
 	{
-		strcpy(InputTxt, argv[argbase + 3]);
+		strncpy(InputTxt, argv[argbase + 3],BUFFER_SIZE-1);
 		if (! SilentMode)
 			fprintf(stderr, "%s\n", InputTxt);
 	}
@@ -248,7 +251,7 @@ static bool OpenVGMFile(const char* FileName)
 
 	gzclose(hFile);
 
-	strcpy(FileBase, FileName);
+	strncpy(FileBase, FileName, FILENAME_MAX-1);
 	TempPnt = strrchr(FileBase, '.');
 	if (TempPnt != NULL)
 		*TempPnt = 0x00;
