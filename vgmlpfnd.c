@@ -13,10 +13,6 @@
 #include "VGMFile.h"
 #include "common.h"
 
-#define BUFFER_SIZE 255
-#ifndef FILENAME_MAX
-	#define FILENAME_MAX 255
-#endif
 //#define TECHNICAL_OUTPUT
 
 
@@ -53,13 +49,13 @@ UINT32 VGMDataLen;
 UINT8* VGMData;
 UINT32 VGMPos;
 INT32 VGMSmplPos;
-char FileBase[FILENAME_MAX];
+char FileBase[MAX_PATH];
 UINT32 VGMCmdCount;
 VGM_CMD* VGMCommand;
 UINT32 EndPosCount;
 UINT32* EndPosArr;
 UINT32 LabelID;
-char FileName[FILENAME_MAX];
+char FileName[MAX_PATH];
 
 int main(int argc, char* argv[])
 {
@@ -110,7 +106,7 @@ int main(int argc, char* argv[])
 	}
 	else
 	{
-		strncpy(FileName, argv[argbase + 0],FILENAME_MAX-1);
+		strncpy(FileName, argv[argbase + 0],MAX_PATH-1);
 		fprintf(stderr, "%s\n", FileName);
 	}
 	if (! strlen(FileName))
@@ -257,7 +253,7 @@ static bool OpenVGMFile(const char* FileName)
 
 	gzclose(hFile);
 
-	strncpy(FileBase, FileName, FILENAME_MAX-1);
+	strncpy(FileBase, FileName, MAX_PATH-1);
 	TempPnt = strrchr(FileBase, '.');
 	if (TempPnt != NULL)
 		*TempPnt = 0x00;
@@ -825,8 +821,8 @@ static bool EqualityCheck(UINT32 CmpCmd, UINT32 SrcCmd, UINT32 CmdCount)
 		}
 		if (RunVgmtrim)
 		{
-			char szTemp[FILENAME_MAX];
-			snprintf(szTemp, FILENAME_MAX, "vgm_trim %s 0 %u %u", FileName, CmdSrcS->Sample, CmdCpyS->Sample);
+			char szTemp[MAX_PATH];
+			snprintf(szTemp, MAX_PATH, "vgm_trim %s 0 %u %u", FileName, CmdSrcS->Sample, CmdCpyS->Sample);
 			system(szTemp);
 		}
 	}

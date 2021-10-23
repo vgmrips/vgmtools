@@ -11,11 +11,6 @@
 #include "VGMFile.h"
 #include "common.h"
 
-#define BUFFER_SIZE 255
-#ifndef FILENAME_MAX
-	#define FILENAME_MAX 255
-#endif
-
 static bool OpenVGMFile(const char* FileName);
 static void WriteVGMFile(const char* FileName);
 
@@ -32,14 +27,14 @@ UINT32 VGMPos;
 INT32 VGMSmplPos;
 UINT8* DstData;
 UINT32 DstDataLen;
-char FileBase[FILENAME_MAX];
+char FileBase[MAX_PATH];
 UINT8 OptsOverwrite;
 
 int main(int argc, char* argv[])
 {
 	int argbase;
 	int ErrVal;
-	char FileName[FILENAME_MAX];
+	char FileName[MAX_PATH];
 	char InputTxt[BUFFER_SIZE];
 	INT32 StartSmpl;
 	INT32 LoopSmpl;
@@ -99,7 +94,7 @@ int main(int argc, char* argv[])
 	}
 	else
 	{
-		strncpy(FileName, argv[argbase + 0], FILENAME_MAX-1);
+		strncpy(FileName, argv[argbase + 0], MAX_PATH-1);
 		printf("%s\n", FileName);
 	}
 	if (! strlen(FileName))
@@ -215,12 +210,12 @@ int main(int argc, char* argv[])
 
 	TrimVGMData(StartSmpl, LoopSmpl, EndSmpl, HasLoop, KeepLSmpl);
 	if (argc > argbase + 4)
-		strncpy(FileName, argv[argbase + 4], FILENAME_MAX-1);
+		strncpy(FileName, argv[argbase + 4], MAX_PATH-1);
 	else
-		strncpy(FileName, "",FILENAME_MAX-1);
+		strncpy(FileName, "",MAX_PATH-1);
 	if (FileName[0] == '\0')
 	{
-		snprintf(FileName, FILENAME_MAX, "%s_%d_%d_%d_trimmed.vgm", FileBase, StartSmpl, LoopSmpl, EndSmpl);
+		snprintf(FileName, MAX_PATH, "%s_%d_%d_%d_trimmed.vgm", FileBase, StartSmpl, LoopSmpl, EndSmpl);
 		//strcpy(FileName, FileBase);
 		//strcat(FileName, "_trimmed.vgm");
 	}
@@ -305,7 +300,7 @@ static bool OpenVGMFile(const char* FileName)
 
 	gzclose(hFile);
 
-	strncpy(FileBase, FileName,FILENAME_MAX-1);
+	strncpy(FileBase, FileName,MAX_PATH-1);
 	TempPnt = strrchr(FileBase, '.');
 	if (TempPnt != NULL)
 		*TempPnt = 0x00;
