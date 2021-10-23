@@ -69,17 +69,17 @@ int main(int argc, char* argv[])
 	argbase = 1;
 	while(argbase < argc && argv[argbase][0] == '-')
 	{
-		if (! stricmp(argv[argbase], "-technical"))
+		if (! stricmp(argv[argbase], "-technical") || ! stricmp(argv[argbase], "-t") )
 		{
 			TechnicalOutput = true;
 			argbase ++;
 		}
-		else if (! stricmp(argv[argbase], "-silent"))
+		else if (! stricmp(argv[argbase], "-silent") || ! stricmp(argv[argbase], "-s") )
 		{
 			SilentMode = true;
 			argbase ++;
 		}
-		else if (! stricmp(argv[argbase], "-labels"))
+		else if (! stricmp(argv[argbase], "-labels") || ! stricmp(argv[argbase], "-l") )
 		{
 			LabelMode = true;
 			argbase ++;
