@@ -88,7 +88,7 @@ int main(int argc, char* argv[])
 	}
 	else
 	{
-		strcpy(FileName, argv[0x01]);
+		strncpy(FileName, argv[0x01], MAX_PATH - 1);
 		printf("%s\n", FileName);
 	}
 	if (! strlen(FileName))
@@ -360,7 +360,7 @@ static void ReadDirectory(const char* DirName)
 	char* TempPnt;
 	char* FileExt;
 
-	strcpy(FilePath, DirName);
+	strncpy(FilePath, DirName, MAX_PATH - 1);
 	TempPnt = strrchr(FilePath, DIR_SEP);
 	if (TempPnt == NULL)
 		strcpy(FilePath, "");
@@ -368,8 +368,9 @@ static void ReadDirectory(const char* DirName)
 	TempPnt = strrchr(FilePath, DIR_SEP);
 	if (TempPnt != NULL)
 		TempPnt[0x01] = '\0';
-	strcpy(FileName, FilePath);
-	strcat(FileName, "*.vg?");
+	snprintf(FileName, MAX_PATH, "%s*.vg?", FilePath);
+	// strcpy(FileName, FilePath);
+	// strcat(FileName, "*.vg?");
 //printf("  Base Path: %s\n", FilePath);
 
 #ifdef WIN32
@@ -384,7 +385,7 @@ static void ReadDirectory(const char* DirName)
 	glob_t globbuf;
 	glob(FileName, 0, NULL, &globbuf);
 #endif
-	strcpy(FileName, FilePath);
+	strncpy(FileName, FilePath, MAX_PATH - 1);
 	TempPnt = FileName + strlen(FileName);
 
 #ifdef SHOW_FILE_STATS
@@ -466,7 +467,7 @@ static void ReadPlaylist(const char* FileName)
 		RetStr ++;
 		strncpy(TempStr, FileName, RetStr - FileName);
 		TempStr[RetStr - FileName] = '\0';
-		strcpy(FilePath, TempStr);
+		strncpy(FilePath, TempStr, MAX_PATH - 1);
 	}
 	else
 	{
@@ -521,9 +522,9 @@ static void ReadPlaylist(const char* FileName)
 				continue;
 			}
 		}
-
-		strcpy(FileVGM, FilePath);
-		strcat(FileVGM, TempStr);
+		snprintf(FileVGM, MAX_PATH, "%s%s", FilePath, TempStr);
+		// strcpy(FileVGM, FilePath);
+		// strcat(FileVGM, TempStr);
 		RetStr = strrchr(TempStr, '\\');
 		if (RetStr == NULL)
 			RetStr = TempStr;
