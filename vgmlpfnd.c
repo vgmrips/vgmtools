@@ -41,7 +41,7 @@ UINT32 STEP_SIZE = 0x01;
 UINT32 MIN_EQU_SIZE = 0x0400;
 UINT32 START_POS = 0x00;
 
-
+bool TechnicalOutput = false;
 bool SilentMode;
 bool LabelMode;	// Output Audacity labels
 VGM_HEADER VGMHead;
@@ -69,7 +69,12 @@ int main(int argc, char* argv[])
 	argbase = 1;
 	while(argbase < argc && argv[argbase][0] == '-')
 	{
-		if (! stricmp(argv[argbase], "-silent"))
+		if (! stricmp(argv[argbase], "-technical"))
+		{
+			TechnicalOutput = true;
+			argbase ++;
+		}
+		else if (! stricmp(argv[argbase], "-silent"))
 		{
 			SilentMode = true;
 			argbase ++;
@@ -631,13 +636,16 @@ static void FindEqualitiesVGM(void)
 
 	if (! LabelMode)
 	{
-#ifdef TECHNICAL_OUTPUT
-		printf("     Source Block\t      Block Copy\t   Copy Information\n");
-		printf("Start\tEnd\tSmpl\tStart\tEnd\tSmpl\tLength\tCmds\tSamples\n");
-#else
-		printf("  Source Block\t\t  Block Copy\t\tCopy Information\n");
-		printf("Start\t  Time\t\tStart\t  Time\t\tCmds\tTime\n");
-#endif
+		if (TechnicalOutput)
+		{
+			printf("     Source Block\t      Block Copy\t   Copy Information\n");
+			printf("Start\tEnd\tSmpl\tStart\tEnd\tSmpl\tLength\tCmds\tSamples\n");
+		}
+		else
+		{
+			printf("  Source Block\t\t  Block Copy\t\tCopy Information\n");
+			printf("Start\t  Time\t\tStart\t  Time\t\tCmds\tTime\n");
+		}
 	}
 
 	EndPosCount = 0;
@@ -744,9 +752,7 @@ static bool EqualityCheck(UINT32 CmpCmd, UINT32 SrcCmd, UINT32 CmdCount)
 	VGM_CMD* CmdSrcE;
 	VGM_CMD* CmdCpyS;
 	VGM_CMD* CmdCpyE;
-#ifndef TECHNICAL_OUTPUT
 	char TempStr[0x10];
-#endif
 
 	if (CmdCount < MIN_EQU_SIZE)
 		return false;
@@ -784,27 +790,30 @@ static bool EqualityCheck(UINT32 CmpCmd, UINT32 SrcCmd, UINT32 CmdCount)
 		//	printf("%X\t%X\t%u\t%X\t%X\t%u\t%X\t%u\t%u\n",
 		//			CmpStart, CmpPos - 0x01, TimeSmplC, SrcStart, SrcCmd, CmpTimeB,
 		//			CmpPos - CmpStart, CmpCnt, CmpTime);
-#ifdef TECHNICAL_OUTPUT
-		printf("%X\t%X\t", CmdSrcS->Pos, CmdSrcE->Pos - 0x01);
-		if (BlkFlags)
-			printf("\b%c", ExtraChr[BlkFlags]);
-		printf("%u\t%X\t%X\t%u\t%X\t%u\t%u\n",
-				CmdSrcS->Sample, CmdCpyS->Pos, CmdCpyE->Pos - 0x01, CmdCpyS->Sample,
-				CmdSrcE->Pos - CmdSrcS->Pos, CmdCount, CmdSrcE->Sample - CmdSrcS->Sample);
-#else
-		PrintMinSec(CmdSrcS->Sample, TempStr);
-		//printf("%X\t%s", CmdSrcS->Pos, TempStr);
-		printf("%u\t%s", CmdSrcS->Sample, TempStr);
-		if (BlkFlags)
-			printf("  %c", ExtraChr[BlkFlags]);
+		if (TechnicalOutput)
+		{
+			printf("%X\t%X\t", CmdSrcS->Pos, CmdSrcE->Pos - 0x01);
+			if (BlkFlags)
+				printf("\b%c", ExtraChr[BlkFlags]);
+			printf("%u\t%X\t%X\t%u\t%X\t%u\t%u\n",
+					CmdSrcS->Sample, CmdCpyS->Pos, CmdCpyE->Pos - 0x01, CmdCpyS->Sample,
+					CmdSrcE->Pos - CmdSrcS->Pos, CmdCount, CmdSrcE->Sample - CmdSrcS->Sample);
+		}
+		else
+		{
+			PrintMinSec(CmdSrcS->Sample, TempStr);
+			//printf("%X\t%s", CmdSrcS->Pos, TempStr);
+			printf("%u\t%s", CmdSrcS->Sample, TempStr);
+			if (BlkFlags)
+				printf("  %c", ExtraChr[BlkFlags]);
 
-		PrintMinSec(CmdCpyS->Sample, TempStr);
-		//printf("\t%X\t%s", CmdCpyS->Pos, TempStr);
-		printf("\t%u\t%s", CmdCpyS->Sample, TempStr);
+			PrintMinSec(CmdCpyS->Sample, TempStr);
+			//printf("\t%X\t%s", CmdCpyS->Pos, TempStr);
+			printf("\t%u\t%s", CmdCpyS->Sample, TempStr);
 
-		PrintMinSec(CmdSrcE->Sample - CmdSrcS->Sample, TempStr);
-		printf("\t%u\t%s\n", CmdCount, TempStr);
-#endif
+			PrintMinSec(CmdSrcE->Sample - CmdSrcS->Sample, TempStr);
+			printf("\t%u\t%s\n", CmdCount, TempStr);
+		}
 	}
 
 	return true;
