@@ -24,7 +24,7 @@ UINT32 VGMPos;
 INT32 VGMSmplPos;
 //UINT8* DstData;
 //UINT32 DstDataLen;
-char FileBase[0x100];
+char FileBase[MAX_PATH];
 
 #define CONV_3toDUAL2	0x00
 #define CONV_DUAL2to3	0x01
@@ -39,7 +39,7 @@ int main(int argc, char* argv[])
 {
 	int argbase;
 	int ErrVal;
-	char FileName[0x100];
+	char FileName[MAX_PATH];
 	bool NeedProcessing;
 	UINT32 NewClk_OPL2;
 	UINT32 NewClk_OPL3;
@@ -89,7 +89,7 @@ int main(int argc, char* argv[])
 	}
 
 	printf("File Name:\t");
-	strcpy(FileName, argv[argbase + 0]);
+	strncpy(FileName, argv[argbase + 0],MAX_PATH-1);
 	printf("%s\n", FileName);
 	if (! strlen(FileName))
 		return 0;
@@ -165,7 +165,7 @@ int main(int argc, char* argv[])
 		CompressVGMData();
 
 		if (argc > argbase + 1)
-			strcpy(FileName, argv[argbase + 1]);
+			strncpy(FileName, argv[argbase + 1],MAX_PATH-1);
 		else
 			strcpy(FileName, "");
 		if (FileName[0] == '\0')
@@ -254,7 +254,7 @@ static bool OpenVGMFile(const char* FileName)
 
 	gzclose(hFile);
 
-	strcpy(FileBase, FileName);
+	strncpy(FileBase, FileName,MAX_PATH-1);
 	TempPnt = strrchr(FileBase, '.');
 	if (TempPnt != NULL)
 		*TempPnt = 0x00;
