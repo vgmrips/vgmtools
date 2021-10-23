@@ -33,6 +33,7 @@ INT32 VGMSmplPos;
 UINT8* DstData;
 UINT32 DstDataLen;
 char FileBase[FILENAME_MAX];
+UINT8 OptsOverwrite;
 
 int main(int argc, char* argv[])
 {
@@ -54,17 +55,24 @@ int main(int argc, char* argv[])
 	argbase = 1;
 	OptsTrim = 0x00;
 	OptsWarn = 0x00;
+	OptsOverwrite = 0x00;
 	while(argbase < argc && argv[argbase][0] == '-')
 	{
 		if (! stricmp(argv[argbase] + 1, "help"))
 		{
-			printf("Usage: vgm_trim [-state] [-nonotewarn] File.vgm\n");
+			printf("Usage: vgm_trim [-state] [-nonotewarn] [-o] File.vgm\n");
 			printf("                StartSmpl LoopSmpl EndSmpl [OutFile.vgm]\n");
 			printf("\n");
 			printf("Options:\n");
 			printf("    -state: put a save state of the chips at the start of the VGM\n");
 			printf("    -NoNoteWarn: don't print warnings about notes playing at EOF\n");
+			printf("    -o: overwrite even if OutFile.vgm exists\n");
 			return 0;
+		}
+		else if (! stricmp(argv[argbase] + 1, "o"))
+		{
+			OptsOverwrite = 0x01;
+			argbase ++;
 		}
 		else if (! stricmp(argv[argbase] + 1, "state"))
 		{
@@ -216,7 +224,12 @@ int main(int argc, char* argv[])
 		//strcpy(FileName, FileBase);
 		//strcat(FileName, "_trimmed.vgm");
 	}
-	WriteVGMFile(FileName);
+	if (!OptsOverwrite && access( FileName, F_OK) == 0 )
+	{
+		fprintf(stderr,"Error: %s already exists!\n", FileName);
+	}
+	else
+		WriteVGMFile(FileName);
 
 QuickExit:
 	free(VGMData);
