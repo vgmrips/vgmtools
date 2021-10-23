@@ -11,6 +11,10 @@
 #include "VGMFile.h"
 #include "common.h"
 
+#define BUFFER_SIZE 255
+#ifndef FILENAME_MAX
+	#define FILENAME_MAX 255
+#endif
 
 static bool OpenVGMFile(const char* FileName);
 static void WriteVGMFile(const char* FileName);
@@ -28,14 +32,14 @@ UINT32 VGMPos;
 INT32 VGMSmplPos;
 UINT8* DstData;
 UINT32 DstDataLen;
-char FileBase[0x100];
+char FileBase[FILENAME_MAX];
 
 int main(int argc, char* argv[])
 {
 	int argbase;
 	int ErrVal;
-	char FileName[0x100];
-	char InputTxt[0x100];
+	char FileName[FILENAME_MAX];
+	char InputTxt[BUFFER_SIZE];
 	INT32 StartSmpl;
 	INT32 LoopSmpl;
 	INT32 EndSmpl;
@@ -87,7 +91,7 @@ int main(int argc, char* argv[])
 	}
 	else
 	{
-		strcpy(FileName, argv[argbase + 0]);
+		strncpy(FileName, argv[argbase + 0], FILENAME_MAX-1);
 		printf("%s\n", FileName);
 	}
 	if (! strlen(FileName))
@@ -100,7 +104,7 @@ int main(int argc, char* argv[])
 	}
 	else
 	{
-		strcpy(InputTxt, argv[argbase + 1]);
+		strncpy(InputTxt, argv[argbase + 1], BUFFER_SIZE-1);
 		printf("%s\n", InputTxt);
 	}
 	StartSmpl = strtol(InputTxt, NULL, 0);
@@ -114,7 +118,7 @@ int main(int argc, char* argv[])
 	}
 	else
 	{
-		strcpy(InputTxt, argv[argbase + 2]);
+		strncpy(InputTxt, argv[argbase + 2],BUFFER_SIZE-1);
 		printf("%s\n", InputTxt);
 	}
 	LoopSmpl = strtol(InputTxt, NULL, 0);
@@ -126,7 +130,7 @@ int main(int argc, char* argv[])
 	}
 	else
 	{
-		strcpy(InputTxt, argv[argbase + 3]);
+		strncpy(InputTxt, argv[argbase + 3], BUFFER_SIZE-1);
 		printf("%s\n", InputTxt);
 	}
 	EndSmpl = strtol(InputTxt, NULL, 0);
@@ -203,13 +207,14 @@ int main(int argc, char* argv[])
 
 	TrimVGMData(StartSmpl, LoopSmpl, EndSmpl, HasLoop, KeepLSmpl);
 	if (argc > argbase + 4)
-		strcpy(FileName, argv[argbase + 4]);
+		strncpy(FileName, argv[argbase + 4], FILENAME_MAX-1);
 	else
-		strcpy(FileName, "");
+		strncpy(FileName, "",FILENAME_MAX-1);
 	if (FileName[0] == '\0')
 	{
-		strcpy(FileName, FileBase);
-		strcat(FileName, "_trimmed.vgm");
+		snprintf(FileName, FILENAME_MAX, "%s_trimmed.vgm", FileBase);
+		//strcpy(FileName, FileBase);
+		//strcat(FileName, "_trimmed.vgm");
 	}
 	WriteVGMFile(FileName);
 
@@ -287,7 +292,7 @@ static bool OpenVGMFile(const char* FileName)
 
 	gzclose(hFile);
 
-	strcpy(FileBase, FileName);
+	strncpy(FileBase, FileName,FILENAME_MAX-1);
 	TempPnt = strrchr(FileBase, '.');
 	if (TempPnt != NULL)
 		*TempPnt = 0x00;
