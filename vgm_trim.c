@@ -5,6 +5,9 @@
 #include <stdlib.h>
 #include <string.h>
 #include <zlib.h>
+#if defined(_WIN32) || defined(WIN32)
+#include <io.h>
+#endif
 
 #include "stdtype.h"
 #include "stdbool.h"
