@@ -257,7 +257,7 @@ static bool OpenVGMFile(const char* FileName)
 
 	gzclose(hFile);
 
-	strcpy(FileBase, FileName);
+	strncpy(FileBase, FileName, MAX_PATH-1);
 	TempPnt = strrchr(FileBase, '.');
 	if (TempPnt != NULL)
 		*TempPnt = 0x00;
