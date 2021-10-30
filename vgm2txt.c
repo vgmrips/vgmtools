@@ -50,7 +50,7 @@ int main(int argc, char* argv[])
 	}
 	else
 	{
-		strcpy(FileName, argv[argbase + 0]);
+		strncpy(FileName, argv[argbase + 0], MAX_PATH-1);
 		printf("%s\n", FileName);
 	}
 	if (! strlen(FileName))
@@ -69,7 +69,7 @@ int main(int argc, char* argv[])
 	if (argc <= argbase + 1)
 		fgets(FileName, sizeof(FileName), stdin);
 	else
-		strcpy(FileName, argv[argbase + 1]);
+		strncpy(FileName, argv[argbase + 1], MAX_PATH-1);
 	sscanf(FileName, "%02u:%02u.%02u", &TimeMin, &TimeSec, &TimeMS);
 	VGMWriteFrom = (TimeMin * 6000 + TimeSec * 100 + TimeMS) * 441;
 
@@ -78,14 +78,13 @@ int main(int argc, char* argv[])
 	if (argc <= argbase + 2)
 		fgets(FileName, sizeof(FileName), stdin);
 	else
-		strcpy(FileName, argv[argbase + 2]);
+		strncpy(FileName, argv[argbase + 2], MAX_PATH-1);
 	sscanf(FileName, "%02u:%02u.%02u", &TimeMin, &TimeSec, &TimeMS);
 	VGMWriteTo = (TimeMin * 6000 + TimeSec * 100 + TimeMS) * 441;
 	//if (! VGMWriteTo)
 	//	VGMWriteTo = VGMHead.lngTotalSamples;
 
-	strcpy(FileName, FileBase);
-	strcat(FileName, ".txt");
+	snprintf(FileName, MAX_PATH, "%s.txt", FileBase);
 	WriteVGM2Txt(FileName);
 
 	free(VGMData);
