@@ -44,7 +44,7 @@ int main(int argc, char* argv[])
 {
 	int argbase;
 	int ErrVal;
-	char FileName[0x100];
+	char FileName[MAX_PATH];
 
 	printf("VGM Command Counter\n-------------------\n\n");
 
@@ -57,7 +57,7 @@ int main(int argc, char* argv[])
 	}
 	else
 	{
-		strcpy(FileName, argv[argbase + 0]);
+		strncpy(FileName, argv[argbase + 0], MAX_PATH-1);
 		printf("%s\n", FileName);
 	}
 	if (! strlen(FileName))
