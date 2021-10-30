@@ -27,14 +27,14 @@ UINT32 IMFDataEnd;
 UINT32 VGMDataLen;
 UINT8* VGMData;
 UINT32 VGMPos;
-char FileBase[0x100];
+char FileBase[MAX_PATH];
 UINT8 LoopOn;
 
 int main(int argc, char* argv[])
 {
 	int argbase;
 	int ErrVal;
-	char FileName[0x100];
+	char FileName[MAX_PATH];
 	UINT16 ForceHz;
 	UINT8 ForceType;
 
@@ -91,7 +91,7 @@ int main(int argc, char* argv[])
 	}
 	else
 	{
-		strcpy(FileName, argv[argbase + 0]);
+		strncpy(FileName, argv[argbase + 0], MAX_PATH-1);
 		printf("%s\n", FileName);
 	}
 	if (! strlen(FileName))
@@ -112,13 +112,12 @@ int main(int argc, char* argv[])
 	ConvertIMF2VGM();
 
 	if (argc > argbase + 1)
-		strcpy(FileName, argv[argbase + 1]);
+		strncpy(FileName, argv[argbase + 1], MAX_PATH-1);
 	else
 		strcpy(FileName, "");
 	if (FileName[0] == '\0')
 	{
-		strcpy(FileName, FileBase);
-		strcat(FileName, ".vgm");
+		snprintf(FileName, MAX_PATH, "%s.vgm", FileBase);
 	}
 	WriteVGMFile(FileName);
 
@@ -159,7 +158,7 @@ static UINT8 OpenIMFFile(const char* FileName)
 	else
 		IMFType = 0x01;
 
-	strcpy(FileBase, FileName);
+	strncpy(FileBase, FileName, MAX_PATH-1);
 	TempPnt = strrchr(FileBase, '.');
 	if (TempPnt != NULL)
 	{
