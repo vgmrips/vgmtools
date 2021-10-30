@@ -60,13 +60,13 @@ UINT32 DRODataStart;
 UINT32 VGMDataLen;
 UINT8* VGMData;
 UINT32 VGMPos;
-char FileBase[0x100];
+char FileBase[MAX_PATH];
 
 int main(int argc, char* argv[])
 {
 	int argbase;
 	int ErrVal;
-	char FileName[0x100];
+	char FileName[MAX_PATH];
 
 	printf("DRO to VGM Converter\n--------------------\n\n");
 
@@ -80,7 +80,7 @@ int main(int argc, char* argv[])
 	}
 	else
 	{
-		strcpy(FileName, argv[argbase + 0]);
+		strncpy(FileName, argv[argbase + 0], MAX_PATH-1);
 		printf("%s\n", FileName);
 	}
 	if (! strlen(FileName))
@@ -96,8 +96,7 @@ int main(int argc, char* argv[])
 
 	ConvertDRO2VGM();
 
-	strcpy(FileName, FileBase);
-	strcat(FileName, ".vgm");
+	snprintf(FileName, MAX_PATH, "%s.vgm", FileBase);
 	WriteVGMFile(FileName);
 
 	free(DROData);
@@ -254,7 +253,7 @@ static bool OpenDROFile(const char* FileName)
 
 	fclose(hFile);
 
-	strcpy(FileBase, FileName);
+	strncpy(FileBase, FileName, MAX_PATH-1);
 	TempPnt = strrchr(FileBase, '.');
 	if (TempPnt != NULL)
 		*TempPnt = 0x00;
