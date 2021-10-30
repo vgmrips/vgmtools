@@ -562,7 +562,7 @@ static void AddDrum(UINT32 Size, UINT8* Data, DRUM_PLAY* DrumPlay)
 					char DrumDump_Name[MAX_PATH + 0x10];
 					FILE* hFile;
 
-					sprintf(DrumDump_Name, "%s_%03X.raw", FileBase, CurDrm);
+					snprintf(DrumDump_Name, MAX_PATH + 0x10, "%s_%03X.raw", FileBase, CurDrm);
 
 					hFile = fopen(DrumDump_Name, "wb");
 					if (hFile != NULL)
@@ -596,7 +596,7 @@ static void AddDrum(UINT32 Size, UINT8* Data, DRUM_PLAY* DrumPlay)
 		char DrumDump_Name[MAX_PATH + 0x10];
 		FILE* hFile;
 
-		sprintf(DrumDump_Name, "%s_%03X.raw", FileBase, DrumTbl.DrmCount);
+		snprintf(DrumDump_Name, MAX_PATH + 0x10, "%s_%03X.raw", FileBase, DrumTbl.DrmCount);
 
 		hFile = fopen(DrumDump_Name, "wb");
 		if (hFile != NULL)
