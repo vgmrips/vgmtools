@@ -66,7 +66,7 @@ int main(int argc, char* argv[])
 	}
 	else
 	{
-		strncpy(FileName, argv[argbase + 0], MAX_PATH-1);
+		snprintf(FileName, sizeof(FileName), "%s", argv[argbase + 0]);
 		printf("%s\n", FileName);
 	}
 	if (! strlen(FileName))
@@ -83,9 +83,9 @@ int main(int argc, char* argv[])
 	ConvertRAW2VGM();
 
 	if (argc > argbase + 1)
-		strncpy(FileName, argv[argbase + 1], MAX_PATH-1);
+		snprintf(FileName, sizeof(FileName), "%s", argv[argbase + 1]);
 	else
-		strcpy(FileName, "");
+		*FileName='\0';
 	if (FileName[0] == '\0')
 	{
 		snprintf(FileName, MAX_PATH, "%s.vgm", FileBase);
@@ -123,7 +123,7 @@ static UINT8 OpenRAWFile(const char* FileName)
 
 	fclose(hFile);
 
-	strncpy(FileBase, FileName, MAX_PATH-1);
+	snprintf(FileBase, sizeof(FileBase), "%s", FileName);
 	TempPnt = strrchr(FileBase, '.');
 	if (TempPnt != NULL)
 	{
