@@ -80,7 +80,7 @@ int main(int argc, char* argv[])
 	}
 	else
 	{
-		strncpy(FileName, argv[argbase + 0], MAX_PATH-1);
+		snprintf(FileName, sizeof(FileName), "%s", argv[argbase + 0]);
 		printf("%s\n", FileName);
 	}
 	if (! strlen(FileName))
@@ -253,7 +253,7 @@ static bool OpenDROFile(const char* FileName)
 
 	fclose(hFile);
 
-	strncpy(FileBase, FileName, MAX_PATH-1);
+	snprintf(FileBase, sizeof(FileBase), "%s", FileName);
 	TempPnt = strrchr(FileBase, '.');
 	if (TempPnt != NULL)
 		*TempPnt = 0x00;
