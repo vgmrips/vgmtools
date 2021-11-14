@@ -106,7 +106,7 @@ int main(int argc, char* argv[])
 	}
 	else
 	{
-		strncpy(FileName, argv[argbase + 0],MAX_PATH-1);
+		snprintf(FileName, sizeof(FileName), "%s", argv[argbase + 0]);
 		fprintf(stderr, "%s\n", FileName);
 	}
 	if (! strlen(FileName))
@@ -120,7 +120,7 @@ int main(int argc, char* argv[])
 	}
 	else
 	{
-		strncpy(InputTxt, argv[argbase + 1],BUFFER_SIZE-1);
+		snprintf(InputTxt, sizeof(InputTxt), "%s", argv[argbase + 1]);
 		if (! SilentMode)
 			fprintf(stderr, "%s\n", InputTxt);
 	}
@@ -136,7 +136,7 @@ int main(int argc, char* argv[])
 	}
 	else
 	{
-		strncpy(InputTxt, argv[argbase + 2],BUFFER_SIZE-1);
+		snprintf(InputTxt, sizeof(InputTxt), "%s", argv[argbase + 2]);
 		if (! SilentMode)
 			fprintf(stderr, "%s\n", InputTxt);
 	}
@@ -152,7 +152,7 @@ int main(int argc, char* argv[])
 	}
 	else
 	{
-		strncpy(InputTxt, argv[argbase + 3],BUFFER_SIZE-1);
+		snprintf(InputTxt, sizeof(InputTxt), "%s", argv[argbase + 3]);
 		if (! SilentMode)
 			fprintf(stderr, "%s\n", InputTxt);
 	}
@@ -253,7 +253,7 @@ static bool OpenVGMFile(const char* FileName)
 
 	gzclose(hFile);
 
-	strncpy(FileBase, FileName, MAX_PATH-1);
+	snprintf(FileBase, sizeof(FileBase), "%s", FileName);
 	TempPnt = strrchr(FileBase, '.');
 	if (TempPnt != NULL)
 		*TempPnt = 0x00;
