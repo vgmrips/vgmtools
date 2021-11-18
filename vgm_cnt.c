@@ -38,7 +38,7 @@ UINT32 VGMDataLen;
 UINT8* VGMData;
 UINT32 VGMPos;
 UINT32 VGMSmplPos;
-CHIP_STATE ChipState[0x02][CHIP_COUNT];
+CHIP_STATE ChipState[0x02][2][CHIP_COUNT];
 
 int main(int argc, char* argv[])
 {
@@ -166,9 +166,14 @@ static void CountVGMData()
 {
 	const char* CHIP_STRS[CHIP_COUNT] =
 	{	"SN76496", "YM2413", "YM2612", "YM2151", "SegaPCM", "RF5C68", "YM2203", "YM2608",
-		"YM2610", "YM3812", "YM3526", "Y8950", "YMF262", "YMF278B", "YMF271", "YMZ280B",
+		"YM2610", "YM3812", "YM3526", "Y8950", "YMF262", "YMF278B PCM", "YMF271", "YMZ280B",
 		"RF5C164", "PWM", "AY8910", "GameBoy", "NES APU", "MultiPCM", "uPD7759", "OKIM6258",
 		"OKIM6295", "K051649", "K054539", "HuC6280", "C140", "K053260", "Pokey", "QSound"};
+	const char* SPCCHIP_STRS[CHIP_COUNT] =
+	{	"", "", "", "", "", "", "", "",
+		"", "", "", "", "", "YMF278B FM", "", "",
+		"", "", "", "", "FDS", "", "", "",
+		"", "", "", "", "", "", "", ""};
 
 	UINT8 Command;
 	UINT8 TempByt;
@@ -183,9 +188,9 @@ static void CountVGMData()
 	UINT8 CurChip;
 	const UINT8* VGMPnt;
 
-	memset(ChipState, 0x00, sizeof(CHIP_STATE) * 0x02 * CHIP_COUNT);
-	ChipState[0x00][0x18].ChnReg = 0xFF;
-	ChipState[0x01][0x18].ChnReg = 0xFF;
+	memset(ChipState, 0x00, sizeof(ChipState));
+	ChipState[0x00][0][0x18].ChnReg = 0xFF;
+	ChipState[0x01][0][0x18].ChnReg = 0xFF;
 	for (CurChip = 0x00; CurChip < CHIP_COUNT; CurChip ++)
 	{
 		switch(CurChip)
@@ -292,13 +297,28 @@ static void CountVGMData()
 		}
 		if (TempLng)
 		{
-			ChipState[0x00][CurChip].Used = true;
-			ChipState[0x01][CurChip].Used = (TempLng & 0x40000000) >> 30;
+			ChipState[0x00][0][CurChip].Used = true;
+			ChipState[0x01][0][CurChip].Used = (TempLng & 0x40000000) >> 30;
 		}
 		else
 		{
-			ChipState[0x00][CurChip].Used = false;
-			ChipState[0x01][CurChip].Used = false;
+			ChipState[0x00][0][CurChip].Used = false;
+			ChipState[0x01][0][CurChip].Used = false;
+		}
+		switch(CurChip)
+		{
+		case 0x14:	// NES APU - FDS
+			if (TempLng & 0x80000000)
+			{
+				ChipState[0x00][1][CurChip].Used = ChipState[0x00][0][CurChip].Used;
+				ChipState[0x01][1][CurChip].Used = ChipState[0x01][1][CurChip].Used;
+			}
+			else
+			{
+				ChipState[0x00][1][CurChip].Used = false;
+				ChipState[0x01][1][CurChip].Used = false;
+			}
+			break;
 		}
 		ChipCounters[CurChip] = TempLng;
 	}
@@ -804,17 +824,22 @@ static void CountVGMData()
 	{
 		for (CurChip = 0x00; CurChip < CHIP_COUNT; CurChip ++)
 		{
-			CHIP_STATE* TempChp = &ChipState[TempByt][CurChip];
-
-			if (TempChp->Used || TempChp->CmdCount)
+			UINT8 spcChip;
+			for (spcChip = 0; spcChip < 2; spcChip ++)
 			{
-				printf("%s #%u: ", CHIP_STRS[CurChip], TempByt);
-				if (! TempChp->Used)
-					printf("!! Clock is Zero !!, ");
-				print_wordnum("Command", TempChp->CmdCount);
-				printf(", ");
-				print_wordnum("Note", TempChp->KeyOnCnt);
-				printf("\n");
+				CHIP_STATE* TempChp = &ChipState[TempByt][spcChip][CurChip];
+
+				if (TempChp->Used || TempChp->CmdCount)
+				{
+					const char* ChipName = spcChip ? SPCCHIP_STRS[CurChip] : CHIP_STRS[CurChip];
+					printf("%s #%u: ", ChipName, TempByt);
+					if (! TempChp->Used)
+						printf("!! Clock is Zero !!, ");
+					print_wordnum("Command", TempChp->CmdCount);
+					printf(", ");
+					print_wordnum("Note", TempChp->KeyOnCnt);
+					printf("\n");
+				}
 			}
 		}
 	}
@@ -836,7 +861,7 @@ static void print_wordnum(const char* Word, INT32 Number)
 
 static void DoChipCommand(UINT8 ChipSet, UINT8 ChipID, UINT16 Reg, UINT16 Data)
 {
-	CHIP_STATE* TempChp = &ChipState[ChipSet][ChipID];
+	CHIP_STATE* TempChp = &ChipState[ChipSet][0][ChipID];
 	UINT8 CurChn;
 
 	TempChp->CmdCount ++;
@@ -955,6 +980,17 @@ static void DoChipCommand(UINT8 ChipSet, UINT8 ChipID, UINT16 Reg, UINT16 Data)
 		}
 		else
 		{
+			TempChp->CmdCount --;
+			TempChp = &ChipState[ChipSet][1][ChipID];
+			TempChp->CmdCount ++;
+			Reg &= 0xFF;
+			if (Reg >= 0x08 && Reg <= 0xF7)
+			{
+				UINT8 slotReg = (Reg - 8) / 24;
+				UINT8 Chn = (Reg - 8) % 24;
+				if (slotReg == 4)
+					DoKeyOnOff(TempChp, Chn, Data & 0x80, 0x00);
+			}
 		}
 		break;
 	case 0x0E:	// YMF271
@@ -1011,6 +1047,13 @@ static void DoChipCommand(UINT8 ChipSet, UINT8 ChipID, UINT16 Reg, UINT16 Data)
 		{
 			for (CurChn = 0x00; CurChn < 0x05; CurChn ++)
 				DoKeyOnOff(TempChp, CurChn, Data & (1 << CurChn), 0x00);
+		}
+		else if (Reg == 0x23)
+		{
+			TempChp->CmdCount --;
+			TempChp = &ChipState[ChipSet][1][ChipID];
+			TempChp->CmdCount ++;
+			DoKeyOnOff(TempChp, 0x00, ! (Data & 0x80), 0x00);
 		}
 		break;
 	case 0x15:	// MultiPCM
