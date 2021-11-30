@@ -310,6 +310,7 @@ static void CompressVGMData(void)
 	//DstPos = VGMHead.lngDataOffset;
 	VGMSmplPos = 0;
 	//memcpy(DstData, VGMData, VGMPos);	// Copy Header
+	LoopPosN = 0x00;
 
 	StopVGM = false;
 	SkipCmdCopy = false;

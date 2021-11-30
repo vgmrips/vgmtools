@@ -3030,14 +3030,14 @@ void pokey_write(char* TempStr, UINT8 Register, UINT8 Data)
 	case AUDF2_C:
 	case AUDF3_C:
 	case AUDF4_C:
-		sprintf(WriteStr, "Channel %u Frequency: 0x%02X", (Register & 0x06) >> 2, Data);
+		sprintf(WriteStr, "Channel %u Frequency: 0x%02X", (Register & 0x06) >> 1, Data);
 		break;
 	case AUDC1_C:
 	case AUDC2_C:
 	case AUDC3_C:
 	case AUDC4_C:
 		sprintf(WriteStr, "Channel %u Poly5: %s, Poly%u, Pure Tone: %s, "
-				"VolOutOnly: %s, Volume: 0x%01X = %u%%", (Register & 0x06) >> 2,
+				"VolOutOnly: %s, Volume: 0x%01X = %u%%", (Register & 0x06) >> 1,
 				OnOff(~Data & 0x80), (Data & 0x40) ? 4 : 17, OnOff(Data & 0x20),
 				OnOff(Data & 0x10), Data & 0x0F, 100 * (Data & 0x0F) / 0x0F);
 		break;
