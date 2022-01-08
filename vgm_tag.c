@@ -476,8 +476,8 @@ static UINT32 WriteWStrToFile(const FGZ_PTR hFile, const wchar_t* WString)
 
 static void Copy2TagStr(wchar_t** TagStr, const char* DataStr)
 {
-	UINT32 ChrLen;
-	UINT32 DataLen;
+	int ChrLen;
+	size_t DataLen;
 	const char* SrcStr;
 	wchar_t* DstStr;
 	const char* ChrStr;
@@ -502,7 +502,7 @@ static void Copy2TagStr(wchar_t** TagStr, const char* DataStr)
 			switch(*SrcStr)
 			{
 			case 'n':
-				*DstStr = (wchar_t)'\n';
+				*DstStr = L'\n';
 				SrcStr ++;
 				DstStr ++;
 				DataLen ++;
@@ -545,6 +545,11 @@ static void Copy2TagStr(wchar_t** TagStr, const char* DataStr)
 			}
 		}
 		ChrLen = mbtowc(DstStr, SrcStr, MB_LEN_MAX);
+		if (ChrLen < 0)
+		{
+			*DstStr = L'?';
+			ChrLen = 1;
+		}
 		SrcStr += ChrLen;
 		DstStr ++;
 		DataLen ++;
@@ -560,8 +565,8 @@ static void CopySys2TagStr(wchar_t** TagStr, const SYSTEM_SHORT* System, bool Mo
 	const char* DataStr;
 	const char* CmdPos;
 	const char* CmdPos2;
-	UINT32 ChrLen;
-	UINT32 DataLen;
+	int ChrLen;
+	size_t DataLen;
 	const char* SrcStr;
 	wchar_t* DstStr;
 	const char* ChrStr;
@@ -631,6 +636,11 @@ static void CopySys2TagStr(wchar_t** TagStr, const SYSTEM_SHORT* System, bool Mo
 			{
 				ChrStr = CmdStr + (CmdPos2 - System->Abbr);
 				ChrLen = mbtowc(DstStr, ChrStr, MB_LEN_MAX);
+				if (ChrLen < 0)
+				{
+					*DstStr = L'?';
+					ChrLen = 1;
+				}
 				SrcStr += ChrLen;
 				DstStr ++;
 				DataLen ++;
@@ -680,6 +690,11 @@ static void CopySys2TagStr(wchar_t** TagStr, const SYSTEM_SHORT* System, bool Mo
 			continue;
 		}
 		ChrLen = mbtowc(DstStr, SrcStr, MB_LEN_MAX);
+		if (ChrLen < 0)
+		{
+			*DstStr = L'?';
+			ChrLen = 1;
+		}
 		SrcStr += ChrLen;
 		DstStr ++;
 		DataLen ++;
