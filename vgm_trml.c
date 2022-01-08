@@ -3609,8 +3609,8 @@ static void ShowPlayingNotes(const char* ChipStr, UINT16 ChnCount, UINT32 ChnMas
 		return;
 	ChnPtr[-2] = '\0';	// strip last ", "
 
-	printf("%s: %u channel%s %splaying (%s)\n", ChipStr, PlayChnCnt, unsafe ? "possibly " : "",
-			(PlayChnCnt != 1) ? "s" : "", Buffer);
+	printf("%s: %u channel%s %splaying (%s)\n", ChipStr, PlayChnCnt, (PlayChnCnt != 1) ? "s" : "",
+			unsafe ? "possibly " : "", Buffer);
 
 	return;
 }

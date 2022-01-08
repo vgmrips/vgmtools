@@ -6,6 +6,7 @@
 #include <string.h>
 #include <ctype.h>	// for toupper()
 #include <wctype.h>
+#include <locale.h>
 #include <wchar.h>
 #include <limits.h>	// for MB_LEN_MAX
 #include <zlib.h>
@@ -121,6 +122,8 @@ int main(int argc, char* argv[])
 	bool FileCompr;
 	int ErrVal;
 	UINT8 RetVal;
+
+	setlocale(LC_ALL, "");	// enable UTF-8 support on Linux
 
 	printf("VGM Tagger\n----------\n\n");
 
