@@ -827,6 +827,10 @@ static void SetImportantCommands(void)
 					TempReg->RegMask[CurReg] |= 0x80;
 				break;
 			case 0x1D:	// K053260
+				// communication registers
+				for (CurReg = 0x00; CurReg < 0x08; CurReg ++)
+					TempReg->RegMask[CurReg] |= 0x80;
+				TempReg->RegMask[0x2F] |= 0x80;	// control register (sound enable)
 				break;
 			case 0x1E:	// Pokey
 				break;
@@ -1561,7 +1565,17 @@ static void InitializeVGM(UINT8** DstDataRef, UINT32* DstPosRef)
 				break;
 			case 0x1D:	// K053260
 				ChipCmd = 0xBA;
-				CmdType = 0xFF;
+				CmdType = 0x12;
+
+				CurReg = 0x2F;	// write Control Reg first
+				if (TempReg->RegMask[CurReg] & 0x01)
+				{
+					DstData[DstPos + 0x00] = ChipCmd;
+					DstData[DstPos + 0x01] = (CurCSet << 7) | CurReg;
+					DstData[DstPos + 0x02] = TempReg->RegData.R08[CurReg];
+					DstPos += 0x03;
+					TempReg->RegMask[CurReg] = 0x00;
+				}
 				break;
 			case 0x1E:	// Pokey
 				ChipCmd = 0xBB;
