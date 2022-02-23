@@ -528,6 +528,12 @@ static void SplitVGMData(const UINT32 SplitDelay)
 				}
 				CmdLen = 0x04;
 				break;
+			case 0xD3:	// K054539 write
+				TempSht = ((VGMData[VGMPos + 0x01] & 0x7F) << 8) | VGMData[VGMPos + 0x02];
+				if (TempSht < 0x200 && (TempSht & 0x1F) == 0x04)
+					IgnoreCmd = true;
+				CmdLen = 0x04;
+				break;
 			case 0xB8:	// OKIM6295 write
 				if (HEXION_SPLIT)
 				{
