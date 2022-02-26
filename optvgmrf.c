@@ -336,7 +336,7 @@ static void MergePCMData(void)
 	UINT32 BlkFound;
 	UINT8 BlkType;
 
-	DstData = (UINT8*)malloc(VGMDataLen + 0x100);
+	DstData = (UINT8*)malloc(VGMDataLen + 0x10000);	// some additional buffer for split data blocks
 	VGMPos = VGMHead.lngDataOffset;
 	DstPos = VGMHead.lngDataOffset;
 	VGMSmplPos = 0;
@@ -846,6 +846,10 @@ static UINT32 ReadConsecutiveMemWrites(UINT8 RFMode)
 					(Command == 0xB1 && RFMode != RF5C164_MODE))
 					break;
 
+				// end block as soon as another RF register write occours
+				// In theory one could make larger blocks, but that may be unsafe and cause
+				// race conditions with rewritten Sample Start/Loop registers.
+				StopVGM = true;
 				if (VGMData[TmpPos + 0x01] == 0x07 && ! (VGMData[TmpPos + 0x02] & 0x40))
 				{
 					// Bank Select
@@ -875,6 +879,16 @@ static UINT32 ReadConsecutiveMemWrites(UINT8 RFMode)
 				DataLen ++;
 				//if (! (PCMPos & 0xFFF))
 				//	StopVGM = true;
+				break;
+			case 0xC5:	// SCSP write
+				CmdLen = 0x04;
+				if (RFMode != SCSP_MODE)
+					break;
+
+				// not breaking on SCSP register seems to actually work slightly better
+				// TODO: Improve sample block search algorithm so that partial matches can be found,
+				//       which should make it work better with StopVGM=true here.
+				//StopVGM = true;
 				break;
 			case 0x55:	// YM2203
 				CmdLen = 0x03;
