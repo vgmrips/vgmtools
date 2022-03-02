@@ -13,17 +13,20 @@ find_package(ZLIB REQUIRED)
 add_executable(dro2vgm
     dro2vgm.c
 )
+install(TARGETS dro2vgm RUNTIME DESTINATION "bin")
 
 
 add_executable(imf2vgm
     imf2vgm.c
 )
+install(TARGETS imf2vgm RUNTIME DESTINATION "bin")
 
 
 add_executable(opl_23
     opl_23.c
 )
 target_link_libraries(opl_23 ${ZLIB_LIBRARIES})
+install(TARGETS opl_23 RUNTIME DESTINATION "bin")
 
 
 add_executable(optvgm
@@ -31,17 +34,20 @@ add_executable(optvgm
     pcm_optimizer.cpp
 )
 target_link_libraries(optvgm ${ZLIB_LIBRARIES})
+install(TARGETS optvgm RUNTIME DESTINATION "bin")
 
 
 add_executable(optvgmrf
     optvgmrf.c
 )
 target_link_libraries(optvgmrf ${ZLIB_LIBRARIES})
+install(TARGETS optvgmrf RUNTIME DESTINATION "bin")
 
 
 add_executable(raw2vgm
     raw2vgm.c
 )
+install(TARGETS raw2vgm RUNTIME DESTINATION "bin")
 
 
 add_executable(vgm2txt
@@ -52,6 +58,7 @@ target_link_libraries(vgm2txt ${ZLIB_LIBRARIES})
 if(NOT MSVC)
     target_link_libraries(vgm2txt -lm)
 endif()
+install(TARGETS vgm2txt RUNTIME DESTINATION "bin")
 
 
 add_executable(vgm_cmp
@@ -59,6 +66,7 @@ add_executable(vgm_cmp
     chip_cmp.c
 )
 target_link_libraries(vgm_cmp ${ZLIB_LIBRARIES})
+install(TARGETS vgm_cmp RUNTIME DESTINATION "bin")
 
 
 add_executable(vgm_cnt
@@ -68,36 +76,42 @@ target_link_libraries(vgm_cnt ${ZLIB_LIBRARIES})
 if(NOT MSVC)
     target_link_libraries(vgm_cnt -lm)
 endif()
+install(TARGETS vgm_cnt RUNTIME DESTINATION "bin")
 
 
 add_executable(vgm_dbc
     vgm_dbc.c
 )
 target_link_libraries(vgm_dbc ${ZLIB_LIBRARIES})
+install(TARGETS vgm_dbc RUNTIME DESTINATION "bin")
 
 
 add_executable(vgm_dso
     vgm_dso.c
 )
 target_link_libraries(vgm_dso ${ZLIB_LIBRARIES})
+install(TARGETS vgm_dso RUNTIME DESTINATION "bin")
 
 
 add_executable(vgm_facc
     vgm_facc.c
 )
 target_link_libraries(vgm_facc ${ZLIB_LIBRARIES})
+install(TARGETS vgm_facc RUNTIME DESTINATION "bin")
 
 
 add_executable(vgm_mono
     vgm_mono.c
 )
 target_link_libraries(vgm_mono ${ZLIB_LIBRARIES})
+install(TARGETS vgm_mono RUNTIME DESTINATION "bin")
 
 
 add_executable(vgm_ndlz
     vgm_ndlz.c
 )
 target_link_libraries(vgm_ndlz ${ZLIB_LIBRARIES})
+install(TARGETS vgm_ndlz RUNTIME DESTINATION "bin")
 
 
 add_executable(vgm_ptch
@@ -108,12 +122,14 @@ target_link_libraries(vgm_ptch ${ZLIB_LIBRARIES})
 if(NOT MSVC)
     target_link_libraries(vgm_ptch -lm)
 endif()
+install(TARGETS vgm_ptch RUNTIME DESTINATION "bin")
 
 
 add_executable(vgm_smp1
     vgm_smp1.c
 )
 target_link_libraries(vgm_smp1 ${ZLIB_LIBRARIES})
+install(TARGETS vgm_smp1 RUNTIME DESTINATION "bin")
 
 
 add_executable(vgm_sptd
@@ -121,6 +137,7 @@ add_executable(vgm_sptd
     vgm_trml.c
 )
 target_link_libraries(vgm_sptd ${ZLIB_LIBRARIES})
+install(TARGETS vgm_sptd RUNTIME DESTINATION "bin")
 
 
 add_executable(vgm_spts
@@ -128,6 +145,7 @@ add_executable(vgm_spts
     vgm_trml.c
 )
 target_link_libraries(vgm_spts ${ZLIB_LIBRARIES})
+install(TARGETS vgm_spts RUNTIME DESTINATION "bin")
 
 
 add_executable(vgm_sro
@@ -135,18 +153,21 @@ add_executable(vgm_sro
     chip_srom.c
 )
 target_link_libraries(vgm_sro ${ZLIB_LIBRARIES})
+install(TARGETS vgm_sro RUNTIME DESTINATION "bin")
 
 
 add_executable(vgm_stat
     vgm_stat.c
 )
 target_link_libraries(vgm_stat ${ZLIB_LIBRARIES})
+install(TARGETS vgm_stat RUNTIME DESTINATION "bin")
 
 
 add_executable(vgm_tag
     vgm_tag.c
 )
 target_link_libraries(vgm_tag ${ZLIB_LIBRARIES})
+install(TARGETS vgm_tag RUNTIME DESTINATION "bin")
 
 
 add_executable(vgm_trim
@@ -154,12 +175,14 @@ add_executable(vgm_trim
     vgm_trml.c
 )
 target_link_libraries(vgm_trim ${ZLIB_LIBRARIES})
+install(TARGETS vgm_trim RUNTIME DESTINATION "bin")
 
 
 add_executable(vgm_tt
     vgm_tt.cpp
 )
 target_link_libraries(vgm_tt ${ZLIB_LIBRARIES})
+install(TARGETS vgm_tt RUNTIME DESTINATION "bin")
 
 
 add_executable(vgm_vol
@@ -168,18 +191,21 @@ add_executable(vgm_vol
 if(NOT MSVC)
     target_link_libraries(vgm_vol -lm)
 endif()
+install(TARGETS vgm_vol RUNTIME DESTINATION "bin")
 
 
 add_executable(vgmlpfnd
     vgmlpfnd.c
 )
 target_link_libraries(vgmlpfnd ${ZLIB_LIBRARIES})
+install(TARGETS vgmlpfnd RUNTIME DESTINATION "bin")
 
 
 add_executable(vgmmerge
     vgmmerge.c
 )
 target_link_libraries(vgmmerge ${ZLIB_LIBRARIES})
+install(TARGETS vgmmerge RUNTIME DESTINATION "bin")
 
 
 # extra tools not compiled by default, because they are
@@ -188,16 +214,19 @@ add_executable(opt_oki EXCLUDE_FROM_ALL
     opt_oki.c
 )
 target_link_libraries(opt_oki ${ZLIB_LIBRARIES})
+install(TARGETS opt_oki RUNTIME DESTINATION "bin" OPTIONAL)
 
 
 add_executable(optdac EXCLUDE_FROM_ALL
     optdac.c
 )
 target_link_libraries(optdac ${ZLIB_LIBRARIES})
+install(TARGETS optdac RUNTIME DESTINATION "bin" OPTIONAL)
 
 
 add_executable(optvgm32 EXCLUDE_FROM_ALL
     optvgm32.c
 )
 target_link_libraries(optvgm32 ${ZLIB_LIBRARIES})
+install(TARGETS optvgm32 RUNTIME DESTINATION "bin" OPTIONAL)
 
