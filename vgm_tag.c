@@ -149,6 +149,8 @@ int main(int argc, char* argv[])
 		printf("\t-ShowTag    Shows the GD3 (HTML NCRs are used to display Unicode-Chars\n");
 		printf("\t-ShowTagU   like above, but tries to print real Unicode-Chars\n");
 		printf("\t-ShowTag8   like above, but UTF-8 is used to print Unicode-Chars\n");
+		printf("\t-TitleCase  applies title case to the EN title tag and puts\n");
+		printf("\t            the original case in the JP title tag\n");
 		printf("\n");
 
 		printf("Tagging Commands:\n");
@@ -167,6 +169,7 @@ int main(int argc, char* argv[])
 		printf("\t-Notes      Notes and Comments (replace)\n");
 		printf("\t-NotesB     Notes and Comments (insert at beginning)\n");
 		printf("\t-NotesE     Notes and Comments (append to end)\n");
+		printf("\t-NotesStripAt  Notes tag: strip parameter + rest\n");
 		printf("\n");
 
 		printf("*If the system's short name is given,");
@@ -852,6 +855,73 @@ static UINT8 TagVGM(const int ArgCount, char* ArgList[])
 				RetVal = 0x00;
 			}
 			printf("\n");
+			continue;
+		}
+		else if (! stricmp(CmdStr, "TitleCase"))
+		{
+			wchar_t* tag;
+			int prevCType;
+			printf("Applying Title Case: Title");
+
+			if (VGMTag.strTrackNameJ != NULL && wcslen(VGMTag.strTrackNameJ) > 0)
+			{
+				printf("Not backing up TitleE tag to TitleJ due to TitleJ being set!\n");
+			}
+			else
+			{
+				wchar_t* str = VGMTag.strTrackNameJ;
+				VGMTag.strTrackNameJ = VGMTag.strTrackNameE;
+				VGMTag.strTrackNameE = (wchar_t*)realloc(str, (wcslen(VGMTag.strTrackNameJ) + 0x01) * sizeof(wchar_t));
+				wcscpy(VGMTag.strTrackNameE, VGMTag.strTrackNameJ);
+			}
+
+			tag = VGMTag.strTrackNameE;
+			StrLen = wcslen(tag);
+			prevCType = 0;
+			for (TempLng = 0; TempLng < StrLen; TempLng ++)
+			{
+				if (tag[TempLng] == L'(') break;
+				if (iswalnum(tag[TempLng]))
+				{
+					if (prevCType == 0)
+						tag[TempLng] = toupper(tag[TempLng]);
+					else if (prevCType == 1)
+						tag[TempLng] = towlower(tag[TempLng]);
+					prevCType = iswalpha(tag[TempLng]) ? 1 : 2;	// 1 - letter, 2 - number
+				}
+				else
+				{
+					prevCType = 0;	// 0 = punctuation
+				}
+			}
+
+			RetVal = 0x00;
+			printf("\n");
+			continue;
+		}
+		else if (! stricmp(CmdStr, "NotesStripAt"))
+		{
+			if (VGMTag.strNotes == NULL)
+				continue;
+
+			// convert parameter to UTF-16
+			NoteStr = NULL;
+			Copy2TagStr(&NoteStr, CmdData);
+
+			// search for parameter in Notes tag
+			TempStr = (VGMTag.strNotes != NULL) ? wcsstr(VGMTag.strNotes, NoteStr) : NULL;
+			if (TempStr == NULL)
+			{
+				printf("Notes Strip: \"%s\" not found.\n", CmdData);
+				continue;
+			}
+
+			// found parameter - now go back to trim off additional whitespace
+			while(TempStr > VGMTag.strNotes && iswspace(TempStr[-1]))
+				TempStr --;
+			*TempStr = '\0';	// set '\0' to terminate the string here
+			printf("Notes Strip: \"%s\" removed.\n", CmdData);
+			RetVal = 0x00;
 			continue;
 		}
 
