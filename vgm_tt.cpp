@@ -200,21 +200,21 @@ int main(int argc, char* argv[])
 static bool IsDirectory(const std::string& dirName)
 {
 #ifdef _WIN32
-   struct _stat fInfo;
-   int result = _stat(dirName.c_str(), &fInfo);
-   if (result)
-	   return false;
-   if (fInfo.st_mode & _S_IFDIR)
-	   return true;
+	struct _stat fInfo;
+	int result = _stat(dirName.c_str(), &fInfo);
+	if (result)
+		return false;
+	if (fInfo.st_mode & _S_IFDIR)
+		return true;
 #else
-   struct stat fInfo;
-   int result = stat(dirName.c_str(), &fInfo);
-   if (result)
-	   return false;
-   if (S_ISDIR(fInfo.st_mode))
-	   return true;
+	struct stat fInfo;
+	int result = stat(dirName.c_str(), &fInfo);
+	if (result)
+		return false;
+	if (S_ISDIR(fInfo.st_mode))
+		return true;
 #endif
-   return false;
+	return false;
 }
 
 static std::string Dir2Path(const std::string& dirName)

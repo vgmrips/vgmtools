@@ -4,6 +4,8 @@
 #
 ########################
 
+# WARNING: Heavily outdated. Please use the CMake project instead.
+
 # TODO:
 #	- link dro2vgm/imf2vgm/raw2vgm/vgm_vol without -lz
 #	- link -lm only to vgm_cnt, vgm_ptch, vgm_vol, vgm2txt

@@ -18,6 +18,7 @@ by Valley Bell (@valleybell)
 [vgm_mono - VGM Mono](#vgm-mono-vgm_mono)  
 [vgm_ndlz - VGM Undualizer](#vgm-undualizer-vgm_ndlz)  
 [vgm_ptch - VGM Patcher](#vgm-patcher-vgm_ptch)  
+[vgm_ren.c - VGM Renamer](#vgm-renamer-vgm_ren)  
 [vgm_smp1 - Remove 1 Sample Delays](#remove-1-sample-delays-vgm_smp1)  
 [vgm_sptd - VGM Splitter (Delay Edition)](#vgm-splitter-delay-edition-vgm_sptd)  
 [vgm_spts - VGM Splitter (Sample Edition)](#vgm-splitter-sample-edition-vgm_spts)  
@@ -233,6 +234,13 @@ TODO: better description
 general VGM patching utility, allows editing the VGM header (chip clocks/chip settings), checking/fixing VGMs and stripping chips/channels.
 
 TODO: better description
+
+
+### VGM Renamer (vgm_ren)
+
+This tool renames a VGM so that its file name follows the VGM's title tag.
+
+When a playlist is given, track numbers are added and the playlist is rewritten with the new file names.
 
 
 ### Remove 1 Sample Delays (vgm_smp1)
