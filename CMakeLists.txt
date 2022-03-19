@@ -128,8 +128,8 @@ install(TARGETS vgm_ptch RUNTIME DESTINATION "bin")
 add_executable(vgm_ren
     vgm_ren.c
 )
-target_link_libraries(vgm_ptch ${ZLIB_LIBRARIES})
-install(TARGETS vgm_ptch RUNTIME DESTINATION "bin")
+target_link_libraries(vgm_ren ${ZLIB_LIBRARIES})
+install(TARGETS vgm_ren RUNTIME DESTINATION "bin")
 
 
 add_executable(vgm_smp1
