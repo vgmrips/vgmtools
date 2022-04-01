@@ -221,60 +221,37 @@ bool ym2612_write(UINT8 Port, UINT8 Register, UINT8 Data)
 {
 	YM2612_DATA* chip;
 	STRIP_OPN* strip = &StpDat->YM2612;
-	UINT16 RegVal;
-	UINT8 Channel;
+	UINT8 CurChn;
 
 	if (strip->All)
 		return false;
-	return true;
-	chip = &ChDat->YM2612;
-	RegVal = (Port << 8) | Register;
-	switch(RegVal)
+
+	switch(Register)
 	{
-	case 0x24:	// Timer Registers
-	case 0x25:
-	case 0x26:
-		return false;
-	// no OPN Prescaler Registers for YM2612
-	case 0x28:
-		Channel = Data & 0x07;
-
-		if (! chip->KeyFirst[Channel] && Data == chip->KeyOn[Channel])
-			return false;
-
-		chip->KeyFirst[Channel] = 0x00;
-		chip->KeyOn[Channel] = Data;
-		break;
-	case 0x2A:
-		return true;	// I leave this on for later optimizations
-	case 0x27:
-		Data &= 0xC0;	// mask out all timer-relevant bits
-		// fall through
-	default:
-		// no SSG emulator for YM2612
-		switch(RegVal & 0xF4)
-		{
-		case 0xA0:	// A0-A3 and A8-AB
-			return true;	// Rewrite is neccessary: Phase Increment is recalculated
-		case 0xA4:	// A4-A7 and AC-AF - Frequence Latch
-			return true;
-			// For some reason (I really can't say why) the code below doesn't work properly
-			/*if ((RegVal & 0x03) == 0x03)
-				break;
-			if ((RegVal & 0x100) && (RegVal & 0x08))
-				break;
-			RegVal &= 0x0FC;	// Registers A4-A6 (AC-AE for Ch3) write to the same offset
-			break;*/
+	case 0x28: // Key on/off
+		CurChn = Data & 0x07;
+		if (CurChn >= 4) {
+			CurChn--;
 		}
-
-		if (! chip->RegFirst[RegVal] && Data == chip->RegData[RegVal])
-			return false;
-
-		chip->RegFirst[RegVal] = 0x00;
-		chip->RegData[RegVal] = Data;
-		break;
+		return !(strip->ChnMask & (0x01 << CurChn));
+	case 0x2A: // DAC data
+		return !(strip->ChnMask & (0x01 << 6));
+	case 0x2B: // DAC enable
+		return true;
 	}
-	return true;
+
+	if (Register < 0x30)
+		return true;
+
+	if (Register >= 0xA8 && Register < 0xB0)
+		CurChn = 3;
+	else
+		CurChn = Register & 0x03;
+
+	if (Port)
+		CurChn += 3;
+
+	return !(strip->ChnMask & (0x01 << CurChn));
 }
 
 bool ym2151_write(UINT8 Register, UINT8 Data)

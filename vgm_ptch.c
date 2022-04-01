@@ -177,7 +177,7 @@ int main(int argc, char* argv[])
 		printf("    --------       --------\n");
 		printf("    PSG/SN76496    0..3, Stereo\n");
 		printf("    YM2413        *0..8, BD, SD, TT, TC, HH\n");
-		printf("    YM2612        *0..5, DAC\n");
+		printf("    YM2612         0..5, DAC\n");
 		printf("    YM2151        *0..7\n");
 		printf("    RF5C68         0..7, Mem\n");
 		printf("    YM2203        *0..2, S0..S2\n");
