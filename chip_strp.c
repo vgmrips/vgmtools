@@ -192,7 +192,7 @@ bool sn76496_write(UINT8 Command)
 
 	if (Command & 0x80)
 	{
-		Channel = (Command & 0x60) >> 1;
+		Channel = (Command & 0x60) >> 5;
 		chip->LastChn = Channel;
 	}
 	else
