@@ -233,11 +233,15 @@ bool ym2612_write(UINT8 Port, UINT8 Register, UINT8 Data)
 		if (CurChn >= 4) {
 			CurChn--;
 		}
-		return !(strip->ChnMask & (0x01 << CurChn));
+		return !(strip->ChnMask & (1 << CurChn));
 	case 0x2A: // DAC data
-		return !(strip->ChnMask & (0x01 << 6));
+		return !(strip->ChnMask & (1 << 6));
 	case 0x2B: // DAC enable
-		return true;
+		return !(strip->ChnMask & (1 << 6)) || !(strip->ChnMask & (1 << 5));
+	case 0xB6: // Includes stereo control which may also affect DAC
+		if (Port && strip->ChnMask & (1 << 6))
+			return true;
+		break;
 	}
 
 	if (Register < 0x30)
@@ -251,7 +255,7 @@ bool ym2612_write(UINT8 Port, UINT8 Register, UINT8 Data)
 	if (Port)
 		CurChn += 3;
 
-	return !(strip->ChnMask & (0x01 << CurChn));
+	return !(strip->ChnMask & (1 << CurChn));
 }
 
 bool ym2151_write(UINT8 Register, UINT8 Data)
