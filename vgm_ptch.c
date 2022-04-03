@@ -885,6 +885,10 @@ static UINT8 ParseStripCommand(const char* StripCmd)
 						{
 							StripVGM[CurCSet].SN76496.Other |= 0x01;
 						}
+						else if (CurChip == 0x02 && ! stricmp(ChipPos, "DAC"))
+						{
+							TempChip->ChnMask |= (1 << 6);
+						}
 						else if (CurChip == 0x05 && ! stricmp(ChipPos, "Mem"))
 						{
 							StripVGM[CurCSet].RF5C68.Other |= 0x01;
