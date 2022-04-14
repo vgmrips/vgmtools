@@ -177,6 +177,16 @@ target_link_libraries(vgm_tag ${ZLIB_LIBRARIES})
 install(TARGETS vgm_tag RUNTIME DESTINATION "bin")
 
 
+add_executable(vgm_tmpo
+    vgm_tmpo.c
+)
+target_link_libraries(vgm_tmpo ${ZLIB_LIBRARIES})
+if(NOT MSVC)
+    target_link_libraries(vgm_tmpo -lm)
+endif()
+install(TARGETS vgm_tmpo RUNTIME DESTINATION "bin")
+
+
 add_executable(vgm_trim
     vgm_trim.c
     vgm_trml.c
