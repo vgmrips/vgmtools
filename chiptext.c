@@ -207,6 +207,8 @@ static const float OPX_PCM_DBVol[0x10] =
 
 static const char* ES5503_MODES[0x04] = {"Free-Run", "One-Shot", "Sync", "Swap"};
 
+static const char* K054539_SAMPLE_MODES[0x04] = {"8-bit PCM", "16-bit PCM", "4-bit DPCM", "unknown"};
+
 typedef struct ymf278b_chip
 {
 	UINT8 smplH[24];	// high bit of the sample ID
@@ -3916,5 +3918,127 @@ void es5506_w16(char* TempStr, UINT8 offset, UINT16 data)
 	{
 		sprintf(RedirectStr, "Set Voice %u Bank: 0x%06X", offset & 0x1F, data << 20);
 	}
+	return;
+}
+
+void k054539_write(char* TempStr, UINT16 Register, UINT8 Data)
+{
+	UINT8 CurChn;
+	UINT8 CurReg;
+	UINT32 StrPos;
+	UINT8 ChnEn;
+
+	WriteChipID(0x1A);
+
+	if (Register < 0x100)
+	{
+		CurChn = (Register & 0xE0) >> 5;
+		CurReg = (Register & 0x1F) >> 0;
+		switch(CurReg)
+		{
+		case 0x00:	// pitch low
+		case 0x01:	// pitch mid
+		case 0x02:	// pitch high
+			sprintf(RedirectStr, "Set Freq. Step %s: 0x%02X", ADDR_3S_STR[CurReg - 0x00], Data);
+			break;
+		case 0x03: // volume
+			sprintf(RedirectStr, "Set Volume: 0x%02X = %u%%",
+					Data, GetLogVolPercent(Data, 11, 0xFF));	// 0x10 = -9 db
+			break;
+		case 0x04: // reverb volume
+			sprintf(RedirectStr, "Set Reverb Volume: 0x%02X = %u%%",
+					Data, GetLogVolPercent(Data, 11, 0xFF));	// 0x10 = -9 db
+			break;
+		case 0x05:	// pan
+			sprintf(RedirectStr, "Set Pan: 0x%02X", Data);
+			break;
+		case 0x06:	// reverb delay low
+		case 0x07:	// reverb delay high
+			sprintf(RedirectStr, "Set Reverb Delay %s: 0x%01X", ADDR_2S_STR[CurReg - 0x06], Data);
+			break;
+		case 0x08:	// loop offset low
+		case 0x09:	// loop offset mid
+		case 0x0A:	// loop offset high
+			sprintf(RedirectStr, "Set Loop Offset %s: 0x%02X", ADDR_3S_STR[CurReg - 0x08], Data);
+			break;
+		case 0x0C:	// start offset low
+		case 0x0D:	// start offset mid
+		case 0x0E:	// start offset high
+			sprintf(RedirectStr, "Set Start Offset %s: 0x%02X", ADDR_3S_STR[CurReg - 0x0C], Data);
+			break;
+		default:
+			sprintf(WriteStr, "Register %02X: 0x%02X", Register, Data);
+			break;
+		}
+
+		sprintf(WriteStr, "Ch %u: %s", CurChn, RedirectStr);
+	}
+	else if (Register >= 0x200 && Register < 0x210)
+	{
+		CurChn = (Register & 0x0E) >> 1;
+		CurReg = (Register & 0x01) >> 0;
+		switch(CurReg)
+		{
+		case 0:
+			sprintf(RedirectStr, "Direction: %s, Sample Mode: %s",
+				(Data & 0x20) ? "Backwards" : "Forwards",
+				K054539_SAMPLE_MODES[(Data & 0x0C) >> 2], Data);
+			break;
+		case 1:
+			sprintf(RedirectStr, "Loop %s", OnOff(Data & 0x01));
+			break;
+		}
+
+		sprintf(WriteStr, "Ch %u: %s", CurChn, RedirectStr);
+	}
+	else
+	{
+		switch(Register)
+		{
+		case 0x214:	// key on
+		case 0x215:	// key off
+			sprintf(WriteStr, "Key %s: ", OnOff(~Register & 0x01));
+			StrPos = strlen(WriteStr);
+			for (CurChn = 0x00; CurChn < 0x04; CurChn ++)
+			{
+				ChnEn = Data & (1 << CurChn);
+				WriteStr[StrPos] = ChnEn ? ('0' + CurChn) : '-';
+				StrPos ++;
+			}
+			WriteStr[StrPos] = 0x00;
+			break;
+		case 0x227:	// timer
+			sprintf(WriteStr, "Timer: %02X", Data);
+			break;
+		case 0x22C:	// channel enable
+			sprintf(WriteStr, "Channel Enable [read only]: %02X", Data);
+			break;
+		case 0x22D:	// data read/write
+			sprintf(WriteStr, "RAM Write: 0x%02X", Data);
+			break;
+		case 0x22E:	// ROM/RAM select
+			sprintf(WriteStr, "Select %s Bank: 0x%06X",
+				(Data & 0x80) ? "RAM" : "ROM", (Data & 0x7F) * 0x20000);
+			break;
+		case 0x22F:	// global control
+			//        7.543.10
+			//        .......x - Enable PCM
+			//        ......x. - Timer related?
+			//        ...x.... - Enable ROM/RAM readback from 0x22d
+			//        ..x..... - Timer output enable?
+			//        x....... - Disable register RAM updates
+			sprintf(WriteStr, "Control Reg: Lock Registers: %s, Timer %s, ROM/RAM Readback: %s "
+					"Unknown Bit: %s, Sound Output: %s",
+					OnOff(Data & 0x80), Enable(Data & 0x20), Enable(Data & 0x10),
+					OnOff(Data & 0x02), OnOff(Data & 0x01));
+			break;
+		default:
+			sprintf(WriteStr, "Register %02X: 0x%03X", Register, Data);
+			break;
+		}
+	}
+
+	sprintf(TempStr, "%s%s", ChipStr, WriteStr);
+
 	return;
 }

@@ -1227,7 +1227,8 @@ static void WriteVGMData2Txt(FILE* hFile)
 				if (WriteEvents)
 				{
 					SetChip((VGMPnt[0x01] & 0x80) >> 7);
-					//k054539_write(TempStr, VGMPnt[0x01] & 0x7F, VGMPnt[0x02], VGMPnt[0x03]);
+					TempSht = ((VGMPnt[0x01] & 0x7F) << 8) | (VGMPnt[0x02] << 0);
+					k054539_write(TempStr, TempSht, VGMPnt[0x03]);
 				}
 				CmdLen = 0x04;
 				break;
