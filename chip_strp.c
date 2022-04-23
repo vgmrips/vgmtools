@@ -219,43 +219,51 @@ bool ym2413_write(UINT8 Register, UINT8 Data)
 
 bool ym2612_write(UINT8 Port, UINT8 Register, UINT8 Data)
 {
-	YM2612_DATA* chip;
+	YM2612_DATA* chip = &ChDat->YM2612;
 	STRIP_OPN* strip = &StpDat->YM2612;
+	UINT16 RegVal;
 	UINT8 CurChn;
 
 	if (strip->All)
 		return false;
 
-	switch(Register)
+	RegVal = (Port << 8) | Register;
+	switch(RegVal)
 	{
 	case 0x28: // Key on/off
 		CurChn = Data & 0x07;
-		if (CurChn >= 4) {
+		if (CurChn >= 4)
 			CurChn--;
-		}
 		return !(strip->ChnMask & (1 << CurChn));
 	case 0x2A: // DAC data
-		return !(strip->ChnMask & (1 << 6));
 	case 0x2B: // DAC enable
-		return !(strip->ChnMask & (1 << 6)) || !(strip->ChnMask & (1 << 5));
-	case 0xB6: // Includes stereo control which may also affect DAC
-		if (Port && strip->ChnMask & (1 << 6))
+	case 0x2C: // DAC test register
+		return !(strip->ChnMask & (1 << 6));
+	case 0x1B6: // stereo control for FM6/DAC
+		// don't strip if either is kept, as the VGM may switch modes anytime
+		if (!(strip->ChnMask & (1 << 5) || !(strip->ChnMask & (1 << 6))
 			return true;
 		break;
 	}
 
-	if (Register < 0x30)
-		return true;
-
-	if (Register >= 0xA8 && Register < 0xB0)
-		CurChn = 3;
+	CurChn = 0xFF;
+	if (Register >= 0x30 && Register < 0xC0)
+	{
+		if (Register >= 0xA8 && Register < 0xB0)	// port 0 only
+		{
+			if (Port)
+				CurChn = 3;
+		}
+		else
+		{
+			CurChn = Port * 3 + (Register & 0x03);
+		}
+	}
+	
+	if (CurChn != 0xFF)
+		return !(strip->ChnMask & (1 << CurChn));
 	else
-		CurChn = Register & 0x03;
-
-	if (Port)
-		CurChn += 3;
-
-	return !(strip->ChnMask & (1 << CurChn));
+		return true;
 }
 
 bool ym2151_write(UINT8 Register, UINT8 Data)
