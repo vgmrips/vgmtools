@@ -861,7 +861,7 @@ static UINT8 TagVGM(const int ArgCount, char* ArgList[])
 		{
 			wchar_t* tag;
 			int prevCType;
-			printf("Applying Title Case: Title");
+			printf("Applying Title Case: Title\n");
 
 			if (VGMTag.strTrackNameJ != NULL && wcslen(VGMTag.strTrackNameJ) > 0)
 			{
@@ -896,7 +896,6 @@ static UINT8 TagVGM(const int ArgCount, char* ArgList[])
 			}
 
 			RetVal = 0x00;
-			printf("\n");
 			continue;
 		}
 		else if (! stricmp(CmdStr, "NotesStripAt"))

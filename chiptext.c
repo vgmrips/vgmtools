@@ -3999,7 +3999,7 @@ void k054539_write(char* TempStr, UINT16 Register, UINT8 Data)
 		case 0x215:	// key off
 			sprintf(WriteStr, "Key %s: ", OnOff(~Register & 0x01));
 			StrPos = strlen(WriteStr);
-			for (CurChn = 0x00; CurChn < 0x04; CurChn ++)
+			for (CurChn = 0x00; CurChn < 0x08; CurChn ++)
 			{
 				ChnEn = Data & (1 << CurChn);
 				WriteStr[StrPos] = ChnEn ? ('0' + CurChn) : '-';
@@ -4021,12 +4021,6 @@ void k054539_write(char* TempStr, UINT16 Register, UINT8 Data)
 				(Data & 0x80) ? "RAM" : "ROM", (Data & 0x7F) * 0x20000);
 			break;
 		case 0x22F:	// global control
-			//        7.543.10
-			//        .......x - Enable PCM
-			//        ......x. - Timer related?
-			//        ...x.... - Enable ROM/RAM readback from 0x22d
-			//        ..x..... - Timer output enable?
-			//        x....... - Disable register RAM updates
 			sprintf(WriteStr, "Control Reg: Lock Registers: %s, Timer %s, ROM/RAM Readback: %s "
 					"Unknown Bit: %s, Sound Output: %s",
 					OnOff(Data & 0x80), Enable(Data & 0x20), Enable(Data & 0x10),
