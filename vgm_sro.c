@@ -33,7 +33,7 @@ void rf5c164_write(UINT8 Register, UINT8 Data);
 void ymf271_write(UINT8 Port, UINT8 Register, UINT8 Data);
 void nes_apu_write(UINT8 Register, UINT8 Data);
 void multipcm_write(UINT8 Port, UINT8 Data);
-void multipcm_bank_write(UINT8 Port, UINT16 Data);
+void multipcm_bank_write(UINT8 Bank, UINT16 Data);
 void upd7759_write(UINT8 Port, UINT8 Data);
 void okim6295_write(UINT8 Offset, UINT8 Data);
 void k054539_write(UINT8 Port, UINT8 Offset, UINT8 Data);

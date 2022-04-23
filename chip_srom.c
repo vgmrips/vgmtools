@@ -290,7 +290,6 @@ typedef struct nes_apu_data
 typedef struct _multipcm_slot
 {
 	UINT16 SmplID;
-	UINT8 Pan;
 	UINT8 Playing;
 } MULTIPCM_SLOT;
 typedef struct multipcm_data
@@ -298,10 +297,11 @@ typedef struct multipcm_data
 	UINT32 ROMSize;
 	UINT8* ROMData;
 	UINT8* ROMUsage;
-	UINT8 SmplMask[0x200];	// Bit 7 - Sample Table, Bit 1 - BankR, Bit 0 - BankL
+	UINT8 SmplMask[0x200];	// Bit 7 - Sample Table, Bit 0 - Sample Data
 
-	UINT32 BankL;
-	UINT32 BankR;
+	UINT8 SegaBanking;
+	UINT32 Bank0;
+	UINT32 Bank1;
 
 	UINT8 CurSlot;
 	UINT8 Address;
@@ -520,7 +520,7 @@ static void ymf271_write_fm(YMF271_DATA* chip, UINT8 Port, UINT8 Register, UINT8
 void ymf271_write(UINT8 Port, UINT8 Register, UINT8 Data);
 void nes_apu_write(UINT8 Register, UINT8 Data);
 void multipcm_write(UINT8 Port, UINT8 Data);
-void multipcm_bank_write(UINT8 Port, UINT16 Data);
+void multipcm_bank_write(UINT8 Bank, UINT16 Data);
 void upd7759_write(UINT8 Port, UINT8 Data);
 void okim6295_write(UINT8 Offset, UINT8 Data);
 static void k054539_proc_channel(K054539_DATA* chip, UINT8 Chn);
@@ -2213,7 +2213,6 @@ void multipcm_write(UINT8 Port, UINT8 Data)
 	UINT32 AddrSt;
 	UINT32 AddrEnd;
 	UINT32 CurAddr;
-	UINT8 MaskBit;
 
 	switch(Port)
 	{
@@ -2227,6 +2226,20 @@ void multipcm_write(UINT8 Port, UINT8 Data)
 	case 0x02:
 		chip->Address = Data;
 		return;
+	// special SEGA banking
+	case 0x10:	// 1 MB banking (Sega Model 1)
+		chip->SegaBanking = 1;
+		chip->Bank0 = (Data << 20) | 0x000000;
+		chip->Bank1 = (Data << 20) | 0x080000;
+		return;
+	case 0x11:	// 512 KB banking - low bank (Sega Multi 32)
+		chip->SegaBanking = 1;
+		chip->Bank0 = Data << 19;
+		return;
+	case 0x12:	// 512 KB banking - high bank (Sega Multi 32)
+		chip->SegaBanking = 1;
+		chip->Bank1 = Data << 19;
+		return;
 	default:
 		return;
 	}
@@ -2236,9 +2249,6 @@ void multipcm_write(UINT8 Port, UINT8 Data)
 
 	switch(chip->Address)
 	{
-	case 0x00:	// Pan
-		TempChn->Pan = Data;
-		return;
 	case 0x01:	// set Sample
 		if (TempChn->SmplID == Data)
 			return;
@@ -2282,13 +2292,11 @@ void multipcm_write(UINT8 Port, UINT8 Data)
 	if (! TempChn->Playing)
 		return;
 
-	// I use 2 separate bits for BankL (bit 0) and BankR (bit 1)
-	MaskBit = (TempChn->Pan & 0x80) ? 0x01 : 0x02;
 	// Was this sample marked already?
-	if (chip->SmplMask[TempChn->SmplID] & MaskBit)
+	if (chip->SmplMask[TempChn->SmplID] & 0x01)
 		return;
 	// if not, set the bit to speed the process up
-	chip->SmplMask[TempChn->SmplID] |= MaskBit;
+	chip->SmplMask[TempChn->SmplID] |= 0x01;
 
 	TOCAddr = TempChn->SmplID * 0x0C;
 	AddrSt =	(chip->ROMData[TOCAddr + 0x00] << 16) |
@@ -2296,10 +2304,16 @@ void multipcm_write(UINT8 Port, UINT8 Data)
 				(chip->ROMData[TOCAddr + 0x02] <<  0);
 	AddrEnd =	(chip->ROMData[TOCAddr + 0x05] <<  8) |
 				(chip->ROMData[TOCAddr + 0x06] <<  0);
-	if (AddrSt >= 0x100000)
+	if (chip->SegaBanking)
 	{
-		AddrSt &= 0x0FFFFF;
-		AddrSt |= (TempChn->Pan & 0x80) ? chip->BankL : chip->BankR;
+		AddrSt &= 0x1FFFFF;
+		if (AddrSt & 0x100000)
+		{
+			if (AddrSt & 0x080000)
+				AddrSt = (AddrSt & 0x07FFFF) | chip->Bank1;
+			else
+				AddrSt = (AddrSt & 0x07FFFF) | chip->Bank0;
+		}
 	}
 	AddrEnd = AddrSt + (0x10000 - AddrEnd);
 
@@ -2309,14 +2323,23 @@ void multipcm_write(UINT8 Port, UINT8 Data)
 	return;
 }
 
-void multipcm_bank_write(UINT8 Port, UINT16 Data)
+void multipcm_bank_write(UINT8 Bank, UINT16 Data)
 {
 	MULTIPCM_DATA* chip = &ChDat->MultiPCM;
 
-	if (Port & 0x01)
-		chip->BankL = Data << 16;
-	if (Port & 0x02)
-		chip->BankR = Data << 16;
+	if ((Bank & 0x03) == 0x03 && ! (Data & 0x08))
+	{
+		// 1 MB banking (reg 0x10)
+		multipcm_write(0x10, Data / 0x10);
+	}
+	else
+	{
+		// 512 KB banking (regs 0x11/0x12)
+		if (Bank & 0x02)	// low bank
+			multipcm_write(0x11, Data / 0x08);
+		if (Bank & 0x01)	// high bank
+			multipcm_write(0x12, Data / 0x08);
+	}
 
 	return;
 }
