@@ -691,10 +691,12 @@ static void SetImportantCommands(void)
 				memset(TempMem->MemData, 0xFF, TempMem->MemSize);
 				break;
 			case 0x06:	// YM2203
+				TempReg->RegMask[0x07] |= 0x80;		// SSG channel enable
 				TempReg->RegMask[0x27] |= 0x80;		// Ch 3 Special Mode
 				TempReg->RegMask[0x2F] |= 0x80;		// Prescaler
 				break;
 			case 0x07:	// YM2608
+				TempReg->RegMask[0x007] |= 0x80;	// SSG channel enable
 				TempReg->RegMask[0x022] |= 0x80;	// LFO Frequency
 				TempReg->RegMask[0x027] |= 0x80;	// Ch 3 Special Mode
 				TempReg->RegMask[0x029] |= 0x80;	// 3/6-Ch-Mode
@@ -704,6 +706,7 @@ static void SetImportantCommands(void)
 				TempReg->RegMask[0x10B] |= 0x80;	// Delta-T Volume
 				break;
 			case 0x08:	// YM2610
+				TempReg->RegMask[0x007] |= 0x80;	// SSG channel enable
 				TempReg->RegMask[0x022] |= 0x80;	// LFO Frequency
 				TempReg->RegMask[0x027] |= 0x80;	// Ch 3 Special Mode
 				TempReg->RegMask[0x011] |= 0x80;	// Delta-T memory configuration
@@ -762,6 +765,7 @@ static void SetImportantCommands(void)
 				TempReg->RegMask[0x01] |= 0x80;	// Cycle Register
 				break;
 			case 0x12:	// AY8910
+				TempReg->RegMask[0x07] |= 0x80;	// channel enable
 				break;
 			case 0x13:	// GB DMG
 				// Control Regs
