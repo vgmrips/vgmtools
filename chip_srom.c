@@ -2368,7 +2368,7 @@ void x1_010_write(UINT16 offset, UINT8 data)
 		if((data&1) && !(data&02))
 		{
 			startpos = reg->start*0x1000;
-			endpos = ((0x100-reg->end)*0x1000)&0xfffff;
+			endpos = (0x100-reg->end)*0x1000;
 
 			for (addr = startpos; addr < endpos; addr ++)
 				chip->ROMUsage[addr] |= 0x01;
