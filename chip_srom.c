@@ -321,6 +321,11 @@ typedef struct
 	UINT8 end;			//   end address / envelope no.
 	UINT8 reserve[2];
 } X1_010_CHANNEL;
+typedef struct
+{
+	UINT32 lastStart;
+	UINT32 lastEnd;
+} X1_010_CHNINFO;
 
 typedef struct x1010_data
 {
@@ -328,7 +333,8 @@ typedef struct x1010_data
 	INT8 *ROMData;
 	UINT8* ROMUsage;
 
-	UINT8 m_reg[0x2000];
+	UINT8 reg[0x2000];
+	X1_010_CHNINFO chnInfo[SETA_NUM_CHANNELS];
 } X1_010_DATA;
 
 enum {
@@ -2348,6 +2354,7 @@ void x1_010_write(UINT16 offset, UINT8 data)
 {
 	X1_010_DATA *chip =  &ChDat->X1_010;
 	X1_010_CHANNEL *reg;
+	X1_010_CHNINFO *chnInf;
 	int channel, regi;
 	UINT32 addr, startpos, endpos;
 
@@ -2357,7 +2364,8 @@ void x1_010_write(UINT16 offset, UINT8 data)
 	/* Control register write */
 	if( channel < SETA_NUM_CHANNELS && regi == 0)
 	{
-		reg = (X1_010_CHANNEL *)&(chip->m_reg[channel*sizeof(X1_010_CHANNEL)]);
+		reg = (X1_010_CHANNEL *)&(chip->reg[channel*sizeof(X1_010_CHANNEL)]);
+		chnInf = &chip->chnInfo[channel];
 
 		/* Key on and PCM mode set? */
 
@@ -2369,12 +2377,16 @@ void x1_010_write(UINT16 offset, UINT8 data)
 		{
 			startpos = reg->start*0x1000;
 			endpos = (0x100-reg->end)*0x1000;
-
-			for (addr = startpos; addr < endpos; addr ++)
-				chip->ROMUsage[addr] |= 0x01;
+			if (startpos != chnInf->lastStart || endpos != chnInf->lastEnd)
+			{
+				chnInf->lastStart = startpos;
+				chnInf->lastEnd = endpos;
+				for (addr = startpos; addr < endpos; addr ++)
+					chip->ROMUsage[addr] |= 0x01;
+			}
 		}
 	}
-	chip->m_reg[offset] = data;
+	chip->reg[offset] = data;
 	return;
 }
 
