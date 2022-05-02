@@ -241,7 +241,7 @@ bool ym2612_write(UINT8 Port, UINT8 Register, UINT8 Data)
 		return !(strip->ChnMask & (1 << 6));
 	case 0x1B6: // stereo control for FM6/DAC
 		// don't strip if either is kept, as the VGM may switch modes anytime
-		if (!(strip->ChnMask & (1 << 5) || !(strip->ChnMask & (1 << 6))
+		if (!(strip->ChnMask & (1 << 5)) || !(strip->ChnMask & (1 << 6)))
 			return true;
 		break;
 	}
