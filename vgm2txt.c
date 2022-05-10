@@ -28,7 +28,7 @@ UINT32 VGMPos;
 INT32 VGMSmplPos;
 INT32 VGMWriteFrom;
 INT32 VGMWriteTo;
-char FileBase[0x100];
+char FileBase[MAX_PATH];
 
 int main(int argc, char* argv[])
 {
@@ -37,7 +37,7 @@ int main(int argc, char* argv[])
 	UINT32 TimeMin;
 	UINT32 TimeSec;
 	UINT32 TimeMS;
-	char FileName[0x100];
+	char FileName[MAX_PATH];
 
 	printf("VGM Text Writer\n---------------\n\n");
 
@@ -50,7 +50,7 @@ int main(int argc, char* argv[])
 	}
 	else
 	{
-		strcpy(FileName, argv[argbase + 0]);
+		snprintf(FileName, sizeof(FileName), "%s", argv[argbase + 0]);
 		printf("%s\n", FileName);
 	}
 	if (! strlen(FileName))
@@ -69,7 +69,7 @@ int main(int argc, char* argv[])
 	if (argc <= argbase + 1)
 		fgets(FileName, sizeof(FileName), stdin);
 	else
-		strcpy(FileName, argv[argbase + 1]);
+		snprintf(FileName, sizeof(FileName), "%s", argv[argbase + 1]);
 	sscanf(FileName, "%02u:%02u.%02u", &TimeMin, &TimeSec, &TimeMS);
 	VGMWriteFrom = (TimeMin * 6000 + TimeSec * 100 + TimeMS) * 441;
 
@@ -78,14 +78,13 @@ int main(int argc, char* argv[])
 	if (argc <= argbase + 2)
 		fgets(FileName, sizeof(FileName), stdin);
 	else
-		strcpy(FileName, argv[argbase + 2]);
+		snprintf(FileName, sizeof(FileName), "%s", argv[argbase + 2]);
 	sscanf(FileName, "%02u:%02u.%02u", &TimeMin, &TimeSec, &TimeMS);
 	VGMWriteTo = (TimeMin * 6000 + TimeSec * 100 + TimeMS) * 441;
 	//if (! VGMWriteTo)
 	//	VGMWriteTo = VGMHead.lngTotalSamples;
 
-	strcpy(FileName, FileBase);
-	strcat(FileName, ".txt");
+	snprintf(FileName, MAX_PATH, "%s.txt", FileBase);
 	WriteVGM2Txt(FileName);
 
 	free(VGMData);
@@ -170,7 +169,7 @@ static bool OpenVGMFile(const char* FileName)
 
 	gzclose(hFile);
 
-	strcpy(FileBase, FileName);
+	snprintf(FileBase, sizeof(FileBase), "%s", FileName);
 	TempPnt = strrchr(FileBase, '.');
 	if (TempPnt != NULL)
 		*TempPnt = 0x00;
@@ -190,11 +189,11 @@ static void WriteVGM2Txt(const char* FileName)
 		"YMZ294"};
 	FILE* hFile;
 	UINT32 TempLng;
-	char TempStr[0x80];
+	char TempStr[BUFFER_SIZE];
 	INT16 TempSSht;
 	double TempDbl;
 
-	memset(TempStr, 0x00, 0x80);
+	memset(TempStr, 0x00, BUFFER_SIZE);
 
 	hFile = fopen(FileName, "wt");
 	if (hFile == NULL)
@@ -222,17 +221,17 @@ static void WriteVGM2Txt(const char* FileName)
 	fprintf(hFile, "Loop Length:\t\t%u samples (%s s)\n", VGMHead.lngLoopSamples, TempStr);
 	fprintf(hFile, "Recording Rate:\t\t%u Hz\n", VGMHead.lngRate);
 
-	sprintf(TempStr, "%u Hz", VGMHead.lngHzPSG & 0x3FFFFFF);
+	snprintf(TempStr, BUFFER_SIZE, "%u Hz", VGMHead.lngHzPSG & 0x3FFFFFF);
 	if (VGMHead.lngHzPSG & 0x40000000)
 	{
 		if (VGMHead.lngHzPSG & 0x80000000)
-			sprintf(TempStr, "%s - T6W28", TempStr);
+			snprintf(TempStr, BUFFER_SIZE, "%s - T6W28", TempStr);
 		else
-			sprintf(TempStr, "%s - Dual %s", TempStr, "SN76496");
+			snprintf(TempStr, BUFFER_SIZE, "%s - Dual %s", TempStr, "SN76496");
 	}
 	else if (! VGMHead.lngHzPSG)
 	{
-		sprintf(TempStr, "%s - unused", TempStr);
+		snprintf(TempStr, BUFFER_SIZE, "%s - unused", TempStr);
 	}
 	fprintf(hFile, "SN76496 Clock:\t\t%s\n", TempStr);
 	fprintf(hFile, "SN76496 Feedback:\t0x%02X\n", VGMHead.shtPSG_Feedback);
@@ -263,13 +262,13 @@ static void WriteVGM2Txt(const char* FileName)
 	fprintf(hFile, "YM2608 Clock:\t\t%s\n", TempStr);
 	fprintf(hFile, "YM2608 AY8910 Flags:\t0x%02X\n", VGMHead.bytAYFlagYM2608);
 
-	sprintf(TempStr, "%u Hz", VGMHead.lngHzYM2610 & ~0xC0000000);
+	snprintf(TempStr, BUFFER_SIZE, "%u Hz", VGMHead.lngHzYM2610 & ~0xC0000000);
 	if (VGMHead.lngHzYM2610 & 0x80000000)
-		sprintf(TempStr, "%s (YM2610B Mode)", TempStr);
+		snprintf(TempStr, BUFFER_SIZE, "%s (YM2610B Mode)", TempStr);
 	if (VGMHead.lngHzYM2610 & 0x40000000)
-		sprintf(TempStr, "%s - Dual %s", TempStr, "YM2610");
+		snprintf(TempStr, BUFFER_SIZE, "%s - Dual %s", TempStr, "YM2610");
 	else if (! VGMHead.lngHzYM2610)
-		sprintf(TempStr, "%s - unused", TempStr);
+		snprintf(TempStr, BUFFER_SIZE, "%s - unused", TempStr);
 	fprintf(hFile, "YM2610 Clock:\t\t%s\n", TempStr);
 
 	WriteClockText(TempStr, VGMHead.lngHzYM3812, "YM3812");
@@ -321,14 +320,14 @@ static void WriteVGM2Txt(const char* FileName)
 	fprintf(hFile, "Reserved (0x7D):\t0x%02X\n", VGMHead.bytReserved2);
 
 	if (VGMHead.bytLoopBase > 0)
-		strcpy(TempStr, "+");
+		snprintf(TempStr, sizeof(TempStr), "%s", "+");
 	else if (VGMHead.bytLoopBase < 0)
-		strcpy(TempStr, "-");
+		snprintf(TempStr, sizeof(TempStr), "%s", "-");
 	else
 #ifdef WIN32
-		strcpy(TempStr, "\xB1");		// plus-minus character (CP 1252)
+		snprintf(TempStr, sizeof(TempStr), "%s", "\xB1");
 #else
-		strcpy(TempStr, "\xC2\xB1");	// plus-minus character (UTF-8)
+		snprintf(TempStr, sizeof(TempStr), "%s", "\xC2\xB1");
 #endif
 	fprintf(hFile, "Loop Base:\t\t0x%02X = %s%d\n", VGMHead.bytLoopBase, TempStr,
 			VGMHead.bytLoopBase);
@@ -342,7 +341,7 @@ static void WriteVGM2Txt(const char* FileName)
 
 	WriteClockText(TempStr, VGMHead.lngHzNESAPU, "NES APU");
 	if (VGMHead.lngHzNESAPU & 0x80000000)
-		sprintf(TempStr, "%s (with FDS channel)", TempStr);
+		snprintf(TempStr, BUFFER_SIZE, "%s (with FDS channel)", TempStr);
 	fprintf(hFile, "NES APU Clock:\t\t%s\n", TempStr);
 
 	WriteClockText(TempStr, VGMHead.lngHzMultiPCM, "MultiPCM");
@@ -362,7 +361,7 @@ static void WriteVGM2Txt(const char* FileName)
 
 	WriteClockText(TempStr, VGMHead.lngHzK051649, "K051649");
 	if (VGMHead.lngHzK051649 & 0x80000000)
-		sprintf(TempStr, "%s (SCC+ mode)", TempStr);
+		snprintf(TempStr, BUFFER_SIZE, "%s (SCC+ mode)", TempStr);
 	fprintf(hFile, "K051649 Clock:\t\t%s\n", TempStr);
 
 	WriteClockText(TempStr, VGMHead.lngHzK054539, "K054539");
@@ -441,11 +440,11 @@ static void WriteVGM2Txt(const char* FileName)
 
 static void WriteClockText(char* Buffer, UINT32 Clock, char* ChipName)
 {
-	sprintf(Buffer, "%u Hz", Clock & 0x3FFFFFF);
+	snprintf(Buffer, BUFFER_SIZE, "%u Hz", Clock & 0x3FFFFFF);
 	if (Clock & 0x40000000)
-		sprintf(Buffer, "%s - Dual %s", Buffer, ChipName);
+		snprintf(Buffer, BUFFER_SIZE, "%s - Dual %s", Buffer, ChipName);
 	else if (! Clock)
-		sprintf(Buffer, "%s - unused", Buffer);
+		snprintf(Buffer, BUFFER_SIZE, "%s - unused", Buffer);
 
 	return;
 }
@@ -462,8 +461,8 @@ static void WriteVGMData2Txt(FILE* hFile)
 #ifdef WIN32
 	UINT32 CmdTimer;
 #endif
-	char TempStr[0x100];
-	char MinSecStr[0x80];
+	char TempStr[BUFFER_SIZE];
+	char MinSecStr[BUFFER_SIZE];
 	UINT32 CmdLen;
 	bool StopVGM;
 	bool WriteEvents;
@@ -616,7 +615,7 @@ static void WriteVGMData2Txt(FILE* hFile)
 				if (WriteEvents)
 				{
 					PrintMinSec(VGMSmplPos, MinSecStr);
-					sprintf(TempStr, "Wait:\t%2u sample(s) (   %03.2f ms)\t(total\t%u (%s))",
+					snprintf(TempStr, BUFFER_SIZE, "Wait:\t%2u sample(s) (   %03.2f ms)\t(total\t%u (%s))",
 							TempSht, TempSht / 44.1, VGMSmplPos, MinSecStr);
 				}
 				break;
@@ -627,7 +626,7 @@ static void WriteVGMData2Txt(FILE* hFile)
 				if (WriteEvents)
 				{
 					PrintMinSec(VGMSmplPos, MinSecStr);
-					sprintf(TempStr, "Wait:\t%2u sample(s) (   %03.2f ms)\t(total\t%u (%s))",
+					snprintf(TempStr, BUFFER_SIZE, "Wait:\t%2u sample(s) (   %03.2f ms)\t(total\t%u (%s))",
 							TempSht, TempSht / 44.1, VGMSmplPos, MinSecStr);
 				}
 				break;
@@ -740,11 +739,11 @@ static void WriteVGMData2Txt(FILE* hFile)
 			}
 			SetChip(CurChip);
 
-			strcpy(TempStr, "unsupported chip");
+			snprintf(TempStr, sizeof(TempStr), "%s", "unsupported chip");
 			switch(Command)
 			{
 			case 0x66:	// End Of File
-				sprintf(TempStr, "End of Data");
+				snprintf(TempStr, BUFFER_SIZE, "End of Data");
 				CmdLen = 0x01;
 				StopVGM = true;
 				break;
@@ -755,7 +754,7 @@ static void WriteVGMData2Txt(FILE* hFile)
 				if (WriteEvents)
 				{
 					PrintMinSec(VGMSmplPos, MinSecStr);
-					sprintf(TempStr, "Wait:\t%u samples (1/60 s)\t(total\t%u (%s))",
+					snprintf(TempStr, BUFFER_SIZE, "Wait:\t%u samples (1/60 s)\t(total\t%u (%s))",
 							TempSht, VGMSmplPos, MinSecStr);
 				}
 				CmdLen = 0x01;
@@ -767,7 +766,7 @@ static void WriteVGMData2Txt(FILE* hFile)
 				if (WriteEvents)
 				{
 					PrintMinSec(VGMSmplPos, MinSecStr);
-					sprintf(TempStr, "Wait:\t%u samples (1/50 s)\t(total\t%u (%s))",
+					snprintf(TempStr, BUFFER_SIZE, "Wait:\t%u samples (1/50 s)\t(total\t%u (%s))",
 							TempSht, VGMSmplPos, MinSecStr);
 				}
 				CmdLen = 0x01;
@@ -779,7 +778,7 @@ static void WriteVGMData2Txt(FILE* hFile)
 				if (WriteEvents)
 				{
 					PrintMinSec(VGMSmplPos, MinSecStr);
-					sprintf(TempStr, "Wait:\t%u samples (   %03.2f ms)\t(total\t%u (%s))",
+					snprintf(TempStr, BUFFER_SIZE, "Wait:\t%u samples (   %03.2f ms)\t(total\t%u (%s))",
 							TempSht, TempSht / 44.1, VGMSmplPos, MinSecStr);
 				}
 				CmdLen = 0x03;
@@ -823,19 +822,19 @@ static void WriteVGMData2Txt(FILE* hFile)
 						switch(TempByt & 0x3F)
 						{
 						case 0x00:	// YM2612 PCM Database
-							strcpy(MinSecStr, "YM2612 PCM Database");
+							snprintf(MinSecStr, sizeof(MinSecStr), "%s", "YM2612 PCM Database");
 							break;
 						case 0x01:	// RF5C68 PCM Database
-							strcpy(MinSecStr, "RF5C68 PCM Database");
+							snprintf(MinSecStr, sizeof(MinSecStr), "%s", "RF5C68 PCM Database");
 							break;
 						case 0x02:	// RF5C164 PCM Database
-							strcpy(MinSecStr, "RF5C164 PCM Database");
+							snprintf(MinSecStr, sizeof(MinSecStr), "%s", "RF5C164 PCM Database");
 							break;
 						case 0x08:	// SN76489 PCM Database
-							strcpy(MinSecStr, "SN76489 PCM Database");
+							snprintf(MinSecStr, sizeof(MinSecStr), "%s", "SN76489 PCM Database");
 							break;
 						default:
-							strcpy(MinSecStr, "Unknown Database Type");
+							snprintf(MinSecStr, sizeof(MinSecStr), "%s", "Unknown Database Type");
 							break;
 						}
 
@@ -849,70 +848,70 @@ static void WriteVGMData2Txt(FILE* hFile)
 						switch(TempByt)
 						{
 						case 0x80:	// SegaPCM ROM
-							strcpy(MinSecStr, "SegaPCM ROM");
+							snprintf(MinSecStr, sizeof(MinSecStr), "%s", "SegaPCM ROM");
 							break;
 						case 0x81:	// YM2608 DELTA-T ROM Image
-							strcpy(MinSecStr, "YM2608 DELTA-T ROM");
+							snprintf(MinSecStr, sizeof(MinSecStr), "%s", "YM2608 DELTA-T ROM");
 							break;
 						case 0x82:	// YM2610 ADPCM ROM Image
-							strcpy(MinSecStr, "YM2610 ADPCM ROM");
+							snprintf(MinSecStr, sizeof(MinSecStr), "%s", "YM2610 ADPCM ROM");
 							break;
 						case 0x83:	// YM2610 DELTA-T ROM Image
-							strcpy(MinSecStr, "YM2610 DELTA-T ROM");
+							snprintf(MinSecStr, sizeof(MinSecStr), "%s", "YM2610 DELTA-T ROM");
 							break;
 						case 0x84:	// YMF278B ROM Image
-							strcpy(MinSecStr, "YMF278B ROM");
+							snprintf(MinSecStr, sizeof(MinSecStr), "%s", "YMF278B ROM");
 							break;
 						case 0x85:	// YMF271 ROM Image
-							strcpy(MinSecStr, "YMF271 ROM");
+							snprintf(MinSecStr, sizeof(MinSecStr), "%s", "YMF271 ROM");
 							break;
 						case 0x86:	// YMZ280B ROM Image
-							strcpy(MinSecStr, "YMZ280B ROM");
+							snprintf(MinSecStr, sizeof(MinSecStr), "%s", "YMZ280B ROM");
 							break;
 						case 0x87:	// YMF278B RAM Image
-							strcpy(MinSecStr, "YMF278B ROM");
+							snprintf(MinSecStr, sizeof(MinSecStr), "%s", "YMF278B ROM");
 							break;
 						case 0x88:	// Y8950 DELTA-T ROM Image
-							strcpy(MinSecStr, "Y8950 DELTA-T ROM");
+							snprintf(MinSecStr, sizeof(MinSecStr), "%s", "Y8950 DELTA-T ROM");
 							break;
 						case 0x89:	// MultiPCM ROM Image
-							strcpy(MinSecStr, "MultiPCM ROM");
+							snprintf(MinSecStr, sizeof(MinSecStr), "%s", "MultiPCM ROM");
 							break;
 						case 0x8A:	// UPD7759 ROM Image
-							strcpy(MinSecStr, "UPD7759 ROM");
+							snprintf(MinSecStr, sizeof(MinSecStr), "%s", "UPD7759 ROM");
 
 							SetChip(CurChip);
 							upd7759_write(NULL, 0xFF, 0x01);
 							break;
 						case 0x8B:	// OKIM6295 ROM Image
-							strcpy(MinSecStr, "OKIM6295 ROM");
+							snprintf(MinSecStr, sizeof(MinSecStr), "%s", "OKIM6295 ROM");
 							break;
 						case 0x8C:	// K054539 ROM Image
-							strcpy(MinSecStr, "K054539 ROM");
+							snprintf(MinSecStr, sizeof(MinSecStr), "%s", "K054539 ROM");
 							break;
 						case 0x8D:	// C140 ROM Image
-							strcpy(MinSecStr, "C140 ROM");
+							snprintf(MinSecStr, sizeof(MinSecStr), "%s", "C140 ROM");
 							break;
 						case 0x8E:	// K053260 ROM Image
-							strcpy(MinSecStr, "K053260 ROM");
+							snprintf(MinSecStr, sizeof(MinSecStr), "%s", "K053260 ROM");
 							break;
 						case 0x8F:	// QSound ROM Image
-							strcpy(MinSecStr, "QSound ROM");
+							snprintf(MinSecStr, sizeof(MinSecStr), "%s", "QSound ROM");
 							break;
 						case 0x90:	// ES5506 ROM Image
-							strcpy(MinSecStr, "ES5506 ROM");
+							snprintf(MinSecStr, sizeof(MinSecStr), "%s", "ES5506 ROM");
 							break;
 						case 0x91:	// X1-010 ROM Image
-							strcpy(MinSecStr, "X1-010 ROM");
+							snprintf(MinSecStr, sizeof(MinSecStr), "%s", "X1-010 ROM");
 							break;
 						case 0x92:	// C352 ROM Image
-							strcpy(MinSecStr, "C352 ROM");
+							snprintf(MinSecStr, sizeof(MinSecStr), "%s", "C352 ROM");
 							break;
 						case 0x93:	// GA20 ROM Image
-							strcpy(MinSecStr, "GA20 ROM");
+							snprintf(MinSecStr, sizeof(MinSecStr), "%s", "GA20 ROM");
 							break;
 						default:
-							strcpy(MinSecStr, "Unknown ROM Type");
+							snprintf(MinSecStr, sizeof(MinSecStr), "%s", "Unknown ROM Type");
 							break;
 						}
 						break;
@@ -931,27 +930,27 @@ static void WriteVGMData2Txt(FILE* hFile)
 						switch(TempByt)
 						{
 						case 0xC0:	// RF5C68 PCM Data
-							strcpy(MinSecStr, "RF5C68 RAM Data");
+							snprintf(MinSecStr, sizeof(MinSecStr), "%s", "RF5C68 RAM Data");
 							break;
 						case 0xC1:	// RF5C164 PCM Data
-							strcpy(MinSecStr, "RF5C164 RAM Data");
+							snprintf(MinSecStr, sizeof(MinSecStr), "%s", "RF5C164 RAM Data");
 							break;
 						case 0xC2:	// NES APU DPCM Data
-							strcpy(MinSecStr, "NES APU RAM Data");
+							snprintf(MinSecStr, sizeof(MinSecStr), "%s", "NES APU RAM Data");
 							break;
 						case 0xE0:	// SCSP PCM Data
-							strcpy(MinSecStr, "SCSP RAM Data");
+							snprintf(MinSecStr, sizeof(MinSecStr), "%s", "SCSP RAM Data");
 							break;
 						default:
-							strcpy(MinSecStr, "Unknown RAM Data");
+							snprintf(MinSecStr, sizeof(MinSecStr), "%s", "Unknown RAM Data");
 							break;
 						}
 						break;
 					}
 
-					sprintf(TempStr, "Data Block - Type %02X: %s%s\n", TempByt, MinSecStr,
+					snprintf(TempStr, BUFFER_SIZE, "Data Block - Type %02X: %s%s\n", TempByt, MinSecStr,
 									(CurChip ? " (2nd chip)" : "") );
-					sprintf(TempStr, "%s\t\t\tData Length: 0x%08X", TempStr, DataLen);
+					snprintf(TempStr, BUFFER_SIZE, "%s\t\t\tData Length: 0x%08X", TempStr, DataLen);
 					switch(TempByt & 0xC0)
 					{
 					case 0x00:	// Database Block
@@ -960,11 +959,11 @@ static void WriteVGMData2Txt(FILE* hFile)
 						// TODO: print information about compression type etc.
 						break;
 					case 0x80:	// ROM/RAM Dump
-						sprintf(TempStr, "%s\n\t\t\tROM Size: 0x%08X\tData Start: 0x%08X",
+						snprintf(TempStr, BUFFER_SIZE, "%s\n\t\t\tROM Size: 0x%08X\tData Start: 0x%08X",
 								TempStr, ROMSize, DataStart);
 						break;
 					case 0xC0:	// RAM Write
-						sprintf(TempStr, "%s\t\tWrite to Address: 0x%0*X",
+						snprintf(TempStr, BUFFER_SIZE, "%s\t\tWrite to Address: 0x%0*X",
 								TempStr, (TempByt & 0x20) ? 6 : 4, DataStart);
 						break;
 					}
@@ -975,7 +974,7 @@ static void WriteVGMData2Txt(FILE* hFile)
 				memcpy(&TempLng, &VGMPnt[0x01], 0x04);
 				if (WriteEvents)
 				{
-					sprintf(TempStr, "Seek to PCM Data Bank Pos: %08X", TempLng);
+					snprintf(TempStr, BUFFER_SIZE, "Seek to PCM Data Bank Pos: %08X", TempLng);
 				}
 				CmdLen = 0x05;
 				break;
@@ -1117,16 +1116,16 @@ static void WriteVGMData2Txt(FILE* hFile)
 					switch(TempByt)
 					{
 					case 0x01:	// RF5C68 PCM Database
-						strcpy(MinSecStr, "RF5C68");
+						snprintf(MinSecStr, sizeof(MinSecStr), "%s", "RF5C68");
 						break;
 					case 0x02:	// RF5C164 PCM Database
-						strcpy(MinSecStr, "RF5C164");
+						snprintf(MinSecStr, sizeof(MinSecStr), "%s", "RF5C164");
 						break;
 					default:
-						strcpy(MinSecStr, "Unknown chip");
+						snprintf(MinSecStr, sizeof(MinSecStr), "%s", "Unknown chip");
 						break;
 					}
-					sprintf(TempStr, "PCM RAM write:\t%s\n"
+					snprintf(TempStr, BUFFER_SIZE, "PCM RAM write:\t%s\n"
 									"\t\t\tCopy 0x%06X Bytes from 0x%06X (Database) "
 									"to 0x%06X (RAM)",
 									MinSecStr, DataLen, DataStart, TempLng);
@@ -1336,7 +1335,7 @@ static void WriteVGMData2Txt(FILE* hFile)
 				{
 					GetFullChipName(MinSecStr, VGMPnt[0x02]);	// Chip Type
 
-					sprintf(TempStr, "DAC Ctrl:\tStream #%u - Setup Chip: %s Reg %02X %02X",
+					snprintf(TempStr, BUFFER_SIZE, "DAC Ctrl:\tStream #%u - Setup Chip: %s Reg %02X %02X",
 							VGMPnt[0x01], MinSecStr, VGMPnt[0x03], VGMPnt[0x04]);
 				}
 				CmdLen = 0x05;
@@ -1344,7 +1343,7 @@ static void WriteVGMData2Txt(FILE* hFile)
 			case 0x91:	// DAC Ctrl: Set Data
 				if (WriteEvents)
 				{
-					sprintf(TempStr, "DAC Ctrl:\tStream #%u - Set Data: Bank %02X, "
+					snprintf(TempStr, BUFFER_SIZE, "DAC Ctrl:\tStream #%u - Set Data: Bank %02X, "
 							"Step Size %02X, Step Base %02X",
 							VGMPnt[0x01], VGMPnt[0x02], VGMPnt[0x03], VGMPnt[0x04]);
 				}
@@ -1354,7 +1353,7 @@ static void WriteVGMData2Txt(FILE* hFile)
 				if (WriteEvents)
 				{
 					memcpy(&TempLng, &VGMPnt[0x02], 0x04);
-					sprintf(TempStr, "DAC Ctrl:\tStream #%u - Set Frequency: %u Hz",
+					snprintf(TempStr, BUFFER_SIZE, "DAC Ctrl:\tStream #%u - Set Frequency: %u Hz",
 							VGMPnt[0x01], TempLng);
 				}
 				CmdLen = 0x06;
@@ -1363,28 +1362,30 @@ static void WriteVGMData2Txt(FILE* hFile)
 				if (WriteEvents)
 				{
 					// Loop Flag ("Play" / "Play/Loop")
-					strcpy(MinSecStr, "Play");
 					if (VGMPnt[0x06] & 0x80)
-						strcat(MinSecStr, "/Loop");
+						snprintf(MinSecStr, sizeof(MinSecStr), "%s", "Play/Loop");
+						//strcat(MinSecStr, "/Loop");
+					else
+						snprintf(MinSecStr, sizeof(MinSecStr), "%s", "Play");
 
 					memcpy(&TempLng, &VGMPnt[0x02], 0x04);
-					sprintf(TempStr, "DAC Ctrl:\tStream #%u - %s from 0x%02X",
+					snprintf(TempStr, BUFFER_SIZE, "DAC Ctrl:\tStream #%u - %s from 0x%02X",
 							VGMPnt[0x01], MinSecStr, TempLng);
 					switch(VGMPnt[0x06] & 0x7F)	// Length Mode
 					{
 					case 0x00:	// ignore
-						sprintf(TempStr, "%s (length ignored)", TempStr);
+						snprintf(TempStr, BUFFER_SIZE, "%s (length ignored)", TempStr);
 						break;
 					case 0x01:	// length = number of commands
 						memcpy(&TempLng, &VGMPnt[0x07], 0x04);
-						sprintf(TempStr, "%s for 0x%02X Commands", TempStr, TempLng);
+						snprintf(TempStr, BUFFER_SIZE, "%s for 0x%02X Commands", TempStr, TempLng);
 						break;
 					case 0x02:	// length in msec
 						memcpy(&TempLng, &VGMPnt[0x07], 0x04);
-						sprintf(TempStr, "%s for %u ms", TempStr, TempLng);
+						snprintf(TempStr, BUFFER_SIZE, "%s for %u ms", TempStr, TempLng);
 						break;
 					case 0x03:	// play until end of data
-						sprintf(TempStr, "%s until End of Data", TempStr);
+						snprintf(TempStr, BUFFER_SIZE, "%s until End of Data", TempStr);
 						break;
 					}
 				}
@@ -1395,9 +1396,9 @@ static void WriteVGMData2Txt(FILE* hFile)
 				{
 					memcpy(&TempLng, &VGMPnt[0x02], 0x04);
 					if (VGMPnt[0x01] < 0xFF)
-						sprintf(TempStr, "DAC Ctrl:\tStream #%u - Stop Stream", VGMPnt[0x01]);
+						snprintf(TempStr, BUFFER_SIZE, "DAC Ctrl:\tStream #%u - Stop Stream", VGMPnt[0x01]);
 					else
-						sprintf(TempStr, "DAC Ctrl:\tStop All Streams");
+						snprintf(TempStr, BUFFER_SIZE, "DAC Ctrl:\tStop All Streams");
 				}
 				CmdLen = 0x02;
 				break;
@@ -1405,12 +1406,14 @@ static void WriteVGMData2Txt(FILE* hFile)
 				if (WriteEvents)
 				{
 					// Loop Flag ("Play" / "Play/Loop")
-					strcpy(MinSecStr, "Play");
 					if (VGMPnt[0x04] & 0x01)
-						strcat(MinSecStr, "/Loop");
+						snprintf(MinSecStr, sizeof(MinSecStr), "%s", "Play/Loop");
+						//strcat(MinSecStr, "/Loop");
+					else
+						snprintf(MinSecStr, sizeof(MinSecStr), "%s", "Play");
 
 					memcpy(&TempSht, &VGMPnt[0x02], 0x02);
-					sprintf(TempStr, "DAC Ctrl:\tStream #%u - %s: Block 0x%02X",
+					snprintf(TempStr, BUFFER_SIZE, "DAC Ctrl:\tStream #%u - %s: Block 0x%02X",
 							VGMPnt[0x01], MinSecStr, TempSht);
 				}
 				CmdLen = 0x05;
@@ -1418,7 +1421,7 @@ static void WriteVGMData2Txt(FILE* hFile)
 			default:
 				if (WriteEvents)
 				{
-					sprintf(TempStr, "Unknown command: %02X", Command);
+					snprintf(TempStr, BUFFER_SIZE, "Unknown command: %02X", Command);
 				}
 
 				switch(Command & 0xF0)
@@ -1459,7 +1462,7 @@ static void WriteVGMData2Txt(FILE* hFile)
 					break;
 				if (TempLng >= 0x04)
 					break;
-				sprintf(MinSecStr + TempLng * 0x03, "%02X ", VGMData[VGMPos + TempLng]);
+				snprintf(MinSecStr + TempLng * 0x03, BUFFER_SIZE - TempLng * 0x30, "%02X ", VGMData[VGMPos + TempLng]);
 			}
 			if (TempLng < 0x04)
 				memset(MinSecStr + TempLng * 0x03, ' ', (0x04 - TempLng) * 0x03);

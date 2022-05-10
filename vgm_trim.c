@@ -5,12 +5,14 @@
 #include <stdlib.h>
 #include <string.h>
 #include <zlib.h>
+#if defined(_WIN32) || defined(WIN32)
+#include <io.h>
+#endif
 
 #include "stdtype.h"
 #include "stdbool.h"
 #include "VGMFile.h"
 #include "common.h"
-
 
 static bool OpenVGMFile(const char* FileName);
 static void WriteVGMFile(const char* FileName);
@@ -28,14 +30,15 @@ UINT32 VGMPos;
 INT32 VGMSmplPos;
 UINT8* DstData;
 UINT32 DstDataLen;
-char FileBase[0x100];
+char FileBase[MAX_PATH];
+UINT8 OptsOverwrite;
 
 int main(int argc, char* argv[])
 {
 	int argbase;
 	int ErrVal;
-	char FileName[0x100];
-	char InputTxt[0x100];
+	char FileName[MAX_PATH];
+	char InputTxt[BUFFER_SIZE];
 	INT32 StartSmpl;
 	INT32 LoopSmpl;
 	INT32 EndSmpl;
@@ -50,17 +53,24 @@ int main(int argc, char* argv[])
 	argbase = 1;
 	OptsTrim = 0x00;
 	OptsWarn = 0x00;
+	OptsOverwrite = 0x00;
 	while(argbase < argc && argv[argbase][0] == '-')
 	{
 		if (! stricmp(argv[argbase] + 1, "help"))
 		{
-			printf("Usage: vgm_trim [-state] [-nonotewarn] File.vgm\n");
+			printf("Usage: %s [-state] [-nonotewarn] [-o] File.vgm\n",argv[0]);
 			printf("                StartSmpl LoopSmpl EndSmpl [OutFile.vgm]\n");
 			printf("\n");
 			printf("Options:\n");
 			printf("    -state: put a save state of the chips at the start of the VGM\n");
 			printf("    -NoNoteWarn: don't print warnings about notes playing at EOF\n");
+			printf("    -o: overwrite even if OutFile.vgm exists\n");
 			return 0;
+		}
+		else if (! stricmp(argv[argbase] + 1, "o"))
+		{
+			OptsOverwrite = 0x01;
+			argbase ++;
 		}
 		else if (! stricmp(argv[argbase] + 1, "state"))
 		{
@@ -87,7 +97,7 @@ int main(int argc, char* argv[])
 	}
 	else
 	{
-		strcpy(FileName, argv[argbase + 0]);
+		strncpy(FileName, argv[argbase + 0], MAX_PATH-1);
 		printf("%s\n", FileName);
 	}
 	if (! strlen(FileName))
@@ -100,7 +110,7 @@ int main(int argc, char* argv[])
 	}
 	else
 	{
-		strcpy(InputTxt, argv[argbase + 1]);
+		strncpy(InputTxt, argv[argbase + 1], BUFFER_SIZE-1);
 		printf("%s\n", InputTxt);
 	}
 	StartSmpl = strtol(InputTxt, NULL, 0);
@@ -114,7 +124,7 @@ int main(int argc, char* argv[])
 	}
 	else
 	{
-		strcpy(InputTxt, argv[argbase + 2]);
+		strncpy(InputTxt, argv[argbase + 2],BUFFER_SIZE-1);
 		printf("%s\n", InputTxt);
 	}
 	LoopSmpl = strtol(InputTxt, NULL, 0);
@@ -126,7 +136,7 @@ int main(int argc, char* argv[])
 	}
 	else
 	{
-		strcpy(InputTxt, argv[argbase + 3]);
+		strncpy(InputTxt, argv[argbase + 3], BUFFER_SIZE-1);
 		printf("%s\n", InputTxt);
 	}
 	EndSmpl = strtol(InputTxt, NULL, 0);
@@ -203,15 +213,21 @@ int main(int argc, char* argv[])
 
 	TrimVGMData(StartSmpl, LoopSmpl, EndSmpl, HasLoop, KeepLSmpl);
 	if (argc > argbase + 4)
-		strcpy(FileName, argv[argbase + 4]);
+		strncpy(FileName, argv[argbase + 4], MAX_PATH-1);
 	else
-		strcpy(FileName, "");
+		strncpy(FileName, "",MAX_PATH-1);
 	if (FileName[0] == '\0')
 	{
-		strcpy(FileName, FileBase);
-		strcat(FileName, "_trimmed.vgm");
+		snprintf(FileName, MAX_PATH, "%s_%d_%d_%d_trimmed.vgm", FileBase, StartSmpl, LoopSmpl, EndSmpl);
+		//strcpy(FileName, FileBase);
+		//strcat(FileName, "_trimmed.vgm");
 	}
-	WriteVGMFile(FileName);
+	if (!OptsOverwrite && access( FileName, F_OK) == 0 )
+	{
+		fprintf(stderr,"Error: %s already exists!\n", FileName);
+	}
+	else
+		WriteVGMFile(FileName);
 
 QuickExit:
 	free(VGMData);
@@ -287,7 +303,7 @@ static bool OpenVGMFile(const char* FileName)
 
 	gzclose(hFile);
 
-	strcpy(FileBase, FileName);
+	strncpy(FileBase, FileName,MAX_PATH-1);
 	TempPnt = strrchr(FileBase, '.');
 	if (TempPnt != NULL)
 		*TempPnt = 0x00;

@@ -55,13 +55,13 @@ UINT32 VGMPos;
 INT32 VGMSmplPos;
 //UINT8* DstData;
 //UINT32 DstDataLen;
-char FileBase[0x100];
+char FileBase[MAX_PATH];
 
 int main(int argc, char* argv[])
 {
 	int argbase;
 	int ErrVal;
-	char FileName[0x100];
+	char FileName[MAX_PATH];
 
 	printf("VGM Mono\n--------\n");
 
@@ -87,7 +87,7 @@ int main(int argc, char* argv[])
 	}
 	else
 	{
-		strcpy(FileName, argv[argbase + 0]);
+		strncpy(FileName, argv[argbase + 0], MAX_PATH-1);
 		printf("%s\n", FileName);
 	}
 	if (! strlen(FileName))
@@ -126,13 +126,12 @@ int main(int argc, char* argv[])
 	if (DataSizeB < SrcDataSize)*/
 	{
 		if (argc > argbase + 1)
-			strcpy(FileName, argv[argbase + 1]);
+			strncpy(FileName, argv[argbase + 1], MAX_PATH-1);
 		else
 			strcpy(FileName, "");
 		if (FileName[0] == '\0')
 		{
-			strcpy(FileName, FileBase);
-			strcat(FileName, "_mono.vgm");
+			snprintf(FileName, MAX_PATH, "%s_mono.vgm", FileBase);
 		}
 		WriteVGMFile(FileName);
 	}
@@ -218,7 +217,7 @@ static bool OpenVGMFile(const char* FileName)
 
 	gzclose(hFile);
 
-	strcpy(FileBase, FileName);
+	strncpy(FileBase, FileName, MAX_PATH-1);
 	TempPnt = strrchr(FileBase, '.');
 	if (TempPnt != NULL)
 		*TempPnt = 0x00;

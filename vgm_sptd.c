@@ -34,14 +34,14 @@ UINT32 VGMPos;
 INT32 VGMSmplPos;
 UINT8* DstData;
 UINT32 DstDataLen;
-char FileBase[0x100];
+char FileBase[MAX_PATH];
 
 int main(int argc, char* argv[])
 {
 	int argbase;
 	int ErrVal;
-	char FileName[0x100];
-	char SplitTxt[0x100];
+	char FileName[MAX_PATH];
+	char SplitTxt[BUFFER_SIZE];
 	UINT32 SplitDelay;
 
 	printf("VGM Splitter (Delay Edition)\n------------\n\n");
@@ -77,7 +77,7 @@ int main(int argc, char* argv[])
 	}
 	else
 	{
-		strcpy(FileName, argv[argbase + 0]);
+		strncpy(FileName, argv[argbase + 0],MAX_PATH-1);
 		printf("%s\n", FileName);
 	}
 	if (! strlen(FileName))
@@ -90,7 +90,7 @@ int main(int argc, char* argv[])
 	}
 	else
 	{
-		strcpy(SplitTxt, argv[argbase + 1]);
+		strncpy(SplitTxt, argv[argbase + 1],BUFFER_SIZE-1);
 		printf("%s\n", SplitTxt);
 	}
 	SplitDelay = strtoul(SplitTxt, NULL, 0);
@@ -178,7 +178,7 @@ static bool OpenVGMFile(const char* FileName)
 
 	gzclose(hFile);
 
-	strcpy(FileBase, FileName);
+	strncpy(FileBase, FileName,MAX_PATH-1);
 	TempPnt = strrchr(FileBase, '.');
 	if (TempPnt != NULL)
 		*TempPnt = 0x00;
@@ -228,7 +228,7 @@ static void SplitVGMData(const UINT32 SplitDelay)
 	UINT8 TempByt;
 	UINT16 TempSht;
 	UINT32 TempLng;
-	char TempStr[0x100];
+	char TempStr[MAX_PATH];
 #ifdef WIN32
 	UINT32 CmdTimer;
 	char MinSecStr[0x80];
@@ -657,7 +657,7 @@ static void SplitVGMData(const UINT32 SplitDelay)
 					TrimVGMData(VGMSmplStart, 0x00, TempLng, false, true);
 
 					SplitFile ++;
-					sprintf(TempStr, "%s_%02u.vgm", FileBase, SplitFile);
+					snprintf(TempStr, MAX_PATH, "%s_%02u.vgm", FileBase, SplitFile);
 					WriteVGMFile(TempStr);
 				}
 #ifdef WIN32

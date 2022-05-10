@@ -12,6 +12,7 @@
 #pragma GCC diagnostic ignored "-Wunused-function"
 #endif
 
+#define BUFFER_SIZE 255
 
 #include <string.h>
 #include <stdio.h>		// for sprintf()

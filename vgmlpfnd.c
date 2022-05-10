@@ -13,7 +13,6 @@
 #include "VGMFile.h"
 #include "common.h"
 
-
 //#define TECHNICAL_OUTPUT
 
 
@@ -41,7 +40,8 @@ UINT32 STEP_SIZE = 0x01;
 UINT32 MIN_EQU_SIZE = 0x0400;
 UINT32 START_POS = 0x00;
 
-
+bool TechnicalOutput = false;
+bool RunVgmtrim = false;
 bool SilentMode;
 bool LabelMode;	// Output Audacity labels
 VGM_HEADER VGMHead;
@@ -49,19 +49,19 @@ UINT32 VGMDataLen;
 UINT8* VGMData;
 UINT32 VGMPos;
 INT32 VGMSmplPos;
-char FileBase[0x100];
+char FileBase[MAX_PATH];
 UINT32 VGMCmdCount;
 VGM_CMD* VGMCommand;
 UINT32 EndPosCount;
 UINT32* EndPosArr;
 UINT32 LabelID;
+char FileName[MAX_PATH];
 
 int main(int argc, char* argv[])
 {
 	int argbase;
 	int ErrVal;
-	char FileName[0x100];
-	char InputTxt[0x100];
+	char InputTxt[BUFFER_SIZE];
 	UINT32 TempLng;
 
 	SilentMode = false;
@@ -69,12 +69,22 @@ int main(int argc, char* argv[])
 	argbase = 1;
 	while(argbase < argc && argv[argbase][0] == '-')
 	{
-		if (! stricmp(argv[argbase], "-silent"))
+		if (! stricmp(argv[argbase], "-run") || ! stricmp(argv[argbase], "-r") )
+		{
+			RunVgmtrim = true;
+			argbase ++;
+		}
+		else if (! stricmp(argv[argbase], "-technical") || ! stricmp(argv[argbase], "-t") )
+		{
+			TechnicalOutput = true;
+			argbase ++;
+		}
+		else if (! stricmp(argv[argbase], "-silent") || ! stricmp(argv[argbase], "-s") )
 		{
 			SilentMode = true;
 			argbase ++;
 		}
-		else if (! stricmp(argv[argbase], "-labels"))
+		else if (! stricmp(argv[argbase], "-labels") || ! stricmp(argv[argbase], "-l") )
 		{
 			LabelMode = true;
 			argbase ++;
@@ -96,7 +106,7 @@ int main(int argc, char* argv[])
 	}
 	else
 	{
-		strcpy(FileName, argv[argbase + 0]);
+		snprintf(FileName, sizeof(FileName), "%s", argv[argbase + 0]);
 		fprintf(stderr, "%s\n", FileName);
 	}
 	if (! strlen(FileName))
@@ -110,7 +120,7 @@ int main(int argc, char* argv[])
 	}
 	else
 	{
-		strcpy(InputTxt, argv[argbase + 1]);
+		snprintf(InputTxt, sizeof(InputTxt), "%s", argv[argbase + 1]);
 		if (! SilentMode)
 			fprintf(stderr, "%s\n", InputTxt);
 	}
@@ -126,7 +136,7 @@ int main(int argc, char* argv[])
 	}
 	else
 	{
-		strcpy(InputTxt, argv[argbase + 2]);
+		snprintf(InputTxt, sizeof(InputTxt), "%s", argv[argbase + 2]);
 		if (! SilentMode)
 			fprintf(stderr, "%s\n", InputTxt);
 	}
@@ -142,7 +152,7 @@ int main(int argc, char* argv[])
 	}
 	else
 	{
-		strcpy(InputTxt, argv[argbase + 3]);
+		snprintf(InputTxt, sizeof(InputTxt), "%s", argv[argbase + 3]);
 		if (! SilentMode)
 			fprintf(stderr, "%s\n", InputTxt);
 	}
@@ -243,7 +253,7 @@ static bool OpenVGMFile(const char* FileName)
 
 	gzclose(hFile);
 
-	strcpy(FileBase, FileName);
+	snprintf(FileBase, sizeof(FileBase), "%s", FileName);
 	TempPnt = strrchr(FileBase, '.');
 	if (TempPnt != NULL)
 		*TempPnt = 0x00;
@@ -631,13 +641,16 @@ static void FindEqualitiesVGM(void)
 
 	if (! LabelMode)
 	{
-#ifdef TECHNICAL_OUTPUT
-		printf("     Source Block\t      Block Copy\t   Copy Information\n");
-		printf("Start\tEnd\tSmpl\tStart\tEnd\tSmpl\tLength\tCmds\tSamples\n");
-#else
-		printf("  Source Block\t\t  Block Copy\t\tCopy Information\n");
-		printf("Start\t  Time\t\tStart\t  Time\t\tCmds\tTime\n");
-#endif
+		if (TechnicalOutput)
+		{
+			printf("     Source Block\t      Block Copy\t   Copy Information\n");
+			printf("Start\tEnd\tSmpl\tStart\tEnd\tSmpl\tLength\tCmds\tSamples\n");
+		}
+		else
+		{
+			printf("  Source Block\t\t  Block Copy\t\tCopy Information\n");
+			printf("Start\t  Time\t\tStart\t  Time\t\tCmds\tTime\n");
+		}
 	}
 
 	EndPosCount = 0;
@@ -744,9 +757,7 @@ static bool EqualityCheck(UINT32 CmpCmd, UINT32 SrcCmd, UINT32 CmdCount)
 	VGM_CMD* CmdSrcE;
 	VGM_CMD* CmdCpyS;
 	VGM_CMD* CmdCpyE;
-#ifndef TECHNICAL_OUTPUT
 	char TempStr[0x10];
-#endif
 
 	if (CmdCount < MIN_EQU_SIZE)
 		return false;
@@ -784,27 +795,36 @@ static bool EqualityCheck(UINT32 CmpCmd, UINT32 SrcCmd, UINT32 CmdCount)
 		//	printf("%X\t%X\t%u\t%X\t%X\t%u\t%X\t%u\t%u\n",
 		//			CmpStart, CmpPos - 0x01, TimeSmplC, SrcStart, SrcCmd, CmpTimeB,
 		//			CmpPos - CmpStart, CmpCnt, CmpTime);
-#ifdef TECHNICAL_OUTPUT
-		printf("%X\t%X\t", CmdSrcS->Pos, CmdSrcE->Pos - 0x01);
-		if (BlkFlags)
-			printf("\b%c", ExtraChr[BlkFlags]);
-		printf("%u\t%X\t%X\t%u\t%X\t%u\t%u\n",
-				CmdSrcS->Sample, CmdCpyS->Pos, CmdCpyE->Pos - 0x01, CmdCpyS->Sample,
-				CmdSrcE->Pos - CmdSrcS->Pos, CmdCount, CmdSrcE->Sample - CmdSrcS->Sample);
-#else
-		PrintMinSec(CmdSrcS->Sample, TempStr);
-		//printf("%X\t%s", CmdSrcS->Pos, TempStr);
-		printf("%u\t%s", CmdSrcS->Sample, TempStr);
-		if (BlkFlags)
-			printf("  %c", ExtraChr[BlkFlags]);
+		if (TechnicalOutput)
+		{
+			printf("%X\t%X\t", CmdSrcS->Pos, CmdSrcE->Pos - 0x01);
+			if (BlkFlags)
+				printf("\b%c", ExtraChr[BlkFlags]);
+			printf("%u\t%X\t%X\t%u\t%X\t%u\t%u\n",
+					CmdSrcS->Sample, CmdCpyS->Pos, CmdCpyE->Pos - 0x01, CmdCpyS->Sample,
+					CmdSrcE->Pos - CmdSrcS->Pos, CmdCount, CmdSrcE->Sample - CmdSrcS->Sample);
+		}
+		else
+		{
+			PrintMinSec(CmdSrcS->Sample, TempStr);
+			//printf("%X\t%s", CmdSrcS->Pos, TempStr);
+			printf("%u\t%s", CmdSrcS->Sample, TempStr);
+			if (BlkFlags)
+				printf("  %c", ExtraChr[BlkFlags]);
 
-		PrintMinSec(CmdCpyS->Sample, TempStr);
-		//printf("\t%X\t%s", CmdCpyS->Pos, TempStr);
-		printf("\t%u\t%s", CmdCpyS->Sample, TempStr);
+			PrintMinSec(CmdCpyS->Sample, TempStr);
+			//printf("\t%X\t%s", CmdCpyS->Pos, TempStr);
+			printf("\t%u\t%s", CmdCpyS->Sample, TempStr);
 
-		PrintMinSec(CmdSrcE->Sample - CmdSrcS->Sample, TempStr);
-		printf("\t%u\t%s\n", CmdCount, TempStr);
-#endif
+			PrintMinSec(CmdSrcE->Sample - CmdSrcS->Sample, TempStr);
+			printf("\t%u\t%s\n", CmdCount, TempStr);
+		}
+		if (RunVgmtrim)
+		{
+			char szTemp[MAX_PATH];
+			snprintf(szTemp, MAX_PATH, "vgm_trim %s 0 %u %u", FileName, CmdSrcS->Sample, CmdCpyS->Sample);
+			system(szTemp);
+		}
 	}
 
 	return true;

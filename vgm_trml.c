@@ -3577,7 +3577,7 @@ static void DisplayPlayingNoteWarning(void)
 	UINT8 CurChip;
 	CHIP_DATA* TempCD;
 	CHIP_CHNS* TempChn;
-	char ChnStr[0x80];	// enough space for 32+ channels
+	char ChnStr[BUFFER_SIZE];	// enough space for 32+ channels
 	bool DidWarn;
 
 	DidWarn = false;
@@ -3619,7 +3619,7 @@ static void ShowPlayingNotes(const char* ChipStr, UINT16 ChnCount, UINT32 ChnMas
 	{
 		if ((ChnMask >> CurChn) & 0x01)
 		{
-			ChnPtr += sprintf(ChnPtr, "%u, ", CurChn);
+			ChnPtr += snprintf(ChnPtr, BUFFER_SIZE, "%u, ", CurChn);
 			PlayChnCnt ++;
 		}
 	}
