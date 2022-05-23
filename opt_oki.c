@@ -13,38 +13,35 @@
 
 
 // Structures
-typedef struct vgm_data_write
+typedef struct vgm_dma_action
 {
-	UINT8 Port;
-	UINT8 Value;
-	UINT32 SmplPos;
-	UINT32 FilePos;
-} DATA_WRITE;
-
-typedef struct vgm_drum_play
-{
-	UINT32 WriteSt;
-	UINT32 WriteEnd;
-} DRUM_PLAY;
+	UINT32 posStart;
+	UINT32 posEnd;
+	UINT32 dmaStartOfs;
+	UINT32 dmaLength;
+	UINT32 length;	// actual length
+	UINT32 dalloc;	// data allocation size
+	UINT8* data;
+	UINT8 chipID;
+	UINT16 drumID;
+} DMA_ACTION;
 typedef struct vgm_drum_info
 {
-	UINT32 Length;
-	UINT8* Data;
-	UINT32 PlayCount;
-	UINT32 PlayAlloc;
-	DRUM_PLAY* PlayData;
+	UINT32 id;
+	UINT32 length;
+	UINT8* data;
+	UINT32 sortKey;
+	UINT32 playCount;
 } DRUM_INF;
 typedef struct vgm_drum_table
 {
 	UINT32 DrmCount;
 	UINT32 DrmAlloc;
 	DRUM_INF* Drums;
-	DRUM_INF DrumNull;
 } DRUM_TABLE;
 
 typedef struct stream_control_command
 {
-	UINT32 FileOfs;
 	UINT8 Command;
 	UINT8 StreamID;
 	UINT8 DataB1;
@@ -59,16 +56,15 @@ typedef struct stream_control_command
 // Function Prototypes
 static bool OpenVGMFile(const char* FileName);
 static void WriteVGMFile(const char* FileName);
-static void EnumerateOkiWrite(void);
-static void AddPlayWrite(DRUM_INF* DrumInf, DRUM_PLAY* DrumPlay);
-static void AddDrum(UINT32 Size, UINT8* Data, DRUM_PLAY* DrumPlay);
-static void MakeDrumTable(void);
-static void MakeDataStream(void);
-static void WriteDACStreamCmd(STRM_CTRL_CMD* StrmCmd, UINT32* DestPos);
+static void EnumerateOkiWrites(void);
+static void GenerateDrumTable(void);
+static void WriteDACStreamCmd(const STRM_CTRL_CMD* StrmCmd, UINT8* DstData, UINT32* DestPos);
+static UINT32 GetOkiStreamRate(UINT32 clock, UINT8 div);
 static void RewriteVGMData(void);
-
-#define printdbg
-//#define printdbg	printf
+static UINT16 ReadBE16(const UINT8* data);
+static UINT32 ReadBE32(const UINT8* data);
+static UINT32 ReadLE32(const UINT8* data);
+static void WriteLE32(UINT8* buffer, UINT32 value);
 
 
 // Variables
@@ -85,42 +81,26 @@ UINT32 DataSizeA;
 UINT32 DataSizeB;
 
 UINT8 ChipCnt;
-UINT32 WriteAlloc[2];
-UINT32 WriteCount[2];
-DATA_WRITE* VGMWrite[2];
-UINT32 CtrlCmdCount;
-UINT32 CtrlCmdAlloc;
-STRM_CTRL_CMD* VGMCtrlCmd;
+UINT32 DmaActAlloc;
+UINT32 DmaActCount;
+DMA_ACTION* DmaActions;
 DRUM_TABLE DrumTbl;
+UINT8 OkiActionMask[2];	// [0] = 1st chip, [1] = 2nd chip
+UINT32 StreamEventCount[2];	// total event count, for memory preallocation, [0] = frequency changes, [1] = play commands
 
-UINT32 MaxDrumDelay;
 bool DumpDrums;
-UINT8 Skip80Sample;
-UINT8 Smpl80Value;
-UINT8 SplitCmd;
-bool EarlyDataWrt;
-
-bool CHANGING_CLK_RATE;
 
 int main(int argc, char* argv[])
 {
 	int argbase;
 	int ErrVal;
 	char FileName[0x100];
-	UINT8 CurChip;
 
 	printf("VGM OKI Optimizer\n-----------------\n\n");
 
-	MaxDrumDelay = 500;
 	DumpDrums = false;
-	Skip80Sample = 0;
-	Smpl80Value = 0x80;	// can be 0x80, 0x88 or 0x08
-	EarlyDataWrt = false;
-	SplitCmd = 0x00;
 	ErrVal = 0;
 	argbase = 1;
-
-	CHANGING_CLK_RATE = false;
 
 	printf("File Name:\t");
 	if (argc <= argbase + 0)
@@ -143,23 +123,17 @@ int main(int argc, char* argv[])
 	}
 	printf("\n");
 
-	VGMCtrlCmd = NULL;
-	EnumerateOkiWrite();
-	MakeDrumTable();
-	MakeDataStream();
-
-	for (CurChip = 0x00; CurChip < ChipCnt; CurChip ++)
-	{
-		free(VGMWrite[CurChip]);	VGMWrite[CurChip] = NULL;
-		WriteAlloc[CurChip] = 0x00;
-		WriteCount[CurChip] = 0x00;
-	}
-
+	EnumerateOkiWrites();
+	if (((OkiActionMask[0] | OkiActionMask[1]) & 0x02))
+		printf("DMA start offset will be used to help sorting drums.\n");
+	else
+		printf("Drums will be sorted in order of occourrence.\n");
+	GenerateDrumTable();
 	RewriteVGMData();
 
-	free(VGMCtrlCmd);	VGMCtrlCmd = NULL;
-	CtrlCmdAlloc = 0x00;
-	CtrlCmdCount = 0x00;
+	free(DmaActions);	DmaActions = NULL;
+	DmaActAlloc = 0x00;
+	DmaActCount = 0x00;
 	printf("Data Compression: %u -> %u (%.1f %%)\n",
 			DataSizeA, DataSizeB, 100.0 * DataSizeB / (float)DataSizeA);
 
@@ -289,10 +263,10 @@ static void WriteVGMFile(const char* FileName)
 	return;
 }
 
-static void EnumerateOkiWrite(void)
+static void EnumerateOkiWrites(void)
 {
 	UINT8 Command;
-	UINT8 CurChip;
+	UINT8 curChip;
 	UINT8 TempByt;
 	UINT16 TempSht;
 	UINT32 TempLng;
@@ -303,29 +277,31 @@ static void EnumerateOkiWrite(void)
 #endif
 	UINT32 CmdLen;
 	bool StopVGM;
-	DATA_WRITE* TempWrt;
-	UINT32 MClkNew;
-	UINT32 MClkOld;
+	UINT8 curReg;
+	UINT8 curData;
+	UINT32 activeDmaID[2];
+	UINT8 dmaState[2][8];
+	UINT8 clkState[2][5];
 
 	VGMLoopSmplOfs = VGMHead.lngTotalSamples - VGMHead.lngLoopSamples;
 	VGMPos = VGMHead.lngDataOffset;
 	VGMSmplPos = 0;
 
 	ChipCnt = (VGMHead.lngHzOKIM6258 & 0x40000000) ? 2 : 1;
-	for (CurChip = 0x00; CurChip < ChipCnt; CurChip ++)
+	DmaActions = NULL;
+	DmaActAlloc = 0;
+	DmaActCount = 0;
+	for (curChip = 0; curChip < 2; curChip ++)
+		activeDmaID[curChip] = (UINT32)-1;
+	memset(dmaState, 0x00, sizeof(dmaState));
+
+	memset(OkiActionMask, 0x00, sizeof(OkiActionMask));
+	memset(StreamEventCount, 0x00, sizeof(StreamEventCount));
+	for (curChip = 0; curChip < 2; curChip ++)
 	{
-		WriteAlloc[CurChip] = VGMHead.lngEOFOffset / (6 * ChipCnt);
-		VGMWrite[CurChip] = (DATA_WRITE*)malloc(WriteAlloc[CurChip] * sizeof(DATA_WRITE));
+		WriteLE32(&clkState[curChip][0], VGMHead.lngHzOKIM6258 & 0x3FFFFFFF);
+		clkState[curChip][4] = VGMHead.bytOKI6258Flags & 0x03;
 	}
-	for (; CurChip < 0x02; CurChip ++)
-	{
-		WriteAlloc[CurChip] = 0;
-		VGMWrite[CurChip] = NULL;
-	}
-	for (CurChip = 0x00; CurChip < 0x02; CurChip ++)
-		WriteCount[CurChip] = 0x00;
-	MClkOld = VGMHead.lngHzOKIM6258;
-	MClkNew = MClkOld;
 
 #ifdef WIN32
 	CmdTimer = 0;
@@ -378,52 +354,109 @@ static void EnumerateOkiWrite(void)
 				CmdLen = 0x02;
 				break;
 			case 0xB7:	// OKIM6258 write
-				CurChip = (VGMData[VGMPos + 0x01] & 0x80) >> 7;
-				if (CurChip < ChipCnt)
-				{
-					if (WriteCount[CurChip] >= WriteAlloc[CurChip])
-					{
-						WriteAlloc[CurChip] += 0x10000;
-						VGMWrite[CurChip] = (DATA_WRITE*)realloc(VGMWrite[CurChip],
-														WriteAlloc[CurChip] * sizeof(DATA_WRITE));
-					}
-					TempWrt = &VGMWrite[CurChip][WriteCount[CurChip]];
-					WriteCount[CurChip] ++;
+				curChip = (VGMData[VGMPos + 0x01] & 0x80) >> 7;
+				curReg = VGMData[VGMPos + 0x01] & 0x7F;
+				curData = VGMData[VGMPos + 0x02];
+				CmdLen = 0x03;
+				if (curChip >= ChipCnt)
+					break;
 
-					TempWrt->Port = VGMData[VGMPos + 0x01] & 0x7F;
-					TempWrt->Value = VGMData[VGMPos + 0x02];
-					TempWrt->SmplPos = VGMSmplPos;
-					TempWrt->FilePos = VGMPos;
-					if (TempWrt->Port == 0x0C && ! CHANGING_CLK_RATE)
+				if (curReg == 0x01)
+				{
+					if (activeDmaID[curChip] != (UINT32)-1)
 					{
-						if (VGMSmplPos == 0)
+						DMA_ACTION* dmaAct = &DmaActions[activeDmaID[curChip]];
+
+						if (dmaAct->length >= dmaAct->dalloc)
 						{
-							VGMHead.bytOKI6258Flags &= ~0x03;
-							VGMHead.bytOKI6258Flags |= TempWrt->Value;
-							VGMData[0x94] = VGMHead.bytOKI6258Flags;
+							dmaAct->dalloc += 0x10000;
+							dmaAct->data = (UINT8*)realloc(dmaAct->data, dmaAct->dalloc);
 						}
-						if (TempWrt->Value != (VGMHead.bytOKI6258Flags & 0x03))
-						{
-							printf("Warning! Clock Divider changed!! (sample %u)\n", TempWrt->SmplPos);
-							CHANGING_CLK_RATE = true;
-							_getch();
-						}
-					}
-					if (TempWrt->Port >= 0x08 && TempWrt->Port <= 0x0B)
-					{
-						UINT8 shift = (TempWrt->Port - 0x08) * 8;
-						MClkNew &= ~(0xFF << shift);
-						MClkNew |= (TempWrt->Value << shift);
-					}
-					if (TempWrt->Port == 0x0B && MClkNew != MClkOld)
-					{
-						printf("Warning! Master Clock changed!! (sample %u, clock %u -> %u)\n",
-							TempWrt->SmplPos, MClkOld, MClkNew);
-						MClkOld = MClkNew;
-						_getch();
+						dmaAct->data[dmaAct->length] = curData;
+						dmaAct->length ++;
 					}
 				}
-				CmdLen = 0x03;
+				else if (curReg >= 0x08 && curReg <= 0x0C)
+				{
+					if (curReg == 0x0B)
+						curData &= 0x3F;
+					if (curData != clkState[curChip][curReg & 0x07])
+					{
+						OkiActionMask[curChip] |= 0x10;	// clock change
+						printf("Warning! Clock change at 0x%06X\n", VGMPos);
+					}
+					clkState[curChip][curReg & 0x07] = curData;
+					StreamEventCount[0] ++;
+				}
+				else if (curReg >= 0x10 && curReg <= 0x17)
+				{
+					dmaState[curChip][curReg & 0x07] = curData;
+				}
+
+				if (curReg == 0x17)	// no "else" if is intended
+				{
+					UINT8 dmaMask = (1 << curChip);
+
+					// Bit 7 (80): start (trigger)
+					// Bit 6 (40): continue (trigger)
+					// Bit 5 (20): halt (state)
+					// Bit 4 (10): abort (trigger)
+					// Bit 3 (08): interrupt (state)
+					if ((curData & 0x10) && activeDmaID[curChip] != (UINT32)-1)	// DMA Stop
+					{
+						DMA_ACTION* dmaAct = &DmaActions[activeDmaID[curChip]];
+						dmaAct->posEnd = VGMPos;
+						if (dmaAct->dmaLength && dmaAct->length > dmaAct->dmaLength)
+							printf("Warning: more OKI writes (%u) than set by DMA length (%u)\n",
+									dmaAct->length > dmaAct->dmaLength);
+						activeDmaID[curChip] = (UINT32)-1;
+					}
+					if (curData & 0x80)	// DMA Start
+					{
+						DMA_ACTION* dmaAct;
+						UINT32 dmaID = DmaActCount;
+
+						if (activeDmaID[curChip] != (UINT32)-1)
+							DmaActions[activeDmaID[curChip]].posEnd = VGMPos;
+
+						if (DmaActCount >= DmaActAlloc)
+						{
+							DmaActAlloc += 0x100;
+							DmaActions = (DMA_ACTION*)realloc(DmaActions,
+													DmaActAlloc * sizeof(DMA_ACTION));
+						}
+
+						dmaAct = &DmaActions[dmaID];
+						dmaAct->chipID = curChip;
+						dmaAct->posStart = VGMPos;
+						dmaAct->posEnd = (UINT32)-1;
+						{
+							UINT8* dsData = dmaState[curChip];
+							dmaAct->dmaStartOfs = ReadBE32(&dsData[0]);
+							dmaAct->dmaLength = ReadBE16(&dsData[4]);
+							if (dmaAct->dmaStartOfs)
+								OkiActionMask[curChip] |= 0x02;
+						}
+						dmaAct->data = NULL;
+						dmaAct->dalloc = dmaAct->length = 0x00;
+						DmaActCount ++;
+						activeDmaID[curChip] = dmaID;
+						OkiActionMask[curChip] |= 0x01;	// uses ADPCM stream
+						if (!(OkiActionMask[curChip] & 0x10))	// no clock change yet?
+							OkiActionMask[curChip] |= 0x20;	// require explicit frequency setting at init
+						StreamEventCount[1] ++;
+					}
+					else if (curData & 0x40)	// DMA continue
+					{
+						if (activeDmaID[curChip] != (UINT32)-1)
+						{
+							DMA_ACTION* dmaAct = &DmaActions[activeDmaID[curChip]];
+							UINT8* dsData = dmaState[curChip];
+							dmaAct->dmaLength += ReadBE16(&dsData[4]);
+						}
+					}
+				}
+
 				break;
 			case 0x67:	// PCM Data Stream
 				TempByt = VGMData[VGMPos + 0x02];
@@ -499,618 +532,129 @@ static void EnumerateOkiWrite(void)
 	}
 	printf("\t\t\t\t\t\t\t\t\r");
 
-	printf("%u OKI writes found.\n", WriteCount[0]);
+	//printf("%u OKI writes found.\n", DmaActCount);
 
 	return;
 }
 
-static void AddPlayWrite(DRUM_INF* DrumInf, DRUM_PLAY* DrumPlay)
+static int drum_sort_compare(const void* p1, const void* p2)
 {
-	if (DrumInf->PlayCount >= DrumInf->PlayAlloc)
-	{
-		DrumInf->PlayAlloc += 0x100;
-		DrumInf->PlayData = (DRUM_PLAY*)realloc(DrumInf->PlayData,
-								DrumInf->PlayAlloc * sizeof(DRUM_PLAY));
-	}
-	DrumInf->PlayData[DrumInf->PlayCount] = *DrumPlay;
-	DrumInf->PlayCount ++;
+	DRUM_INF* Drm1 = (DRUM_INF*)p1;
+	DRUM_INF* Drm2 = (DRUM_INF*)p2;
 
-	return;
+	if (Drm1->sortKey < Drm2->sortKey)
+		return -1;
+	else if (Drm1->sortKey > Drm2->sortKey)
+		return +1;
+	// sort key is equal - compare ID to ensure a stable sort with equal sort keys
+	else if (Drm1->id < Drm2->id)
+		return -1;
+	else if (Drm1->id > Drm2->id)
+		return +1;
+	else
+		return 0;
 }
 
-static void AddDrum(UINT32 Size, UINT8* Data, DRUM_PLAY* DrumPlay)
+static void GenerateDrumTable(void)
 {
-	UINT32 CurDrm;
-	DRUM_INF* TempDrm;
-
-	if (Size == 0x00)
-	{
-		return;
-	}
-	else if (Size == 0x01)
-	{
-		DATA_WRITE* TempWrt;
-
-		CurDrm = DrumPlay->WriteSt;
-		TempWrt = &VGMWrite[CurDrm >> 31][CurDrm & 0x7FFFFFFF];
-		if (TempWrt->Value == 0x80 || TempWrt->Value == 0x88 || TempWrt->Value == 0x08)
-		{
-			//TempWrt->Port |= 0x80;
-			AddPlayWrite(&DrumTbl.DrumNull, DrumPlay);
-			return;
-		}
-		printf("Mini-Write found: 0x%X (sample %u)\n", TempWrt->Value, TempWrt->SmplPos);
-		if (TempWrt->SmplPos)
-			;//_getch();
-		AddPlayWrite(&DrumTbl.DrumNull, DrumPlay);
-		return;
-	}
-
-	for (CurDrm = 0x00; CurDrm < DrumTbl.DrmCount; CurDrm ++)
-	{
-		TempDrm = &DrumTbl.Drums[CurDrm];
-		if (TempDrm->Length >= Size)
-		{
-			if (! memcmp(TempDrm->Data, Data, Size))	// do existing and new data match?
-			{
-				//printf("Adding Play %u (played %u times)\n", CurDrm, TempDrm->PlayCount);
-				AddPlayWrite(TempDrm, DrumPlay);
-				return;
-			}
-		}
-		else //if (TempDrm->Length < Size)
-		{
-			if (! memcmp(TempDrm->Data, Data, TempDrm->Length))	// does first part match?
-			{
-				printdbg("Enlarging sample %u (0x%X -> 0x%X, played %u times)\n",
-							CurDrm, TempDrm->Length, Size, TempDrm->PlayCount);
-				// replace old data with new (longer) data
-				free(TempDrm->Data);
-				TempDrm->Data = (UINT8*)malloc(Size);
-				memcpy(TempDrm->Data, Data, Size);
-				TempDrm->Length = Size;
-				if (DumpDrums)
-				{
-					char DrumDump_Name[MAX_PATH + 0x10];
-					FILE* hFile;
-
-					sprintf(DrumDump_Name, "%s_%03X.raw", FileBase, CurDrm);
-
-					hFile = fopen(DrumDump_Name, "wb");
-					if (hFile != NULL)
-					{
-						fwrite(Data, 0x01, Size, hFile);
-						fclose(hFile);
-					}
-				}
-
-				AddPlayWrite(TempDrm, DrumPlay);
-				return;
-			}
-		}
-	}
-
-	// not found, add new drum sound
-	if (DrumTbl.DrmCount >= DrumTbl.DrmAlloc)
-	{
-		DrumTbl.DrmAlloc += 0x100;
-		DrumTbl.Drums = (DRUM_INF*)realloc(DrumTbl.Drums,
-											DrumTbl.DrmAlloc * sizeof(DRUM_INF));
-	}
-	TempDrm = &DrumTbl.Drums[DrumTbl.DrmCount];
-	//printdbg("Adding Drum %u (0x%X bytes)\n", DrumTbl.DrmCount, Size);
-
-	TempDrm->Data = (UINT8*)malloc(Size);
-	memcpy(TempDrm->Data, Data, Size);
-	TempDrm->Length = Size;
-	if (DumpDrums)
-	{
-		char DrumDump_Name[MAX_PATH + 0x10];
-		FILE* hFile;
-
-		sprintf(DrumDump_Name, "%s_%03X.raw", FileBase, DrumTbl.DrmCount);
-
-		hFile = fopen(DrumDump_Name, "wb");
-		if (hFile != NULL)
-		{
-			fwrite(Data, 0x01, Size, hFile);
-			fclose(hFile);
-		}
-	}
-
-	TempDrm->PlayCount = 0x00;
-	TempDrm->PlayAlloc = 0x100;
-	TempDrm->PlayData = (DRUM_PLAY*)malloc(TempDrm->PlayAlloc * sizeof(DRUM_PLAY));
-	DrumTbl.DrmCount ++;
-
-	AddPlayWrite(TempDrm, DrumPlay);
-
-	return;
-}
-
-static void MakeDrumTable(void)
-{
-	UINT32 CurChip;
-	UINT32 CurWrt;
-	UINT32 LastWrt;
-	DATA_WRITE* TempWrt;
-	UINT32 DrmBufSize;
-	UINT32 DrmBufAlloc;
-	UINT8* DrumBuf;
-	DRUM_PLAY DrumPlay;
-	UINT32 SmplLastWrt;
-	UINT8 CurClkDiv;
-	UINT8 DrumEnd;
-	UINT32 SkippedWrt;
-
-	if (! WriteCount)
-		return;
+	UINT32 curDA;
+	UINT32 curDrm;
+	UINT32* drmRevIDs;
 
 	DrumTbl.DrmCount = 0x00;
 	DrumTbl.DrmAlloc = 0x100;
 	DrumTbl.Drums = (DRUM_INF*)malloc(DrumTbl.DrmAlloc * sizeof(DRUM_INF));
-	DrumTbl.DrumNull.PlayCount = 0x00;
-	DrumTbl.DrumNull.PlayAlloc = 0x1000;
-	DrumTbl.DrumNull.PlayData = (DRUM_PLAY*)malloc(DrumTbl.DrumNull.PlayAlloc * sizeof(DRUM_PLAY));
 
-	DrmBufAlloc = 0x10000;	// 64 KB should be enough for now
-	DrumBuf = (UINT8*)malloc(DrmBufAlloc);
-
-	printf("Generating Drum Table ...\n");
-	for (CurChip = 0x00; CurChip < ChipCnt; CurChip ++)
+	for (curDA = 0; curDA < DmaActCount; curDA ++)
 	{
-		CurClkDiv = VGMHead.bytOKI6258Flags & 0x03;
-		DrmBufSize = 0x00;
-		SmplLastWrt = -1;
-		SkippedWrt = 0;
-		printdbg("Chip %u, %u writes\n", CurChip, WriteCount[CurChip]);
-		for (CurWrt = 0x00; CurWrt < WriteCount[CurChip]; CurWrt ++)
+		DMA_ACTION* dmaAct = &DmaActions[curDA];
+		UINT32 drmIdFound = (UINT32)-1;
+		UINT32 sortKey = dmaAct->dmaStartOfs;
+
+		for (curDrm = 0; curDrm < DrumTbl.DrmCount; curDrm ++)
 		{
-			TempWrt = &VGMWrite[CurChip][CurWrt];
-			DrumEnd = 0x00;
-			if (SkippedWrt)
+			DRUM_INF* dInf = &DrumTbl.Drums[curDrm];
+			UINT32 cmpLen = (dmaAct->length < dInf->length) ? dmaAct->length : dInf->length;
+			if (! memcmp(dmaAct->data, dInf->data, cmpLen))
 			{
-				LastWrt = SkippedWrt;
-				SkippedWrt = 0;
-				if (! DrmBufSize)
-					DrumPlay.WriteSt = LastWrt | (CurChip << 31);
-				DrumBuf[DrmBufSize] = VGMWrite[CurChip][LastWrt].Value;
-				DrmBufSize ++;
-			}
-			if (TempWrt->Port == SplitCmd)	// non-sample data
-			{
-				//printdbg("OKI write port %u, Buffer Size 0x%X\n", TempWrt->Port, DrmBufSize);
-				if (SplitCmd == 0x0C && TempWrt->Value == CurClkDiv)
-				{
-					// skip/ignore
-				}
-				else if (DrmBufSize)
-				{
-					//if (! (DrmBufSize == 0x01 && TempWrt->SmplPos == SmplLastWrt))
-					if (1)
-					{
-						printdbg("new drum at SmplOfs %u (buffer %u bytes)\n", SmplLastWrt, DrmBufSize);
-						DrumEnd = 0x01;
-					}
-					else
-					{
-						//_getch();
-						printf("Warning: Skipped sample restart at SmplOfs %u!\n", SmplLastWrt);
-					}
-				}
-			}
-			else if (TempWrt->Port == 0x01)	// data command
-			{
-				if (MaxDrumDelay && DrmBufSize && TempWrt->SmplPos >= SmplLastWrt + MaxDrumDelay)
-				{
-					printf("forced new drum after delay of %d samples (buffer %u bytes)\n",
-							TempWrt->SmplPos - SmplLastWrt, DrmBufSize);
-					DrumEnd = 0x02;
-				}
-				else if (SmplLastWrt == (UINT32)-1 && DrmBufSize)
-				{
-					DrmBufSize = 0x00;
-					DrumEnd = 0x02;
-				}
-				/*if (SmplLastWrt < VGMLoopSmplOfs && TempWrt->SmplPos >= VGMLoopSmplOfs)
-				{
-					DrumEnd = 0x03;
-				}*/
-			}
-			if (TempWrt->Port == 0x0C)
-				CurClkDiv = TempWrt->Value;
-
-			if (DrumEnd)
-			{
-				if (EarlyDataWrt && DrmBufSize >= 2 && DrumEnd == 0x01)
-				{
-					// Add the very last sample BEFORE the split command to the actual sample
-					UINT32 delay = VGMWrite[CurChip][LastWrt].SmplPos - TempWrt->SmplPos;
-					if (VGMWrite[CurChip][LastWrt].Value == Smpl80Value && delay < 20)
-					{
-						SkippedWrt = LastWrt;
-						LastWrt --;
-						DrmBufSize --;
-						while(LastWrt && VGMWrite[CurChip][LastWrt].Port != 0x01)
-							LastWrt --;
-					}
-				}
-
-				printdbg("new drum at SmplOfs %u (buffer %u bytes)\n", SmplLastWrt, DrmBufSize);
-				if (Skip80Sample == 1 && DrmBufSize > 1 &&
-					VGMWrite[CurChip][LastWrt].Value == Smpl80Value)
-				{
-					// Castlevania sends a 0x80 byte when stopping a sound
-
-					// add drum without last data write
-					DrumPlay.WriteEnd = LastWrt - 1;
-					while(DrumPlay.WriteEnd && VGMWrite[CurChip][DrumPlay.WriteEnd].Port != 0x01)
-						DrumPlay.WriteEnd --;
-					AddDrum(DrmBufSize - 1, DrumBuf, &DrumPlay);
-
-					// add that write seperately
-					DrumPlay.WriteSt = LastWrt | (CurChip << 31);
-					DrumPlay.WriteEnd = LastWrt;
-					AddDrum(1, DrumBuf + DrmBufSize - 1, &DrumPlay);
-					DrmBufSize = 0x00;
-					continue;
-				}
-				else if (Skip80Sample == 11 && DrmBufSize > 2 &&
-					VGMWrite[CurChip][LastWrt].Value == Smpl80Value)
-				{
-					// Star Mobile sends one or two 0x08 bytes before starting any sound
-					UINT32 splitWrites;
-
-					// add drum without last data write
-					DrumPlay.WriteEnd = LastWrt - 1;
-					while(DrumPlay.WriteEnd && VGMWrite[CurChip][DrumPlay.WriteEnd].Port != 0x01)
-						DrumPlay.WriteEnd --;
-					splitWrites = 1;
-					if (DrumEnd == 0x01 && DrumBuf[DrmBufSize - splitWrites - 1] == Smpl80Value)
-					{
-						splitWrites ++;
-						SkippedWrt = LastWrt;
-						LastWrt = DrumPlay.WriteEnd;
-						DrumPlay.WriteEnd --;
-						while(DrumPlay.WriteEnd && VGMWrite[CurChip][DrumPlay.WriteEnd].Port != 0x01)
-							DrumPlay.WriteEnd --;
-					}
-					AddDrum(DrmBufSize - splitWrites, DrumBuf, &DrumPlay);
-
-					// add that write seperately
-					DrumPlay.WriteSt = LastWrt | (CurChip << 31);
-					DrumPlay.WriteEnd = LastWrt;
-					AddDrum(1, DrumBuf + DrmBufSize - splitWrites, &DrumPlay);
-					DrmBufSize = 0x00;
-					continue;
-				}
-				else if (Skip80Sample == 2 && DrumEnd == 0x01 && DrmBufSize >= 2 &&
-					VGMWrite[CurChip][LastWrt].Value == Smpl80Value)
-				{
-					// Chase H.Q. sends 2x 0x88 before playing ANYTHING
-
-					// add drum without last data write
-					DrumPlay.WriteEnd = LastWrt - 1;
-					while(DrumPlay.WriteEnd && VGMWrite[CurChip][DrumPlay.WriteEnd].Port != 0x01)
-						DrumPlay.WriteEnd --;
-					DrumPlay.WriteEnd --;
-					AddDrum(DrmBufSize - 2, DrumBuf, &DrumPlay);
-
-					// add that write seperately
-					DrumPlay.WriteSt = LastWrt | (CurChip << 31);
-					DrumPlay.WriteEnd = LastWrt;
-					AddDrum(1, DrumBuf + DrmBufSize - 2, &DrumPlay);
-					DrmBufSize = 0x00;
-					continue;
-				}
-				else if (Skip80Sample == 2 && DrumEnd == 0x02 && DrmBufSize > 1 &&
-					VGMWrite[CurChip][LastWrt].Value == Smpl80Value)
-				{
-					// add drum without last data write
-					DrumPlay.WriteEnd = LastWrt - 1;
-					while(DrumPlay.WriteEnd && VGMWrite[CurChip][DrumPlay.WriteEnd].Port != 0x01)
-						DrumPlay.WriteEnd --;
-					AddDrum(DrmBufSize - 1, DrumBuf, &DrumPlay);
-
-					// add that write seperately
-					DrumPlay.WriteSt = LastWrt | (CurChip << 31);
-					DrumPlay.WriteEnd = LastWrt;
-					AddDrum(1, DrumBuf + DrmBufSize - 1, &DrumPlay);
-					DrmBufSize = 0x00;
-					continue;
-				}
-
-				DrumPlay.WriteEnd = LastWrt;
-				AddDrum(DrmBufSize, DrumBuf, &DrumPlay);
-				DrmBufSize = 0x00;
-				if (SkippedWrt)
-				{
-					LastWrt = SkippedWrt;
-					SkippedWrt = 0;
-					DrumPlay.WriteSt = LastWrt | (CurChip << 31);
-					DrumBuf[DrmBufSize] = VGMWrite[CurChip][LastWrt].Value;
-					DrmBufSize ++;
-				}
-			}
-
-			if (TempWrt->Port == 0x01)
-			{
-				// add data command to buffer
-				if (DrmBufSize >= DrmBufAlloc)
-				{
-					DrmBufAlloc += 0x10000;	// add another 64 KB
-					DrumBuf = (UINT8*)realloc(DrumBuf, DrmBufAlloc);
-				}
-				if (! DrmBufSize)
-					DrumPlay.WriteSt = CurWrt | (CurChip << 31);
-				DrumBuf[DrmBufSize] = TempWrt->Value;
-				DrmBufSize ++;
-
-				SmplLastWrt = TempWrt->SmplPos;
-				LastWrt = CurWrt;
+				drmIdFound = curDrm;
+				break;
 			}
 		}
-		if (Skip80Sample == 1 && DrmBufSize > 1 &&
-			VGMWrite[CurChip][LastWrt].Value == Smpl80Value)
+		if (drmIdFound != (UINT32)-1)
 		{
-			// Castlevania sends a 0x80 byte when stopping a sound
-
-			// add drum without last data write
-			DrumPlay.WriteEnd = LastWrt - 1;
-			while(DrumPlay.WriteEnd && VGMWrite[CurChip][DrumPlay.WriteEnd].Port != 0x01)
-				DrumPlay.WriteEnd --;
-			AddDrum(DrmBufSize - 1, DrumBuf, &DrumPlay);
-
-			// add that write seperately
-			DrumPlay.WriteSt = LastWrt | (CurChip << 31);
-			DrumPlay.WriteEnd = LastWrt;
-			AddDrum(1, DrumBuf + DrmBufSize - 1, &DrumPlay);
-			DrmBufSize = 0x00;
+			DRUM_INF* dInf = &DrumTbl.Drums[drmIdFound];
+			if (dmaAct->length > dInf->length)
+			{
+				dInf->length = dmaAct->length;
+				dInf->data = dmaAct->data;
+				dInf->sortKey = sortKey;
+			}
 		}
-		if (DrmBufSize)
+		else
 		{
-			DrumPlay.WriteEnd = LastWrt;
-			AddDrum(DrmBufSize, DrumBuf, &DrumPlay);
+			DRUM_INF* dInf;
+			drmIdFound = DrumTbl.DrmCount;
+			if (DrumTbl.DrmCount >= DrumTbl.DrmAlloc)
+			{
+				DrumTbl.DrmAlloc += 0x100;
+				DrumTbl.Drums = (DRUM_INF*)realloc(DrumTbl.Drums,
+													DrumTbl.DrmAlloc * sizeof(DRUM_INF));
+			}
+
+			dInf = &DrumTbl.Drums[DrumTbl.DrmCount];
+			DrumTbl.DrmCount ++;
+			dInf->length = dmaAct->length;
+			dInf->data = dmaAct->data;
+			dInf->sortKey = sortKey;
+			dInf->playCount = 0;
+		}
+		dmaAct->drumID = drmIdFound;
+		DrumTbl.Drums[drmIdFound].playCount ++;
+	}
+
+	if (DumpDrums)
+	{
+		for (curDrm = 0; curDrm < DrumTbl.DrmCount; curDrm ++)
+		{
+			char DrumDump_Name[MAX_PATH + 0x10];
+			FILE* hFile;
+			DRUM_INF* dInf = &DrumTbl.Drums[curDrm];
+
+			if (!dInf->sortKey)
+				sprintf(DrumDump_Name, "%s_%03X.raw", FileBase, curDrm);
+			else
+				sprintf(DrumDump_Name, "%s_%03X_ofs-%06X.raw", FileBase, curDrm, dInf->sortKey);
+			hFile = fopen(DrumDump_Name, "wb");
+			if (hFile != NULL)
+			{
+				fwrite(dInf->data, 0x01, dInf->length, hFile);
+				fclose(hFile);
+			}
 		}
 	}
-	printf("%u drum sounds found\n", DrumTbl.DrmCount);
+
+	// sort by sortKey
+	for (curDrm = 0; curDrm < DrumTbl.DrmCount; curDrm ++)
+		DrumTbl.Drums[curDrm].id = curDrm;
+	qsort(DrumTbl.Drums, DrumTbl.DrmCount, sizeof(DRUM_INF), &drum_sort_compare);
+
+	// and fix all the drum IDs in DMA actions
+	drmRevIDs = (UINT32*)malloc(DrumTbl.DrmCount * sizeof(UINT32));
+	for (curDrm = 0; curDrm < DrumTbl.DrmCount; curDrm ++)
+		drmRevIDs[DrumTbl.Drums[curDrm].id] = curDrm;
+	for (curDA = 0; curDA < DmaActCount; curDA ++)
+	{
+		DMA_ACTION* dmaAct = &DmaActions[curDA];
+		if (dmaAct->drumID < DrumTbl.DrmCount)
+			dmaAct->drumID = drmRevIDs[dmaAct->drumID];
+	}
+	free(drmRevIDs);
 
 	return;
 }
 
-typedef struct _drum_play_sort
-{
-	UINT32 SortID;
-	UINT32 DrumID;
-	UINT32 PlayID;
-} DRM_SORT;
-
-static int drum_sort_compare(const void* p1, const void* p2)
-{
-	DRM_SORT* Drm1 = (DRM_SORT*)p1;
-	DRM_SORT* Drm2 = (DRM_SORT*)p2;
-
-	if (Drm1->SortID < Drm2->SortID)
-		return -1;
-	else if (Drm1->SortID == Drm2->SortID)
-		return 0;
-	else //if (Drm1->SortID > Drm2->SortID)
-		return +1;
-}
-
-// dividers[4] = {1024, 768, 512, 512}, but stream rate is clock/div/2
-static const int dividers[6] = {2048, 1536, 1024, 1024, 4096, 3072};
-
-//#define CHANGING_RATE
-static void MakeDataStream(void)
-{
-	UINT32 BaseFreq;
-	UINT8 LastDiv;
-
-	UINT32 CurDrm;
-	UINT32 CurPlay;
-	UINT32 CurSrt;
-	UINT32 CurWrt;
-	UINT32 DrmSrtCount;
-	DRM_SORT* DrumSort;
-	DRUM_INF* TempDrm;
-	DRM_SORT* TempSort;
-	UINT8 CurChip;
-	UINT32 LastFreq[0x02];
-	STRM_CTRL_CMD* TempCmd;
-	UINT64 CmdDiff;
-	UINT32 SmplDiff;
-	UINT32 FreqVal;
-	UINT8 IsStopped;
-
-	LastDiv = VGMHead.bytOKI6258Flags & 0x03;
-	BaseFreq = (VGMHead.lngHzOKIM6258 + dividers[LastDiv] / 2) / dividers[LastDiv];
-	printf("Calculated base freq: %u\n", BaseFreq);
-
-	// create list of all played drums
-	DrmSrtCount = 0x00;
-	DrmSrtCount += DrumTbl.DrumNull.PlayCount;
-	for (CurDrm = 0x00; CurDrm < DrumTbl.DrmCount; CurDrm ++)
-		DrmSrtCount += DrumTbl.Drums[CurDrm].PlayCount;
-	DrumSort = (DRM_SORT*)malloc(DrmSrtCount * sizeof(DRM_SORT));
-
-	printf("Sorting %u play commands...\n", DrmSrtCount);
-	TempSort = DrumSort;
-	TempDrm = &DrumTbl.DrumNull;
-	for (CurPlay = 0x00; CurPlay < TempDrm->PlayCount; CurPlay ++)
-	{
-		CurChip = (TempDrm->PlayData[CurPlay].WriteSt & 0x80000000) >> 31;
-		CurWrt = TempDrm->PlayData[CurPlay].WriteSt & 0x7FFFFFFF;
-		TempSort->SortID = VGMWrite[CurChip][CurWrt].FilePos;
-		TempSort->DrumID = 0xFFFFFFFF;
-		TempSort->PlayID = CurPlay;
-		TempSort ++;
-	}
-	for (CurDrm = 0x00; CurDrm < DrumTbl.DrmCount; CurDrm ++)
-	{
-		TempDrm = &DrumTbl.Drums[CurDrm];
-		for (CurPlay = 0x00; CurPlay < TempDrm->PlayCount; CurPlay ++)
-		{
-			CurChip = (TempDrm->PlayData[CurPlay].WriteSt & 0x80000000) >> 31;
-			CurWrt = TempDrm->PlayData[CurPlay].WriteSt & 0x7FFFFFFF;
-			TempSort->SortID = VGMWrite[CurChip][CurWrt].FilePos;
-			TempSort->DrumID = CurDrm;
-			TempSort->PlayID = CurPlay;
-			TempSort ++;
-		}
-	}
-
-	// and sort by WriteID
-	qsort(DrumSort, DrmSrtCount, sizeof(DRM_SORT), &drum_sort_compare);
-
-	// Now general all the special DAC Stream commands.
-
-	// (Command 90/91) * Chip Count + (Command 92/95) * played drums
-	CtrlCmdAlloc = 0x03 * ChipCnt + 0x02 * DrmSrtCount;	// should be just enough
-	VGMCtrlCmd = (STRM_CTRL_CMD*)malloc(CtrlCmdAlloc * sizeof(STRM_CTRL_CMD));
-
-	CtrlCmdCount = 0x00;
-	for (CurChip = 0x00; CurChip < ChipCnt; CurChip ++)
-	{
-		TempCmd = &VGMCtrlCmd[CtrlCmdCount];
-		CtrlCmdCount ++;
-		TempCmd->FileOfs = 0x00;
-		TempCmd->Command = 0x90;	// Setup Stream 00
-		TempCmd->StreamID = CurChip;
-		TempCmd->DataB1 = 0x17 | (CurChip << 7);	// 0x17 - OKIM6258 chip
-		TempCmd->DataB2 = 0x00;
-		TempCmd->DataB3 = 0x01;		// command 01: data write
-
-		TempCmd = &VGMCtrlCmd[CtrlCmdCount];
-		CtrlCmdCount ++;
-		TempCmd->FileOfs = 0x00;
-		TempCmd->Command = 0x91;	// Set Stream 00 Data
-		TempCmd->StreamID = CurChip;
-		TempCmd->DataB1 = 0x04;		// Block Type 04: OKIM6258 Data Block
-		TempCmd->DataB2 = 0x01;		// Step Size
-		TempCmd->DataB3 = 0x00;		// Step Base
-		LastFreq[CurChip] = 0;
-		IsStopped = 0x00;
-
-//#ifndef CHANGING_RATE
-		if (! CHANGING_CLK_RATE)
-		{
-			TempCmd = &VGMCtrlCmd[CtrlCmdCount];
-			CtrlCmdCount ++;
-			TempCmd->FileOfs = 0x00;
-			TempCmd->Command = 0x92;	// Set Stream Frequency
-			TempCmd->StreamID = CurChip;
-			TempCmd->DataL1 = BaseFreq;
-			LastFreq[CurChip] = BaseFreq;
-		}
-//#endif
-	}
-
-	for (CurSrt = 0x00; CurSrt < DrmSrtCount; CurSrt ++)
-	{
-		TempSort = &DrumSort[CurSrt];
-		if (TempSort->DrumID == 0xFFFFFFFF)
-		{
-			TempDrm = &DrumTbl.DrumNull;
-			CurPlay = TempSort->PlayID;
-			CurChip = (TempDrm->PlayData[CurPlay].WriteSt & 0x80000000) >> 31;
-			CurWrt = TempDrm->PlayData[CurPlay].WriteSt & 0x7FFFFFFF;
-
-			TempCmd = &VGMCtrlCmd[CtrlCmdCount];
-			CtrlCmdCount ++;
-			TempCmd->FileOfs = VGMWrite[CurChip][CurWrt].FilePos;
-			TempCmd->Command = 0x94;	// Stop Stream block
-			TempCmd->StreamID = CurChip;
-			if (IsStopped & (1 << CurChip))
-				TempCmd->DataB1 = 0x02 | 0x01;
-			else
-				TempCmd->DataB1 = 0x01;
-			IsStopped |= 1 << CurChip;
-			continue;
-		}
-
-		TempDrm = &DrumTbl.Drums[TempSort->DrumID];
-		CurPlay = TempSort->PlayID;
-		CurChip = (TempDrm->PlayData[CurPlay].WriteSt & 0x80000000) >> 31;
-		CurWrt = TempDrm->PlayData[CurPlay].WriteSt & 0x7FFFFFFF;
-
-		if (CHANGING_CLK_RATE)
-		{
-			// calculate frequency
-			FreqVal = TempDrm->PlayData[CurPlay].WriteEnd;
-			//SmplDiff = Sample End - Sample Start
-			SmplDiff = VGMWrite[CurChip][FreqVal].SmplPos - VGMWrite[CurChip][CurWrt].SmplPos;
-			if (SmplDiff >= 0x10)
-			{
-				printdbg("OKI Frequency [Drum %u, No. %u]: %f (Sample %u-%u)\n", TempSort->DrumID, CurPlay,
-						44100.0 * (FreqVal - CurWrt) / SmplDiff, VGMWrite[CurChip][CurWrt].SmplPos,
-						VGMWrite[CurChip][FreqVal].SmplPos);
-				CmdDiff = FreqVal - CurWrt;	// CmdDiff = (LastCommandID + 1) - FirstCommandID
-				CmdDiff = 44100 * CmdDiff + SmplDiff / 2;
-				FreqVal = (UINT32)(CmdDiff / SmplDiff);
-				//printf("OKI Frequency [Drum %u, No. %u]: %u\n", TempSort->DrumID, CurPlay, FreqVal);
-
-				CmdDiff = 0;
-				for (CurPlay = 0; CurPlay < 6; CurPlay ++)
-				{
-					BaseFreq = (VGMHead.lngHzOKIM6258 + dividers[CurPlay] / 2) / dividers[CurPlay];
-					if (abs(FreqVal - BaseFreq) < 120 ||
-						(FreqVal < BaseFreq && FreqVal >= BaseFreq - 800))
-					{
-						FreqVal = BaseFreq;
-						CmdDiff = 1;
-						break;
-					}
-				}
-				if (! CmdDiff)
-				{
-					// TODO: if it fails because the value is too high, try again with 8 samples less.
-					printf("Unable to round frequency %u! (sample %u)\n", FreqVal, VGMWrite[CurChip][CurWrt].SmplPos);
-					if (! LastFreq[CurChip])
-						FreqVal = BaseFreq;
-					else
-						FreqVal = LastFreq[CurChip];
-					printf("Setting to %u\n", FreqVal);
-					_getch();
-				}
-			}
-			else
-			{
-				if (! LastFreq[CurChip])
-					FreqVal = BaseFreq;
-				else
-					FreqVal = LastFreq[CurChip];
-			}
-			// frequency calculation end
-//#ifdef CHANGING_RATE
-			if (LastFreq[CurChip] != FreqVal)
-			{
-				LastFreq[CurChip] = FreqVal;
-				TempCmd = &VGMCtrlCmd[CtrlCmdCount];
-				CtrlCmdCount ++;
-				TempCmd->FileOfs = VGMWrite[CurChip][CurWrt].FilePos;
-				TempCmd->Command = 0x92;	// Set Stream Frequency
-				TempCmd->StreamID = CurChip;
-				TempCmd->DataL1 = FreqVal;
-			}
-		}	// end if (CHANGING_CLK_RATE)
-//#endif
-
-		TempCmd = &VGMCtrlCmd[CtrlCmdCount];
-		CtrlCmdCount ++;
-		TempCmd->FileOfs = VGMWrite[CurChip][CurWrt].FilePos;
-		TempCmd->Command = 0x95;	// Quick-Play block
-		TempCmd->StreamID = CurChip;
-		TempCmd->DataS1 = TempSort->DrumID;	// Block ID
-		TempCmd->DataB1 = 0x00;				// No looping
-		IsStopped &= ~(1 << CurChip);
-	}
-	printf("Done.\n");
-
-	return;
-}
-
-static void WriteDACStreamCmd(STRM_CTRL_CMD* StrmCmd, UINT32* DestPos)
+static void WriteDACStreamCmd(const STRM_CTRL_CMD* StrmCmd, UINT8* DstData, UINT32* DestPos)
 {
 	UINT32 DstPos;
 
@@ -1149,16 +693,23 @@ static void WriteDACStreamCmd(STRM_CTRL_CMD* StrmCmd, UINT32* DestPos)
 	return;
 }
 
+static UINT32 GetOkiStreamRate(UINT32 clock, UINT8 div)
+{
+	static const UINT32 OKI_CLK_DIVS[4] = {1024, 768, 512, 512};
+	UINT32 realDiv = OKI_CLK_DIVS[div & 0x03] * 2;	// *2 because ADPCM data rate = half the sample rate
+	return (clock + realDiv / 2) / realDiv;
+}
+
 static void RewriteVGMData(void)
 {
 	UINT32 DstPos;
 	UINT8 Command;
+	UINT8 curChip;
 	UINT32 CmdDelay;
 	UINT32 AllDelay;
 	UINT8 TempByt;
 	UINT16 TempSht;
 	UINT32 TempLng;
-	DRUM_INF* TempDrm;
 #ifdef WIN32
 	UINT32 CmdTimer;
 	char TempStr[0x80];
@@ -1168,19 +719,27 @@ static void RewriteVGMData(void)
 	bool StopVGM;
 	bool WriteEvent;
 	bool WriteExtra;
-	UINT32 NewLoopS;
-	UINT32 StrmCmd;
+	UINT32 NewLoopPos;
+	UINT8 curReg;
+	UINT8 curData;
+	UINT32 nextDmaID;
+	UINT32 activeDmaID[2];
+	UINT8 clkState[2][5];
+	UINT32 okiClock[2];
+	UINT8 okiDivider[2];
 
-	UINT16 LoopSmplID = (UINT16)-1;
-	UINT16 LastSmplID = (UINT16)-1;
+	// data to be appended after current VGM command
+	UINT32 appendLen;
+	UINT8 appendBuf[0x100];
 
 	DstDataLen = VGMDataLen + 0x100;
+	DstDataLen += StreamEventCount[0] * 0x06 + StreamEventCount[1] * 0x05;
 	DstData = (UINT8*)malloc(DstDataLen);
 	AllDelay = 0;
 	VGMPos = VGMHead.lngDataOffset;
 	DstPos = VGMHead.lngDataOffset;
 	VGMSmplPos = 0;
-	NewLoopS = 0x00;
+	NewLoopPos = 0x00;
 	memcpy(DstData, VGMData, VGMPos);	// Copy Header
 
 #ifdef WIN32
@@ -1188,35 +747,59 @@ static void RewriteVGMData(void)
 #endif
 	StopVGM = false;
 
+	// write data blocks with drum samples (one block for each sample)
 	for (TempLng = 0x00; TempLng < DrumTbl.DrmCount; TempLng ++)
 	{
-		TempDrm = &DrumTbl.Drums[TempLng];
-		//printdbg("Write drum %u data, DstPos 0x%X\n", TempLng, DstPos);
+		DRUM_INF* TempDrm = &DrumTbl.Drums[TempLng];
 		DstData[DstPos + 0x00] = 0x67;
 		DstData[DstPos + 0x01] = 0x66;
 		DstData[DstPos + 0x02] = 0x04;	// OKIM6258 Data Block
-		memcpy(&DstData[DstPos + 0x03], &TempDrm->Length, 0x04);
-		memcpy(&DstData[DstPos + 0x07], TempDrm->Data, TempDrm->Length);
-		DstPos += 0x07 + TempDrm->Length;
+		memcpy(&DstData[DstPos + 0x03], &TempDrm->length, 0x04);
+		memcpy(&DstData[DstPos + 0x07], TempDrm->data, TempDrm->length);
+		DstPos += 0x07 + TempDrm->length;
 	}
 
-	for (StrmCmd = 0x00; StrmCmd < CtrlCmdCount; StrmCmd ++)
+	for (curChip = 0; curChip < ChipCnt; curChip ++)
 	{
-		if (VGMCtrlCmd[StrmCmd].FileOfs)
-			break;
+		STRM_CTRL_CMD scCmd;
+		scCmd.Command = 0x90;	// Setup Stream 00
+		scCmd.StreamID = curChip;
+		scCmd.DataB1 = 0x17 | (curChip << 7);	// 0x17 - OKIM6258 chip
+		scCmd.DataB2 = 0x00;
+		scCmd.DataB3 = 0x01;	// command 01: data write
+		WriteDACStreamCmd(&scCmd, DstData, &DstPos);
 
-		//printdbg("Write DAC command %u, DstPos 0x%X\n", StrmCmd, DstPos);
-		WriteDACStreamCmd(&VGMCtrlCmd[StrmCmd], &DstPos);
+		scCmd.Command = 0x91;	// Set Stream 00 Data
+		scCmd.StreamID = curChip;
+		scCmd.DataB1 = 0x04;	// Block Type 04: OKIM6258 Data Block
+		scCmd.DataB2 = 0x01;	// Step Size
+		scCmd.DataB3 = 0x00;	// Step Base
+		WriteDACStreamCmd(&scCmd, DstData, &DstPos);
+
+		okiClock[curChip] = VGMHead.lngHzOKIM6258 & 0x3FFFFFFF;
+		okiDivider[curChip] = VGMHead.bytOKI6258Flags & 0x03;
+		WriteLE32(&clkState[curChip][0], okiClock[curChip]);
+		clkState[curChip][4] = okiDivider[curChip];
+
+		if (OkiActionMask[curChip] & 0x20)	// when frequency init is required
+		{
+			scCmd.Command = 0x92;	// Set Stream Frequency
+			scCmd.StreamID = curChip;
+			scCmd.DataL1 = GetOkiStreamRate(okiClock[curChip], okiDivider[curChip]);
+			WriteDACStreamCmd(&scCmd, DstData, &DstPos);
+		}
 	}
+	for (curChip = 0; curChip < 2; curChip ++)
+		activeDmaID[curChip] = (UINT32)-1;
+
+	nextDmaID = 0;
+	appendLen = 0;
 	while(VGMPos < VGMHead.lngEOFOffset)
 	{
 		CmdDelay = 0;
 		CmdLen = 0x00;
 		Command = VGMData[VGMPos + 0x00];
 		WriteEvent = true;
-		//WriteExtra = false;
-		//if (VGMPos == VGMHead.lngLoopOffset)
-		//	WriteExtra = true;
 		WriteExtra = (VGMPos == VGMHead.lngLoopOffset);
 
 		if (Command >= 0x70 && Command <= 0x8F)
@@ -1270,17 +853,95 @@ static void RewriteVGMData(void)
 				CmdLen = 0x02;
 				break;
 			case 0xB7:	// OKIM6258 write
-				TempByt = (VGMData[VGMPos + 0x01] & 0x80) >> 7;
-				if (TempByt < ChipCnt)
+				curChip = (VGMData[VGMPos + 0x01] & 0x80) >> 7;
+				curReg = VGMData[VGMPos + 0x01] & 0x7F;
+				curData = VGMData[VGMPos + 0x02];
+				CmdLen = 0x03;
+				if (curChip >= ChipCnt)
+					break;
+
+				if (curReg == 0x01)
 				{
-					if ((VGMData[VGMPos + 0x01] & 0x7F) == 0x01)
-					{
+					// do NOT write when within a DmaAction for this chip
+					if (activeDmaID[curChip] != (UINT32)-1)
 						WriteEvent = false;
-						if (StrmCmd < CtrlCmdCount && VGMCtrlCmd[StrmCmd].FileOfs <= VGMPos)
-							WriteExtra = true;
+				}
+				else if (curReg >= 0x08 && curReg <= 0x0C)
+				{
+					if (curReg == 0x0B)
+						curData &= 0x3F;
+					clkState[curChip][curReg & 0x07] = curData;
+
+					if (curReg == 0x0B || curReg == 0x0C)
+					{
+						STRM_CTRL_CMD scCmd;
+						if (curReg == 0x0B)
+						{
+							// Master Clock Change
+							UINT32 nextPos = VGMPos + CmdLen;
+							UINT32 newClk = ReadLE32(&clkState[curChip][0]);
+							if (newClk == okiClock[curChip])
+								break;
+							okiClock[curChip] = newClk;
+							if (nextPos + 0x03 <= VGMHead.lngEOFOffset)
+							{
+								if (VGMData[nextPos + 0x00] == VGMData[VGMPos + 0x00] &&
+									VGMData[nextPos + 0x01] == ((curChip << 7) | 0x0C))
+								{
+									okiDivider[curChip] |= 0x80;	// enforce clock divider refresh
+									break;
+								}
+							}
+						}
+						else if (curReg == 0x0C)
+						{
+							// Clock Divider Change
+							if (curData == okiDivider[curChip])
+								break;
+							okiDivider[curChip] = curData;
+						}
+
+						scCmd.Command = 0x92;	// Set Stream Frequency
+						scCmd.StreamID = curChip;
+						scCmd.DataL1 = GetOkiStreamRate(okiClock[curChip], okiDivider[curChip]);
+						WriteDACStreamCmd(&scCmd, appendBuf, &appendLen);
+						WriteExtra = true;
 					}
 				}
-				CmdLen = 0x03;
+				else if (curReg == 0x17)	// no "else" if is intended
+				{
+					UINT32 dmaID = activeDmaID[curChip];
+					if (dmaID != (UINT32)-1 && VGMPos >= DmaActions[dmaID].posEnd)
+					{
+						// omit "Stop Stream" block when just restarting DMA
+						if ((curData & 0x10) || !(curData & 0x80))	// if (dmaStop || !dmaStart)
+						{
+							STRM_CTRL_CMD scCmd;
+							scCmd.Command = 0x94;	// Stop Stream block
+							scCmd.StreamID = curChip;
+							WriteDACStreamCmd(&scCmd, appendBuf, &appendLen);
+						}
+						activeDmaID[curChip] = (UINT32)-1;
+					}
+
+					if (nextDmaID < DmaActCount && VGMPos >= DmaActions[nextDmaID].posStart)
+					{
+						DMA_ACTION* dmaAct;
+						STRM_CTRL_CMD scCmd;
+
+						dmaID = nextDmaID;
+						activeDmaID[curChip] = dmaID;
+						dmaAct = &DmaActions[dmaID];
+						nextDmaID ++;
+
+						scCmd.Command = 0x95;	// Quick-Play block
+						scCmd.StreamID = curChip;
+						scCmd.DataS1 = dmaAct->drumID;	// Block ID
+						scCmd.DataB1 = 0x00;			// No looping
+						WriteDACStreamCmd(&scCmd, appendBuf, &appendLen);
+						WriteExtra = true;
+					}
+				}
 				break;
 			case 0x67:	// PCM Data Stream
 				TempByt = VGMData[VGMPos + 0x02];
@@ -1408,51 +1069,18 @@ static void RewriteVGMData(void)
 			CmdDelay = 0x00;
 
 			if (VGMPos == VGMHead.lngLoopOffset)
-			{
-				NewLoopS = DstPos;
-				LoopSmplID = LastSmplID;
-			}
+				NewLoopPos = DstPos;
 
 			if (WriteEvent)
 			{
 				memcpy(&DstData[DstPos], &VGMData[VGMPos], CmdLen);
 				DstPos += CmdLen;
 			}
-			else if (WriteExtra)
+			if (appendLen > 0)
 			{
-				while(StrmCmd < CtrlCmdCount && VGMCtrlCmd[StrmCmd].FileOfs <= VGMPos)
-				{
-					printdbg("Write DAC command %u, VGMPos 0x%X, DstPos 0x%X\n",
-							StrmCmd, VGMPos, DstPos);
-					if (VGMCtrlCmd[StrmCmd].Command != 0x94)
-					{
-						/*if ((INT32)VGMLoopSmplOfs > (UINT32)VGMSmplPos && VGMLoopSmplOfs - VGMSmplPos < 700)
-						{
-							printf("Warning: Start Stream close to loop!\n");
-							printf("Cmd Sample: %u, Loop Sample: %u, Difference: %u\n",
-									VGMSmplPos, VGMLoopSmplOfs, VGMLoopSmplOfs - VGMSmplPos);
-							_getch();
-						}*/
-						if (VGMCtrlCmd[StrmCmd].Command == 0x95)
-							LastSmplID = VGMCtrlCmd[StrmCmd].DataS1;
-						else if (VGMCtrlCmd[StrmCmd].Command == 0x93)
-							LastSmplID = (UINT16)-1;
-						WriteDACStreamCmd(&VGMCtrlCmd[StrmCmd], &DstPos);
-					}
-					else
-					{
-						if (~VGMCtrlCmd[StrmCmd].DataB1 & 0x02)
-						{
-							WriteDACStreamCmd(&VGMCtrlCmd[StrmCmd], &DstPos);
-						}
-						if (VGMCtrlCmd[StrmCmd].DataB1 & 0x01)
-						{
-							memcpy(&DstData[DstPos], &VGMData[VGMPos], CmdLen);
-							DstPos += CmdLen;
-						}
-					}
-					StrmCmd ++;
-				}
+				memcpy(&DstData[DstPos], appendBuf, appendLen);
+				DstPos += appendLen;
+				appendLen = 0;
 			}
 		}
 		else
@@ -1480,12 +1108,12 @@ static void RewriteVGMData(void)
 	DataSizeB = DstPos - VGMHead.lngDataOffset;
 	if (VGMHead.lngLoopOffset)
 	{
-		VGMHead.lngLoopOffset = NewLoopS;
-		if (! NewLoopS)
+		VGMHead.lngLoopOffset = NewLoopPos;
+		if (! NewLoopPos)
 			printf("Error! Failed to relocate Loop Point!\n");
 		else
-			NewLoopS -= 0x1C;
-		memcpy(&DstData[0x1C], &NewLoopS, 0x04);
+			NewLoopPos -= 0x1C;
+		memcpy(&DstData[0x1C], &NewLoopPos, 0x04);
 	}
 	printf("\t\t\t\t\t\t\t\t\r");
 
@@ -1516,14 +1144,32 @@ static void RewriteVGMData(void)
 	TempLng = DstDataLen - 0x04;
 	memcpy(&DstData[0x04], &TempLng, 0x04);
 
-	if (NewLoopS)
-	{
-		if (LoopSmplID != LastSmplID)
-		{
-			printf("Loop Sample Warning: %02X != %02X\n", LoopSmplID, LastSmplID);
-			_getch();
-		}
-	}
+	return;
+}
+
+static UINT16 ReadBE16(const UINT8* data)
+{
+	return	(data[0x00] <<  8) | (data[0x01] <<  0);
+}
+
+static UINT32 ReadBE32(const UINT8* data)
+{
+	return	(data[0x00] << 24) | (data[0x01] << 16) |
+			(data[0x02] <<  8) | (data[0x03] <<  0);
+}
+
+static UINT32 ReadLE32(const UINT8* data)
+{
+	return	(data[0x00] <<  0) | (data[0x01] <<  8) |
+			(data[0x02] << 16) | (data[0x03] << 24);
+}
+
+static void WriteLE32(UINT8* buffer, UINT32 value)
+{
+	buffer[0x00] = (value >>  0) & 0xFF;
+	buffer[0x01] = (value >>  8) & 0xFF;
+	buffer[0x02] = (value >> 16) & 0xFF;
+	buffer[0x03] = (value >> 24) & 0xFF;
 
 	return;
 }
