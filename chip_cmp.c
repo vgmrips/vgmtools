@@ -137,6 +137,8 @@ typedef struct ymf271_chip
 	YMF271_SLOT slots[48];
 	YMF271_GROUP groups[12];
 
+	UINT8 TmrData[0x04];
+	UINT8 TmrFirst[0x04];
 	UINT8 ext_address[3];
 	UINT8 ext_read;
 } YMF271_DATA;
@@ -613,15 +615,9 @@ bool ym2612_write(UINT8 Port, UINT8 Register, UINT8 Data)
 	RegVal = (Port << 8) | Register;
 	switch(RegVal)
 	{
-	case 0x024:	// Timer A high
-	case 0x025:	// Timer A low
-		// TODO: don't remove when CSM mode is used (reg 0x027, data 0xC0)
-		return false;
-	case 0x026:	// Timer B
-		return false;
 	// no OPN Prescaler Registers for YM2612
 	case 0x027:
-		Data &= 0xC0;	// mask out all timer-relevant bits
+		Data &= 0xC3;	// mask out all timer-relevant bits except general 'enable' bits
 
 		if (! chip->RegFirst[RegVal] && Data == chip->RegData[RegVal])
 			return false;
@@ -727,7 +723,7 @@ bool ym2151_write(UINT8 Register, UINT8 Data)
 
 	switch(Register)
 	{
-	case 0x08:
+	case 0x08:	// Key On state
 		Channel = Data & 0x07;
 		Data &= 0xF8;
 		if (! chip->MCFirst[Channel] && Data == chip->MCMask[Channel])
@@ -736,12 +732,8 @@ bool ym2151_write(UINT8 Register, UINT8 Data)
 		chip->MCFirst[Channel] = JustTimerCmds;
 		chip->MCMask[Channel] = Data;
 		break;
-	case 0x10:	// Timer Registers
-	case 0x11:
-	case 0x12:
-		return false;
 	case 0x14:
-		Data &= 0x80;
+		Data &= 0x83;	// mask out all timer-relevant bits except general 'enable' bits
 		if (! chip->RegFirst[Register] && Data == chip->RegData[Register])
 			return false;
 
@@ -758,6 +750,7 @@ bool ym2151_write(UINT8 Register, UINT8 Data)
 		chip->MDMask[Channel] = Data;
 		break;
 	default:
+		// Timer registers (0x10/0x11/0x12) are intentionally kept (for e.g. CSM)
 		if (! chip->RegFirst[Register] && Data == chip->RegData[Register])
 			return false;
 
@@ -961,14 +954,8 @@ bool ym2203_write(UINT8 Register, UINT8 Data)
 		return false;*/
 	switch(Register)
 	{
-	case 0x24:	// Timer A high
-	case 0x25:	// Timer A low
-		// TODO: don't remove when CSM mode is used (reg 0x27, data 0xC0)
-		return false;
-	case 0x26:	// Timer B
-		return false;
 	case 0x27:
-		Data &= 0xC0;	// mask out all timer-relevant bits
+		Data &= 0xC3;	// mask out all timer-relevant bits except general 'enable' bits
 
 		if (! chip->RegFirst[Register] && Data == chip->RegData[Register])
 			return false;
@@ -1071,14 +1058,8 @@ bool ym2608_write(UINT8 Port, UINT8 Register, UINT8 Data)
 	RegVal = (Port << 8) | Register;
 	switch(RegVal)
 	{
-	case 0x024:	// Timer A high
-	case 0x025:	// Timer A low
-		// TODO: don't remove when CSM mode is used (reg 0x027, data 0xC0)
-		return false;
-	case 0x026:	// Timer B
-		return false;
 	case 0x027:
-		Data &= 0xC0;	// mask out all timer-relevant bits
+		Data &= 0xC3;	// mask out all timer-relevant bits except general 'enable' bits
 
 		if (! chip->RegFirst[RegVal] && Data == chip->RegData[RegVal])
 			return false;
@@ -1204,15 +1185,9 @@ bool ym2610_write(UINT8 Port, UINT8 Register, UINT8 Data)
 	RegVal = (Port << 8) | Register;
 	switch(RegVal)
 	{
-	case 0x024:	// Timer A high
-	case 0x025:	// Timer A low
-		// TODO: don't remove when CSM mode is used (reg 0x027, data 0xC0)
-		return false;
-	case 0x026:	// Timer B
-		return false;
 	// no OPN Prescaler Registers for YM2610
 	case 0x027:
-		Data &= 0xC0;	// mask out all timer-relevant bits
+		Data &= 0xC3;	// mask out all timer-relevant bits except general 'enable' bits
 
 		if (! chip->RegFirst[RegVal] && Data == chip->RegData[RegVal])
 			return false;
@@ -1318,39 +1293,37 @@ bool ym2610_write(UINT8 Port, UINT8 Register, UINT8 Data)
 
 bool ym3812_write(UINT8 Register, UINT8 Data)
 {
+	YM3812_DATA* chip = &ChDat->YM3812;
+
 	switch(Register)
 	{
-	case 0x02:	// IRQ and Timer Registers
-	case 0x03:
-		return false;
 	case 0x04:
-		return false;
-		/*if (Data & 0x80)
-			Data &= 0x80;
+		if (Data & 0x80)
+			return false;	// remove "flags clear" command
+		Data &= 0x83;
 
-		if (! ChDat->YM3812.RegFirst[Register] && Data == ChDat->YM3812.RegData[Register])
+		if (! chip->RegFirst[Register] && Data == chip->RegData[Register])
 			return false;
 
-		ChDat->YM3812.RegFirst[Register] = 0x00;
-		ChDat->YM3812.RegData[Register] = Data;
-		break;*/
+		chip->RegFirst[Register] = 0x00;
+		chip->RegData[Register] = Data;
+		break;
 	default:
-		if (! ChDat->YM3812.RegFirst[Register] && Data == ChDat->YM3812.RegData[Register])
+		if (! chip->RegFirst[Register] && Data == chip->RegData[Register])
 			return false;
-
 
 		if (Register == 0x01)
 		{
-			if ((ChDat->YM3812.RegData[Register] ^ Data) & 0x20)
+			if ((chip->RegData[Register] ^ Data) & 0x20)
 			{
 				UINT8 reg;
 				for (reg = 0xFF; reg >= 0xE0; reg ++)
-					ChDat->YM3812.RegFirst[Register] = 0x01;
+					chip->RegFirst[Register] = 0x01;
 			}
 		}
 
-		ChDat->YM3812.RegFirst[Register] = JustTimerCmds;
-		ChDat->YM3812.RegData[Register] = Data;
+		chip->RegFirst[Register] = JustTimerCmds;
+		chip->RegData[Register] = Data;
 		break;
 	}
 
@@ -1359,28 +1332,27 @@ bool ym3812_write(UINT8 Register, UINT8 Data)
 
 bool ym3526_write(UINT8 Register, UINT8 Data)
 {
+	YM3526_DATA* chip = &ChDat->YM3526;
+
 	switch(Register)
 	{
-	case 0x02:	// IRQ and Timer Registers
-	case 0x03:
-		return false;
 	case 0x04:
-		return false;
-		/*if (Data & 0x80)
-			Data &= 0x80;
+		if (Data & 0x80)
+			return false;	// remove "flags clear" command
+		Data &= 0x83;
 
-		if (! ChDat->YM3526.RegFirst[Register] && Data == ChDat->YM3526.RegData[Register])
+		if (! chip->RegFirst[Register] && Data == chip->RegData[Register])
 			return false;
 
-		ChDat->YM3526.RegFirst[Register] = 0x00;
-		ChDat->YM3526.RegData[Register] = Data;
-		break;*/
+		chip->RegFirst[Register] = 0x00;
+		chip->RegData[Register] = Data;
+		break;
 	default:
-		if (! ChDat->YM3526.RegFirst[Register] && Data == ChDat->YM3526.RegData[Register])
+		if (! chip->RegFirst[Register] && Data == chip->RegData[Register])
 			return false;
 
-		ChDat->YM3526.RegFirst[Register] = JustTimerCmds;
-		ChDat->YM3526.RegData[Register] = Data;
+		chip->RegFirst[Register] = JustTimerCmds;
+		chip->RegData[Register] = Data;
 		break;
 	}
 
@@ -1389,31 +1361,30 @@ bool ym3526_write(UINT8 Register, UINT8 Data)
 
 bool y8950_write(UINT8 Register, UINT8 Data)
 {
+	Y8950_DATA* chip = &ChDat->Y8950;
+
 	switch(Register)
 	{
-	case 0x02:	// IRQ and Timer Registers
-	case 0x03:
-		return false;
 	case 0x04:
-		return false;
-		/*if (Data & 0x80)
-			Data &= 0x80;
+		if (Data & 0x80)
+			return false;	// remove "flags clear" command
+		Data &= 0x83;
 
-		if (! ChDat->Y8950.RegFirst[Register] && Data == ChDat->Y8950.RegData[Register])
+		if (! chip->RegFirst[Register] && Data == chip->RegData[Register])
 			return false;
 
-		ChDat->Y8950.RegFirst[Register] = 0x00;
-		ChDat->Y8950.RegData[Register] = Data;
-		break;*/
+		chip->RegFirst[Register] = 0x00;
+		chip->RegData[Register] = Data;
+		break;
 	default:
 		if (Register >= 0x07 && Register <= 0x12)
-			return ymdeltat_write(Register - 0x07, Data, &ChDat->Y8950.RegData[0x07],
-									&ChDat->Y8950.RegFirst[0x07]);
-		if (! ChDat->Y8950.RegFirst[Register] && Data == ChDat->Y8950.RegData[Register])
+			return ymdeltat_write(Register - 0x07, Data, &chip->RegData[0x07],
+									&chip->RegFirst[0x07]);
+		if (! chip->RegFirst[Register] && Data == chip->RegData[Register])
 			return false;
 
-		ChDat->Y8950.RegFirst[Register] = JustTimerCmds;
-		ChDat->Y8950.RegData[Register] = Data;
+		chip->RegFirst[Register] = JustTimerCmds;
+		chip->RegData[Register] = Data;
 		break;
 	}
 
@@ -1428,20 +1399,17 @@ bool ymf262_write(UINT8 Port, UINT8 Register, UINT8 Data)
 	RegVal = (Port << 8) | Register;
 	switch(RegVal)
 	{
-	case 0x002:	// IRQ and Timer Registers
-	case 0x003:
-		return false;
 	case 0x004:
-		return false;
-		/*if (Data & 0x80)
-			Data &= 0x80;
+		if (Data & 0x80)
+			return false;	// remove "flags clear" command
+		Data &= 0x83;
 
 		if (! chip->RegFirst[RegVal] && Data == chip->RegData[RegVal])
 			return false;
 
 		chip->RegFirst[RegVal] = 0x00;
 		chip->RegData[RegVal] = Data;
-		break;*/
+		break;
 	default:
 		if (! chip->RegFirst[RegVal] && Data == chip->RegData[RegVal])
 			return false;
@@ -1464,20 +1432,17 @@ bool ymf278b_write(UINT8 Port, UINT8 Register, UINT8 Data)
 		RegVal = (Port << 8) | Register;
 		switch(RegVal)
 		{
-		case 0x002:	// IRQ and Timer Registers
-		case 0x003:
-			return false;
 		case 0x004:
-			return false;
-			/*if (Data & 0x80)
-				Data &= 0x80;
+			if (Data & 0x80)
+				return false;	// remove "flags clear" command
+			Data &= 0x83;
 
 			if (! chip->RegFirst[RegVal] && Data == chip->RegData[RegVal])
 				return false;
 
 			chip->RegFirst[RegVal] = 0x00;
 			chip->RegData[RegVal] = Data;
-			break;*/
+			break;
 		default:
 			if (! chip->RegFirst[RegVal] && Data == chip->RegData[RegVal])
 				return false;
@@ -1498,10 +1463,6 @@ bool ymf278b_write(UINT8 Port, UINT8 Register, UINT8 Data)
 bool ymz280b_write(UINT8 Register, UINT8 Data)
 {
 	YMZ280B_DATA* chip = &ChDat->YMZ280B;
-
-//	// the KeyOn-Register can be sent 2x to stop a sound instantly
-//	if ((Register & 0xE3) == 0x01)
-//		return true;
 
 	if (! chip->RegFirst[Register] && Data == chip->RegData[Register])
 		return false;
@@ -1796,16 +1757,22 @@ bool ymf271_write(UINT8 Port, UINT8 Register, UINT8 Data)
 		{
 			switch (Register)
 			{
-			case 0x10:	// Timer A LSB
-			case 0x11:	// Timer A MSB
+			case 0x10:	// Timer A MSB
+			case 0x11:	// Timer A LSB
 			case 0x12:	// Timer B
 			case 0x13:	// Timer A/B Load, Timer A/B IRQ Enable, Timer A/B Reset
-				return false;
+				Register &= 0x03;
+				if (Register == 0x03)
+					Data &= 0x83;	// mask out all timer-relevant bits except general 'enable' bits
+				if (! chip->TmrFirst[Register] && Data == chip->TmrData[Register])
+					return false;
+
+				chip->TmrFirst[Register] = JustTimerCmds;
+				chip->TmrData[Register] = Data;
+				break;
 			case 0x14:
-				chip->ext_address[0] = Data;
-				return true;
 			case 0x15:
-				chip->ext_address[1] = Data;
+				chip->ext_address[Register & 0x03] = Data;
 				return true;
 			case 0x16:
 				chip->ext_address[2] = Data;
@@ -2586,8 +2553,6 @@ bool okim6258_write(UINT8 Port, UINT8 Data)
 
 		chip->RegData[Port] = Data;
 		chip->RegFirst[Port] = 0x00;
-		printf("Master Clock Change!\n");
-		getchar();
 		break;
 	case 0x0C:	// Clock Divider
 		if (! chip->RegFirst[Port] && Data == chip->RegData[Port])
@@ -2604,8 +2569,6 @@ bool okim6258_write(UINT8 Port, UINT8 Data)
 		}
 		chip->RegData[Port] = Data;
 		chip->RegFirst[Port] = 0x00;
-		//printf("Clock Divider Change!\n");
-		//getchar();
 		break;
 	}
 
