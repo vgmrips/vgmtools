@@ -304,6 +304,8 @@ static void EnumerateOkiWrite(void)
 	UINT32 CmdLen;
 	bool StopVGM;
 	DATA_WRITE* TempWrt;
+	UINT32 MClkNew;
+	UINT32 MClkOld;
 
 	VGMLoopSmplOfs = VGMHead.lngTotalSamples - VGMHead.lngLoopSamples;
 	VGMPos = VGMHead.lngDataOffset;
@@ -322,6 +324,8 @@ static void EnumerateOkiWrite(void)
 	}
 	for (CurChip = 0x00; CurChip < 0x02; CurChip ++)
 		WriteCount[CurChip] = 0x00;
+	MClkOld = VGMHead.lngHzOKIM6258;
+	MClkNew = MClkOld;
 
 #ifdef WIN32
 	CmdTimer = 0;
@@ -405,9 +409,17 @@ static void EnumerateOkiWrite(void)
 							_getch();
 						}
 					}
-					if (TempWrt->Port == 0x0B)
+					if (TempWrt->Port >= 0x08 && TempWrt->Port <= 0x0B)
 					{
-						printf("Warning! Master Clock changed!! (sample %u)\n", TempWrt->SmplPos);
+						UINT8 shift = (TempWrt->Port - 0x08) * 8;
+						MClkNew &= ~(0xFF << shift);
+						MClkNew |= (TempWrt->Value << shift);
+					}
+					if (TempWrt->Port == 0x0B && MClkNew != MClkOld)
+					{
+						printf("Warning! Master Clock changed!! (sample %u, clock %u -> %u)\n",
+							TempWrt->SmplPos, MClkOld, MClkNew);
+						MClkOld = MClkNew;
 						_getch();
 					}
 				}
