@@ -96,7 +96,7 @@ int main(int argc, char* argv[])
 	int ErrVal;
 	char FileName[0x100];
 
-	printf("VGM OKI Optimizer\n-----------------\n\n");
+	printf("VGM OKIM6258 Optimizer\n----------------------\n\n");
 
 	DumpDrums = false;
 	ErrVal = 0;
@@ -124,6 +124,13 @@ int main(int argc, char* argv[])
 	printf("\n");
 
 	EnumerateOkiWrites();
+	if (DmaActCount == 0)
+	{
+		printf("No OKIM6258 DMA streams found.\n");
+		free(DmaActions);
+		free(VGMData);
+		goto EndProgram;
+	}
 	if (((OkiActionMask[0] | OkiActionMask[1]) & 0x02))
 		printf("DMA start offset will be used to help sorting drums.\n");
 	else
@@ -131,9 +138,6 @@ int main(int argc, char* argv[])
 	GenerateDrumTable();
 	RewriteVGMData();
 
-	free(DmaActions);	DmaActions = NULL;
-	DmaActAlloc = 0x00;
-	DmaActCount = 0x00;
 	printf("Data Compression: %u -> %u (%.1f %%)\n",
 			DataSizeA, DataSizeB, 100.0 * DataSizeB / (float)DataSizeA);
 
@@ -151,6 +155,7 @@ int main(int argc, char* argv[])
 		WriteVGMFile(FileName);
 	}
 
+	free(DmaActions);
 	free(VGMData);
 	free(DstData);
 
@@ -380,11 +385,10 @@ static void EnumerateOkiWrites(void)
 				{
 					if (curReg == 0x0B)
 						curData &= 0x3F;
+					if (curReg == 0x0B || curReg == 0x0C)
+						OkiActionMask[curChip] |= 0x10;	// mark clock change
 					if (curData != clkState[curChip][curReg & 0x07])
-					{
-						OkiActionMask[curChip] |= 0x10;	// clock change
 						printf("Warning! Clock change at 0x%06X\n", VGMPos);
-					}
 					clkState[curChip][curReg & 0x07] = curData;
 					StreamEventCount[0] ++;
 				}
@@ -727,6 +731,8 @@ static void RewriteVGMData(void)
 	UINT8 clkState[2][5];
 	UINT32 okiClock[2];
 	UINT8 okiDivider[2];
+	UINT32 okiFreq[2];
+	UINT8 okiStrmState;
 
 	// data to be appended after current VGM command
 	UINT32 appendLen;
@@ -759,27 +765,36 @@ static void RewriteVGMData(void)
 		DstPos += 0x07 + TempDrm->length;
 	}
 
-	for (curChip = 0; curChip < ChipCnt; curChip ++)
+	for (curChip = 0; curChip < 2; curChip ++)
 	{
-		STRM_CTRL_CMD scCmd;
-		scCmd.Command = 0x90;	// Setup Stream 00
-		scCmd.StreamID = curChip;
-		scCmd.DataB1 = 0x17 | (curChip << 7);	// 0x17 - OKIM6258 chip
-		scCmd.DataB2 = 0x00;
-		scCmd.DataB3 = 0x01;	// command 01: data write
-		WriteDACStreamCmd(&scCmd, DstData, &DstPos);
-
-		scCmd.Command = 0x91;	// Set Stream 00 Data
-		scCmd.StreamID = curChip;
-		scCmd.DataB1 = 0x04;	// Block Type 04: OKIM6258 Data Block
-		scCmd.DataB2 = 0x01;	// Step Size
-		scCmd.DataB3 = 0x00;	// Step Base
-		WriteDACStreamCmd(&scCmd, DstData, &DstPos);
-
 		okiClock[curChip] = VGMHead.lngHzOKIM6258 & 0x3FFFFFFF;
 		okiDivider[curChip] = VGMHead.bytOKI6258Flags & 0x03;
 		WriteLE32(&clkState[curChip][0], okiClock[curChip]);
 		clkState[curChip][4] = okiDivider[curChip];
+
+		activeDmaID[curChip] = (UINT32)-1;
+		okiFreq[curChip] = 0;
+	}
+	for (curChip = 0; curChip < ChipCnt; curChip ++)
+	{
+		STRM_CTRL_CMD scCmd;
+
+		if (OkiActionMask[curChip] & 0x01)
+		{
+			scCmd.Command = 0x90;	// Setup Stream 00
+			scCmd.StreamID = curChip;
+			scCmd.DataB1 = 0x17 | (curChip << 7);	// 0x17 - OKIM6258 chip
+			scCmd.DataB2 = 0x00;
+			scCmd.DataB3 = 0x01;	// command 01: data write
+			WriteDACStreamCmd(&scCmd, DstData, &DstPos);
+
+			scCmd.Command = 0x91;	// Set Stream 00 Data
+			scCmd.StreamID = curChip;
+			scCmd.DataB1 = 0x04;	// Block Type 04: OKIM6258 Data Block
+			scCmd.DataB2 = 0x01;	// Step Size
+			scCmd.DataB3 = 0x00;	// Step Base
+			WriteDACStreamCmd(&scCmd, DstData, &DstPos);
+		}
 
 		if (OkiActionMask[curChip] & 0x20)	// when frequency init is required
 		{
@@ -789,18 +804,23 @@ static void RewriteVGMData(void)
 			WriteDACStreamCmd(&scCmd, DstData, &DstPos);
 		}
 	}
-	for (curChip = 0; curChip < 2; curChip ++)
-		activeDmaID[curChip] = (UINT32)-1;
 
 	nextDmaID = 0;
 	appendLen = 0;
+	okiStrmState = 0x00;
 	while(VGMPos < VGMHead.lngEOFOffset)
 	{
 		CmdDelay = 0;
 		CmdLen = 0x00;
 		Command = VGMData[VGMPos + 0x00];
 		WriteEvent = true;
-		WriteExtra = (VGMPos == VGMHead.lngLoopOffset);
+		WriteExtra = false;
+		if (VGMPos == VGMHead.lngLoopOffset)
+		{
+			WriteExtra = true;
+			for (curChip = 0; curChip < 2; curChip ++)
+				okiFreq[curChip] = 0;	// enforce refresh
+		}
 
 		if (Command >= 0x70 && Command <= 0x8F)
 		{
@@ -864,7 +884,24 @@ static void RewriteVGMData(void)
 				{
 					// do NOT write when within a DmaAction for this chip
 					if (activeDmaID[curChip] != (UINT32)-1)
+					{
 						WriteEvent = false;
+						if (okiStrmState & (0x10 << curChip))
+						{
+							DMA_ACTION* dmaAct = &DmaActions[activeDmaID[curChip]];
+							STRM_CTRL_CMD scCmd;
+
+							okiStrmState &= ~(0x10 << curChip);	// remove 'pending start' bit
+							okiStrmState |= (0x01 << curChip);	// set 'stream running' bit
+
+							scCmd.Command = 0x95;	// Quick-Play block
+							scCmd.StreamID = curChip;
+							scCmd.DataS1 = dmaAct->drumID;	// Block ID
+							scCmd.DataB1 = 0x00;			// No looping
+							WriteDACStreamCmd(&scCmd, appendBuf, &appendLen);
+							WriteExtra = true;
+						}
+					}
 				}
 				else if (curReg >= 0x08 && curReg <= 0x0C)
 				{
@@ -874,36 +911,41 @@ static void RewriteVGMData(void)
 
 					if (curReg == 0x0B || curReg == 0x0C)
 					{
+						UINT32 nextPos = VGMPos + CmdLen;
 						STRM_CTRL_CMD scCmd;
+						UINT32 newFreq;
+
 						if (curReg == 0x0B)
 						{
 							// Master Clock Change
-							UINT32 nextPos = VGMPos + CmdLen;
-							UINT32 newClk = ReadLE32(&clkState[curChip][0]);
-							if (newClk == okiClock[curChip])
-								break;
-							okiClock[curChip] = newClk;
+							okiClock[curChip] = ReadLE32(&clkState[curChip][0]);
 							if (nextPos + 0x03 <= VGMHead.lngEOFOffset)
 							{
 								if (VGMData[nextPos + 0x00] == VGMData[VGMPos + 0x00] &&
 									VGMData[nextPos + 0x01] == ((curChip << 7) | 0x0C))
-								{
-									okiDivider[curChip] |= 0x80;	// enforce clock divider refresh
-									break;
-								}
+									break;	// exit now - frequency will be set during next Clock Divider change
 							}
 						}
 						else if (curReg == 0x0C)
 						{
 							// Clock Divider Change
-							if (curData == okiDivider[curChip])
-								break;
 							okiDivider[curChip] = curData;
+							if (nextPos + 0x03 <= VGMHead.lngEOFOffset)
+							{
+								if (VGMData[nextPos + 0x00] == VGMData[VGMPos + 0x00] &&
+									VGMData[nextPos + 0x01] == ((curChip << 7) | 0x08))
+									break;	// exit now - frequency will be set during next Master Clock change
+							}
 						}
+
+						newFreq = GetOkiStreamRate(okiClock[curChip], okiDivider[curChip]);
+						if (newFreq == okiFreq[curChip])
+							break;
+						okiFreq[curChip] = newFreq;
 
 						scCmd.Command = 0x92;	// Set Stream Frequency
 						scCmd.StreamID = curChip;
-						scCmd.DataL1 = GetOkiStreamRate(okiClock[curChip], okiDivider[curChip]);
+						scCmd.DataL1 = okiFreq[curChip];
 						WriteDACStreamCmd(&scCmd, appendBuf, &appendLen);
 						WriteExtra = true;
 					}
@@ -916,30 +958,32 @@ static void RewriteVGMData(void)
 						// omit "Stop Stream" block when just restarting DMA
 						if ((curData & 0x10) || !(curData & 0x80))	// if (dmaStop || !dmaStart)
 						{
-							STRM_CTRL_CMD scCmd;
-							scCmd.Command = 0x94;	// Stop Stream block
-							scCmd.StreamID = curChip;
-							WriteDACStreamCmd(&scCmd, appendBuf, &appendLen);
+							if (okiStrmState & (0x01 << curChip))	// only stop when it was already running
+							{
+								STRM_CTRL_CMD scCmd;
+								scCmd.Command = 0x94;	// Stop Stream block
+								scCmd.StreamID = curChip;
+								WriteDACStreamCmd(&scCmd, appendBuf, &appendLen);
+							}
+							okiStrmState &= ~(0x11 << curChip);
 						}
 						activeDmaID[curChip] = (UINT32)-1;
 					}
 
 					if (nextDmaID < DmaActCount && VGMPos >= DmaActions[nextDmaID].posStart)
 					{
-						DMA_ACTION* dmaAct;
-						STRM_CTRL_CMD scCmd;
-
-						dmaID = nextDmaID;
-						activeDmaID[curChip] = dmaID;
-						dmaAct = &DmaActions[dmaID];
+						activeDmaID[curChip] = nextDmaID;
 						nextDmaID ++;
 
-						scCmd.Command = 0x95;	// Quick-Play block
-						scCmd.StreamID = curChip;
-						scCmd.DataS1 = dmaAct->drumID;	// Block ID
-						scCmd.DataB1 = 0x00;			// No looping
-						WriteDACStreamCmd(&scCmd, appendBuf, &appendLen);
-						WriteExtra = true;
+						// enqueue "stream start" command
+						// The next 6258 data command will then start the stream.
+						okiStrmState |= (0x10 << curChip);
+					}
+
+					if (curData & 0x40)
+					{
+						if (!(curData & 0x90))
+							WriteEvent = false;	// remove all the "DMA continue" commands that are used by streaming drivers
 					}
 				}
 				break;
