@@ -439,6 +439,21 @@ static char* GenerateFileName(const char* title, UINT32 trackID, const char* ext
 			while(*src == ' ')
 				src ++;
 		}
+		else if (*src == '|')	// | -> -
+		{
+			src ++;
+			*dst = '-';	dst ++;
+		}
+		else if (*src == '<')	// < -> (
+		{
+			src ++;
+			*dst = '(';	dst ++;
+		}
+		else if (*src == '>')	// < -> )
+		{
+			src ++;
+			*dst = ')';	dst ++;
+		}
 		else
 		{
 			*dst = *src;
@@ -447,6 +462,8 @@ static char* GenerateFileName(const char* title, UINT32 trackID, const char* ext
 	}
 	while(dst > fn && dst[-1] == '.')
 		dst --;	// remove dots before the extension
+	while(dst > fn && dst[-1] == ' ')
+		dst --;	// remove trailing spaces
 
 	if (dst > fn + fnSize - extLen)
 		dst = fn + fnSize - extLen;

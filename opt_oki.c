@@ -89,6 +89,7 @@ UINT8 OkiActionMask[2];	// [0] = 1st chip, [1] = 2nd chip
 UINT32 StreamEventCount[2];	// total event count, for memory preallocation, [0] = frequency changes, [1] = play commands
 
 bool DumpDrums;
+bool FuzzyCompare;
 
 int main(int argc, char* argv[])
 {
@@ -99,8 +100,26 @@ int main(int argc, char* argv[])
 	printf("VGM OKIM6258 Optimizer\n----------------------\n\n");
 
 	DumpDrums = false;
+	FuzzyCompare = true;
 	ErrVal = 0;
 	argbase = 1;
+	while(argbase < argc && argv[argbase][0] == '-')
+	{
+		if (! stricmp(argv[argbase], "-dump"))
+		{
+			DumpDrums = true;
+			argbase ++;
+		}
+		else if (! stricmp(argv[argbase], "-nofuzz"))
+		{
+			FuzzyCompare = false;
+			argbase ++;
+		}
+		else
+		{
+			break;
+		}
+	}
 
 	printf("File Name:\t");
 	if (argc <= argbase + 0)
@@ -285,6 +304,7 @@ static void EnumerateOkiWrites(void)
 	UINT8 curReg;
 	UINT8 curData;
 	UINT32 activeDmaID[2];
+	UINT32 lastOkiWrtSmpl[2];
 	UINT8 dmaState[2][8];
 	UINT8 clkState[2][5];
 
@@ -297,7 +317,10 @@ static void EnumerateOkiWrites(void)
 	DmaActAlloc = 0;
 	DmaActCount = 0;
 	for (curChip = 0; curChip < 2; curChip ++)
+	{
 		activeDmaID[curChip] = (UINT32)-1;
+		lastOkiWrtSmpl[curChip] = 0;
+	}
 	memset(dmaState, 0x00, sizeof(dmaState));
 
 	memset(OkiActionMask, 0x00, sizeof(OkiActionMask));
@@ -380,6 +403,7 @@ static void EnumerateOkiWrites(void)
 						dmaAct->data[dmaAct->length] = curData;
 						dmaAct->length ++;
 					}
+					lastOkiWrtSmpl[curChip] = VGMSmplPos;
 				}
 				else if (curReg >= 0x08 && curReg <= 0x0C)
 				{
@@ -387,8 +411,8 @@ static void EnumerateOkiWrites(void)
 						curData &= 0x3F;
 					if (curReg == 0x0B || curReg == 0x0C)
 						OkiActionMask[curChip] |= 0x10;	// mark clock change
-					if (curData != clkState[curChip][curReg & 0x07])
-						printf("Warning! Clock change at 0x%06X\n", VGMPos);
+					//if (curData != clkState[curChip][curReg & 0x07])
+					//	printf("Warning! Clock change at 0x%06X\n", VGMPos);
 					clkState[curChip][curReg & 0x07] = curData;
 					StreamEventCount[0] ++;
 				}
@@ -411,8 +435,8 @@ static void EnumerateOkiWrites(void)
 						DMA_ACTION* dmaAct = &DmaActions[activeDmaID[curChip]];
 						dmaAct->posEnd = VGMPos;
 						if (dmaAct->dmaLength && dmaAct->length > dmaAct->dmaLength)
-							printf("Warning: more OKI writes (%u) than set by DMA length (%u)\n",
-									dmaAct->length > dmaAct->dmaLength);
+							printf("Warning: OKI writes (%u) > DMA length (%u) at sample %u\n",
+									dmaAct->length, dmaAct->dmaLength, lastOkiWrtSmpl[curChip]);
 						activeDmaID[curChip] = (UINT32)-1;
 					}
 					if (curData & 0x80)	// DMA Start
@@ -579,6 +603,10 @@ static void GenerateDrumTable(void)
 		{
 			DRUM_INF* dInf = &DrumTbl.Drums[curDrm];
 			UINT32 cmpLen = (dmaAct->length < dInf->length) ? dmaAct->length : dInf->length;
+			// Ignoring the last 4 bytes should make it resistant against
+			// PCM drivers that send "stream termination" commands.
+			if (cmpLen >= 0x14 && FuzzyCompare)
+				cmpLen -= 0x04;
 			if (! memcmp(dmaAct->data, dInf->data, cmpLen))
 			{
 				drmIdFound = curDrm;
@@ -626,9 +654,9 @@ static void GenerateDrumTable(void)
 			DRUM_INF* dInf = &DrumTbl.Drums[curDrm];
 
 			if (!dInf->sortKey)
-				sprintf(DrumDump_Name, "%s_%03X.raw", FileBase, curDrm);
+				sprintf(DrumDump_Name, "%s_%03X.bin", FileBase, curDrm);
 			else
-				sprintf(DrumDump_Name, "%s_%03X_ofs-%06X.raw", FileBase, curDrm, dInf->sortKey);
+				sprintf(DrumDump_Name, "%s_%03X_ofs-%06X.bin", FileBase, curDrm, dInf->sortKey);
 			hFile = fopen(DrumDump_Name, "wb");
 			if (hFile != NULL)
 			{

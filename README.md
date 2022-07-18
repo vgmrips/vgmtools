@@ -82,23 +82,15 @@ The tool can convert in 3 ways and performs additional actions, depending on the
 
 ### VGM OKIM6258 Optimizer (opt_oki)
 
-***NOTE:** still in alpha and not for public use*
-
 This tool scans streamed OKIM6258 data (from VGM logs of X68000 games) and optimizes them into "play sample" commands for the VGM "DAC Stream" system.
 
-Currently, the tool requires the user to do some in-depth research of the logged OKIM6258 stream data in order to be able to configure the tool correctly.
+As of June 2022, the tool is stable and easy to use. However the VGMs need to log the X68000 DMA commands.
+These commands are logged by XM6 VGM mod, 2021 release and MAME VGM mod 0.236 and later.
 
-Settings to be made are the source code variables:
+Note: The tool does a slightly fuzzy sample detection by default. (It ignores the last 4 bytes of each PCM sample.)
+The fuzzy comparision can be disabled using the `-nofuzz` parameter.
 
-- MaxDrumDelay: VGM samples after which a sample ends, even without a "stop" command
-  Some games require this to be low (~120) due to a lack of "stop" commands in general.
-  Others have jittery streams and require a high setting (>=500) to prevent the creation of many chopped samples. (e.g. Arcus Odyssey)
-- Skip80Sample: sets how many "dummy" samples the game sends before and/or after the actual ADPCM sample data.
-  Setting this incorrectly causes too many samples to be created when a game stops a sample early.
-- Smpl80Value: value of the "dummy" sample (commonly 0x80, 0x88 or 0x08)
-- EarlyDataWrt: set to "true" when the first data byte is written *before* the actual "start" command occours
-- SplitCmd: OKIM6258 command at which samples are forcedly split (usually 0x00: "start/stop" or 0x02: pan)
-
+The tool will dump all PCM samples if you pass the `-dump` parameter.
 
 ### VGM DAC Optimizer (optdac)
 
@@ -241,6 +233,7 @@ TODO: better description
 This tool renames a VGM so that its file name follows the VGM's title tag.
 
 When a playlist is given, track numbers are added and the playlist is rewritten with the new file names.
+The tool can also be used to easily renumber all files after changing the track order.
 
 
 ### Remove 1 Sample Delays (vgm_smp1)
