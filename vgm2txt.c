@@ -1272,6 +1272,23 @@ static void WriteVGMData2Txt(FILE* hFile)
 				}
 				CmdLen = 0x04;
 				break;
+			case 0xBC:	// WonderSwan write
+				if (WriteEvents)
+				{
+					SetChip((VGMPnt[0x01] & 0x80) >> 7);
+					wswan_write(TempStr, VGMPnt[0x01] & 0x7F, VGMPnt[0x02]);
+				}
+				CmdLen = 0x03;
+				break;
+			case 0xC6:	// WonderSwan Memory write
+				if (WriteEvents)
+				{
+					SetChip((VGMPnt[0x01] & 0x80) >> 7);
+					TempSht = ((VGMPnt[0x01] & 0x7F) << 8) | (VGMPnt[0x02] << 0);
+					ws_mem_write(TempStr, TempSht, VGMPnt[0x03]);
+				}
+				CmdLen = 0x04;
+				break;
 			case 0xC7:	// VSU write
 				if (WriteEvents)
 				{

@@ -4036,3 +4036,95 @@ void k054539_write(char* TempStr, UINT16 Register, UINT8 Data)
 
 	return;
 }
+
+void wswan_write(char* TempStr, UINT8 Register, UINT8 Data)
+{
+	UINT8 Port;
+	UINT8 CurChn;
+	UINT32 StrPos;
+	UINT8 ChnEn;
+
+	WriteChipID(0x21);
+
+	Port = 0x80 + Register;
+	switch(Port)
+	{
+	case 0x80:	// Ch 0 Freq. LSB
+	case 0x81:	// Ch 0 Freq. MSB
+	case 0x82:	// Ch 1 Freq. LSB
+	case 0x83:	// Ch 1 Freq. MSB
+	case 0x84:	// Ch 2 Freq. LSB
+	case 0x85:	// Ch 2 Freq. MSB
+	case 0x86:	// Ch 3 Freq. LSB
+	case 0x87:	// Ch 3 Freq. MSB
+		CurChn = (Port >> 1) & 0x03;
+		sprintf(WriteStr, "Ch %u: Set Freq. Step %s: 0x%02X",
+			CurChn, ADDR_2S_STR[Port & 0x01], Data);
+		break;
+	case 0x88:	// Ch 0 volume
+	case 0x89:	// Ch 1 volume
+	case 0x8A:	// Ch 2 volume
+	case 0x8B:	// Ch 3 volume
+		{
+			UINT8 volL = (Data >> 4) & 0x0F;
+			UINT8 volR = (Data >> 0) & 0x0F;
+			CurChn = Port & 0x03;
+			sprintf(WriteStr, "Ch %u Volume L: %X = %u%%, Volume R: %X = %u%%",
+					CurChn, volL, 100 * volL / 0x0F, volR, 100 * volR / 0x0F);
+		}
+		break;
+	case 0x8C:	// Sweep Step
+		sprintf(WriteStr, "Sweep Step: %+d", (INT8)Data);
+		break;
+	case 0x8D:	// Sweep Time
+		sprintf(WriteStr, "Sweep Time: %u", Data + 1);
+		break;
+	case 0x8E:	// Noise Type
+		sprintf(WriteStr, "Noise Type: %u, Reset: %s",
+			Data & 0x07, OnOff(Data & 0x08));
+		break;
+	case 0x8F:	// Waveform Address
+		sprintf(WriteStr, "Waveform Base Address: 0x%04X", Data << 6);
+		break;
+	case 0x90:	// SNDMOD
+		sprintf(WriteStr, "Channel Enable: ");
+		StrPos = strlen(WriteStr);
+		for (CurChn = 0x00; CurChn < 0x04; CurChn ++)
+		{
+			ChnEn = Data & (0x01 << CurChn);
+			WriteStr[StrPos] = ChnEn ? ('0' + CurChn) : '-';
+			StrPos ++;
+		}
+		sprintf(WriteStr + StrPos, ", Ch 1 PCM: %s, Sweep: %s, Ch 3 Noise: %s",
+			OnOff(Data & 0x20), Enable(Data & 0x40), OnOff(Data & 0x80));
+		break;
+	case 0x91:	// SNDOUT
+		sprintf(WriteStr, "SNDOUT = 0x%02X", Data);
+		break;
+	//case 0x92:	// PCSRL
+	//case 0x93:	// PCSRH
+	case 0x94:	// Mater Volume
+		{
+			UINT8 volL = (Data >> 2) & 0x03;
+			UINT8 volR = (Data >> 0) & 0x03;
+			sprintf(WriteStr, "Master Volume L: %X = %u%%, Volume R: %X = %u%%",
+					volL, 100 * volL / 0x03, volR, 100 * volR / 0x03);
+		}
+		break;
+	default:
+		sprintf(WriteStr, "Register %02X: 0x%03X", Register, Data);
+		break;
+	}
+
+	sprintf(TempStr, "%s%s", ChipStr, WriteStr);
+
+	return;
+}
+
+void ws_mem_write(char* TempStr, UINT16 Offset, UINT8 Data)
+{
+	WriteChipID(0x21);
+	sprintf(TempStr, "%sMem 0x%04X = 0x%02X", ChipStr, Offset, Data);
+
+	return;
+}
