@@ -239,6 +239,10 @@ typedef struct es5506_chip
 		UINT32 d32;
 	} latch;
 } ES5506_DATA;
+typedef struct wswan_chip
+{
+	bool pcmEnable;
+} WSWAN_DATA;
 
 
 static void opn_write(char* TempStr, UINT8 Mode, UINT8 Port, UINT8 Register,
@@ -266,6 +270,7 @@ static OKIM6295_DATA CacheOKI6295[0x02];
 static MULTIPCM_DATA CacheMultiPCM[0x02];
 static UPD7759_DATA CacheUPD7759[0x02];
 static ES5506_DATA CacheES5506[0x02];
+static WSWAN_DATA CacheWSwan[0x02];
 
 void InitChips(UINT32* ChipCounts)
 {
@@ -277,6 +282,7 @@ void InitChips(UINT32* ChipCounts)
 	memset(CacheMultiPCM, 0x00, sizeof(MULTIPCM_DATA) * 0x02);
 	memset(CacheUPD7759, 0x00, sizeof(UPD7759_DATA) * 0x02);
 	memset(CacheES5506, 0x00, sizeof(ES5506_DATA) * 0x02);
+	memset(CacheWSwan, 0x00, sizeof(WSWAN_DATA) * 0x02);
 	CacheOKI6295[0].Command = 0xFF;
 	CacheOKI6295[1].Command = 0xFF;
 	ChpCur = 0x00;
@@ -4039,11 +4045,13 @@ void k054539_write(char* TempStr, UINT16 Register, UINT8 Data)
 
 void wswan_write(char* TempStr, UINT8 Register, UINT8 Data)
 {
+	WSWAN_DATA* TempWS;
 	UINT8 Port;
 	UINT8 CurChn;
 	UINT32 StrPos;
 	UINT8 ChnEn;
 
+	TempWS = &CacheWSwan[ChpCur];
 	WriteChipID(0x21);
 
 	Port = 0x80 + Register;
@@ -4065,10 +4073,15 @@ void wswan_write(char* TempStr, UINT8 Register, UINT8 Data)
 	case 0x89:	// Ch 1 volume
 	case 0x8A:	// Ch 2 volume
 	case 0x8B:	// Ch 3 volume
+		CurChn = Port & 0x03;
+		if (CurChn == 1 && TempWS->pcmEnable)
+		{
+			sprintf(WriteStr, "Ch %u PCM Data = %02X", CurChn, Data);
+		}
+		else
 		{
 			UINT8 volL = (Data >> 4) & 0x0F;
 			UINT8 volR = (Data >> 0) & 0x0F;
-			CurChn = Port & 0x03;
 			sprintf(WriteStr, "Ch %u Volume L: %X = %u%%, Volume R: %X = %u%%",
 					CurChn, volL, 100 * volL / 0x0F, volR, 100 * volR / 0x0F);
 		}
@@ -4097,18 +4110,20 @@ void wswan_write(char* TempStr, UINT8 Register, UINT8 Data)
 		}
 		sprintf(WriteStr + StrPos, ", Ch 1 PCM: %s, Sweep: %s, Ch 3 Noise: %s",
 			OnOff(Data & 0x20), Enable(Data & 0x40), OnOff(Data & 0x80));
+		TempWS->pcmEnable = !!(Data & 0x20);
 		break;
 	case 0x91:	// SNDOUT
 		sprintf(WriteStr, "SNDOUT = 0x%02X", Data);
 		break;
 	//case 0x92:	// PCSRL
 	//case 0x93:	// PCSRH
-	case 0x94:	// Mater Volume
+	case 0x94:	// PCM Volume
+		CurChn = 1;
 		{
 			UINT8 volL = (Data >> 2) & 0x03;
 			UINT8 volR = (Data >> 0) & 0x03;
-			sprintf(WriteStr, "Master Volume L: %X = %u%%, Volume R: %X = %u%%",
-					volL, 100 * volL / 0x03, volR, 100 * volR / 0x03);
+			sprintf(WriteStr, "Ch %u PCM Volume L: %X = %u%%, Volume R: %X = %u%%",
+					CurChn, volL, 100 * volL / 0x03, volR, 100 * volR / 0x03);
 		}
 		break;
 	default:

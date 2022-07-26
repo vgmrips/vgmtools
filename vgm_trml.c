@@ -61,6 +61,7 @@ typedef struct chip_state_memory
 	UINT32 MemSize;
 	UINT32 MemMaxOfs;
 	UINT8* MemData;
+	UINT8* MemMask;
 	bool HadWrt;
 	UINT32 CurAddr;
 	UINT32 StopAddr;
@@ -650,6 +651,7 @@ static void SetImportantCommands(void)
 			{
 				TempMem->MemData = NULL;
 			}
+			TempMem->MemMask = NULL;
 			TempMem->HadWrt = false;
 			TempMem->MemPtr = NULL;
 
@@ -805,6 +807,7 @@ static void SetImportantCommands(void)
 
 				// 0E - NMK112 bank switch enable
 				// 0F - Bank Base (non-NMK112)
+				// TODO: check why bank may not be rewritten
 				for (CurReg = 0x0E; CurReg <= 0x0F; CurReg ++)
 					TempReg->RegMask[CurReg] |= 0x80;
 				// NMK112 Bank Base (10-13) can be enforced with -state parameter
@@ -849,6 +852,15 @@ static void SetImportantCommands(void)
 					TempReg->RegMask[CurReg] |= 0x80;
 				break;
 			case 0x21:	// WonderSwan
+				memset(TempMem->MemData, 0x00, TempMem->MemSize);
+				if (TempMem->MemMask == NULL)
+				{
+					TempMem->MemMask = (UINT8*)malloc(TempMem->MemSize / 8);
+					memset(TempMem->MemMask, 0x00, TempMem->MemSize / 8);
+				}
+				TempReg->RegMask[0x0F] |= 0x80;	// Waveform Base Address
+				TempReg->RegMask[0x10] |= 0x80;	// Channel Enable
+				TempReg->RegMask[0x14] |= 0x80;	// PCM Volume
 				break;
 			case 0x22:	// VSU
 				for (CurReg = 0x000; CurReg < 0x280/4; CurReg ++)
@@ -1608,6 +1620,23 @@ static void InitializeVGM(UINT8** DstDataRef, UINT32* DstPosRef)
 				CmdType = 0x20;
 				break;
 			case 0x21:	// WonderSwan
+				TempMem = &TempCD->Mem;
+				if (TempMem->MemSize && TempMem->HadWrt)
+				{
+					for (CurReg = 0x00; CurReg < TempMem->MemSize; CurReg ++)
+					{
+						UINT16 maskOfs = CurReg / 8;
+						UINT8 maskBit = CurReg & 7;
+						if (TempMem->MemMask[maskOfs] & (1 << maskBit))
+						{
+							DstData[DstPos + 0x00] = 0xC6;
+							DstData[DstPos + 0x01] = (CurCSet << 7) | ((CurReg >> 8) & 0x7F);
+							DstData[DstPos + 0x02] = (CurReg >> 0) & 0xFF;
+							DstData[DstPos + 0x03] = TempMem->MemData[CurReg];
+							DstPos += 0x04;
+						}
+					}
+				}
 				ChipCmd = 0xBC;
 				CmdType = 0x12;
 				break;
@@ -2672,6 +2701,24 @@ static void CommandCheck(UINT8 Mode, UINT8 Command, CHIP_DATA* ChpData, UINT16 C
 	case 0xC5:	// SCSP write
 		break;
 	case 0xBC:	// WonderSwan write
+		if (CmdReg == 0x10)
+		{
+			TempChn->ChnMask = 0x0000;
+			for (CurChn = 0; CurChn < 4; CurChn ++)
+			{
+				if (TempReg->RegData.R08[0x08 + CurChn])
+					TempChn->ChnMask |= (1 << CurChn);
+			}
+			TempChn->ChnMask &= (TempReg->RegData.R08[0x10] & 0x0F);
+		}
+		else if (CmdReg >= 0x08 && CmdReg <= 0x0B)
+		{
+			CurChn = CmdReg & 0x03;
+			KeyOnOff = TempReg->RegData.R08[CmdReg] ? 1 : 0;
+
+			TempChn->ChnMask &= ~(1 << CurChn);
+			TempChn->ChnMask |= (KeyOnOff << CurChn) & (TempReg->RegData.R08[0x10] & 0x0F);
+		}
 		break;
 	case 0xC7:	// VSU write
 		if (CmdReg >= 0x400/4 && CmdReg < 0x580/4)	// 100..15F
@@ -3278,11 +3325,12 @@ void TrimVGMData(const INT32 StartSmpl, const INT32 LoopSmpl, const INT32 EndSmp
 				TempSht &= 0x7FFF;
 
 				TempMem = &RC[ChipID].WSwan.Mem;
-				if (TempMem->MemSize)
+				if (TempSht < TempMem->MemSize)
 				{
 					TempMem->MemData[TempSht] = VGMData[VGMPos + 0x03];
 					if (TempSht >= TempMem->MemMaxOfs)
 						TempMem->MemMaxOfs = TempSht + 0x01;
+					TempMem->MemMask[TempSht / 8] |= (1 << (TempSht & 7));
 					TempMem->HadWrt = true;
 				}
 				CmdLen = 0x04;
@@ -3369,6 +3417,8 @@ void TrimVGMData(const INT32 StartSmpl, const INT32 LoopSmpl, const INT32 EndSmp
 				free(TempCD->Regs.RegMask);
 			if (TempCD->Mem.MemData != NULL)
 				free(TempCD->Mem.MemData);
+			if (TempCD->Mem.MemMask != NULL)
+				free(TempCD->Mem.MemMask);
 		}
 	}
 
