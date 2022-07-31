@@ -148,6 +148,14 @@ static const char* CHIP_STRS2[CHIP_COUNT] =
 	"", "", "", "", "", "", "", "",
 	""};
 
+static UINT8 OPN_PRESCALER_REG_LIST[0x04][2] =
+{
+	0x2F, 0x00,	// precaler 0
+	0x2F, 0x2E,	// precaler 1
+	0x2F, 0x2D,	// precaler 2
+	0x2D, 0x2E,	// precaler 3
+};
+
 
 void SetTrimOptions(UINT8 TrimMode, UINT8 WarnMask);
 static void PrepareChipMemory(void);
@@ -696,6 +704,7 @@ static void SetImportantCommands(void)
 				TempReg->RegMask[0x07] |= 0x80;		// SSG channel enable
 				TempReg->RegMask[0x27] |= 0x80;		// Ch 3 Special Mode
 				TempReg->RegMask[0x2F] |= 0x80;		// Prescaler
+				TempReg->RegData.R08[0x2F] = 0x02;	// default prescaler: 2
 				break;
 			case 0x07:	// YM2608
 				TempReg->RegMask[0x007] |= 0x80;	// SSG channel enable
@@ -703,6 +712,7 @@ static void SetImportantCommands(void)
 				TempReg->RegMask[0x027] |= 0x80;	// Ch 3 Special Mode
 				TempReg->RegMask[0x029] |= 0x80;	// 3/6-Ch-Mode
 				TempReg->RegMask[0x02F] |= 0x80;	// Prescaler
+				TempReg->RegData.R08[0x2F] = 0x02;	// default prescaler: 2
 				TempReg->RegMask[0x011] |= 0x80;	// ADPCM Volume
 				TempReg->RegMask[0x101] |= 0x80;	// Delta-T memory configuration
 				TempReg->RegMask[0x10B] |= 0x80;	// Delta-T Volume
@@ -1200,10 +1210,54 @@ static void InitializeVGM(UINT8** DstDataRef, UINT32* DstPosRef)
 			case 0x06:	// YM2203
 				ChipCmd = 0x55 + CurCSet * 0x50;
 				CmdType = 0x80;
+
+				CurReg = 0x2F;	// prescaler
+				if ((TempReg->RegMask[CurReg] & 0x7F) == 0x01)
+				{
+					UINT8 prescaler = TempReg->RegData.R08[CurReg] & 0x03;
+					const UINT8* pscList = OPN_PRESCALER_REG_LIST[prescaler];
+					for (TempByt = 0; TempByt < 2; TempByt ++)
+					{
+						if (!pscList[TempByt])
+							break;
+						DstData[DstPos + 0x00] = ChipCmd;
+						DstData[DstPos + 0x01] = pscList[TempByt];
+						DstData[DstPos + 0x02] = 0x01;
+						DstPos += 0x03;
+					}
+					TempReg->RegMask[CurReg] = 0x00;
+				}
 				break;
 			case 0x07:	// YM2608
 				ChipCmd = 0x56 + CurCSet * 0x50;
 				CmdType = 0x81;
+
+				CurReg = 0x02F;	// prescaler
+				if ((TempReg->RegMask[CurReg] & 0x7F) == 0x01)
+				{
+					UINT8 prescaler = TempReg->RegData.R08[CurReg] & 0x03;
+					const UINT8* pscList = OPN_PRESCALER_REG_LIST[prescaler];
+					for (TempByt = 0; TempByt < 2; TempByt ++)
+					{
+						if (!pscList[TempByt])
+							break;
+						DstData[DstPos + 0x00] = ChipCmd | (CurReg >> 8);
+						DstData[DstPos + 0x01] = pscList[TempByt];
+						DstData[DstPos + 0x02] = 0x01;
+						DstPos += 0x03;
+					}
+					TempReg->RegMask[CurReg] = 0x00;
+				}
+
+				CurReg = 0x029;	// 3/6-Ch-Mode
+				if ((TempReg->RegMask[CurReg] & 0x7F) == 0x01)
+				{
+					DstData[DstPos + 0x00] = ChipCmd | (CurReg >> 8);
+					DstData[DstPos + 0x01] = CurReg & 0xFF;
+					DstData[DstPos + 0x02] = TempReg->RegData.R08[CurReg];
+					DstPos += 0x03;
+					TempReg->RegMask[CurReg] = 0x00;
+				}
 				break;
 			case 0x08:	// YM2610
 				ChipCmd = 0x58 + CurCSet * 0x50;
@@ -2038,7 +2092,21 @@ static UINT32 ReadCommand(UINT8 Mask)
 		if (TempReg->RegCount)
 		{
 			CmdReg = VGMData[VGMPos + 0x01];
-			if (CmdReg < TempReg->RegCount)
+			if (Command == 0x55 && (CmdReg >= 0x2D && CmdReg <= 0x2F))
+			{
+				// handle YM2203 prescaler
+				TempReg->RegMask[0x2F] |= Mask;
+				if (Mask == 0x01)
+				{
+					if (CmdReg == 0x2D)
+						TempReg->RegData.R08[0x2F] |= 0x02;
+					else if (CmdReg == 0x2E)
+						TempReg->RegData.R08[0x2F] |= 0x01;
+					else if (CmdReg == 0x2F)
+						TempReg->RegData.R08[0x2F] = 0x00;	// prescaler reset
+				}
+			}
+			else if (CmdReg < TempReg->RegCount)
 			{
 				TempReg->RegMask[CmdReg] |= Mask;
 				if (Mask == 0x01)
@@ -2073,7 +2141,21 @@ static UINT32 ReadCommand(UINT8 Mask)
 		if (TempReg->RegCount)
 		{
 			CmdReg = ((Command & 0x01) << 8) | VGMData[VGMPos + 0x01];
-			if (CmdReg < TempReg->RegCount)
+			if (Command == 0x56 && (CmdReg >= 0x2D && CmdReg <= 0x2F))
+			{
+				// handle YM2608 prescaler
+				TempReg->RegMask[0x2F] |= Mask;
+				if (Mask == 0x01)
+				{
+					if (CmdReg == 0x2D)
+						TempReg->RegData.R08[0x2F] |= 0x02;
+					else if (CmdReg == 0x2E)
+						TempReg->RegData.R08[0x2F] |= 0x01;
+					else if (CmdReg == 0x2F)
+						TempReg->RegData.R08[0x2F] = 0x00;	// prescaler reset
+				}
+			}
+			else if (CmdReg < TempReg->RegCount)
 			{
 				TempReg->RegMask[CmdReg] |= Mask;
 				if (Mask == 0x01)

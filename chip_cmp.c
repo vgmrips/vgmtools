@@ -1205,8 +1205,6 @@ bool ym2610_write(UINT8 Port, UINT8 Register, UINT8 Data)
 		chip->KeyOn[Channel] = Data;
 		break;
 	default:
-		if (RegVal == 0x1C)
-			return false;	// controls only Status Bits
 		if ((RegVal & 0x1F0) == 0x000)
 		{
 			// SSG emulator (AY8910)
