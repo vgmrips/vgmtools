@@ -3886,8 +3886,11 @@ static bool StripClock(bool* StripAllPtr, UINT32* ClockPtr)
 			*ClockPtr = 0;	// strip chip clock
 			return true;	// strip all chip parameters
 		}
-		// either of the chips remains used
-		*ClockPtr &= ~0x40000000;	// strip Dual Chip flag
+		else if (*StripAllPtr || *StpAll1)
+		{
+			// either of the chips remains used
+			*ClockPtr &= ~0x40000000;	// strip Dual Chip flag
+		}
 	}
 	else
 	{
