@@ -1058,32 +1058,28 @@ void ymz280b_write(UINT8 Register, UINT8 Data)
 
 static void rf5c_mark_sample(RF5C_DATA* chip, UINT32 Addr, UINT16 SmplStep)
 {
-	while(Addr < chip->RAMSize && ! (chip->RAMUsage[Addr] & 0x01))
+	if (chip->RAMUsage[Addr] & 0x01)
+		return;	// We marked it already.
+
+	for (; Addr < chip->RAMSize; Addr ++)
 	{
 		if (chip->RAMData[Addr] == 0xFF)
 			break;
 		chip->RAMUsage[Addr] |= 0x01;
-		Addr ++;
 	}
 	if (Addr >= chip->RAMSize)
 		return;
 
 	// The chip can skip the first terminator sample, so leave enough
-	// samples that it works with the current frequency.
-	SmplStep = (SmplStep + 0x7FF) >> 11;
-	if (! SmplStep)
-		SmplStep = 1;
-	while(SmplStep)
-	{
+	// samples that it works with the current frequency. (requires re-marking for every frequency)
+	//SmplStep = (SmplStep + 0x7FF) >> 11;
+	//if (! SmplStep)
+	//	SmplStep = 1;
+
+	// The "Start" register is in units of 0x100 bytes, so pad up to that.
+	SmplStep = 0x100 - (Addr & 0x00FF);
+	for (; SmplStep > 0; SmplStep --, Addr ++)
 		chip->RAMUsage[Addr] |= 0x01;
-		Addr ++;	SmplStep --;
-	}
-	while((Addr & 0x0F) >= 0x0C)
-	{
-		// I do some small rounding
-		chip->RAMUsage[Addr] |= 0x01;
-		Addr ++;
-	}
 
 	return;
 }
@@ -1698,8 +1694,8 @@ void qsound_write(UINT8 Offset, UINT16 Value)
 	UINT8 ch;
 	UINT8 reg;
 	QSOUND_CHANNEL* TempChn;
-	INT16 StAddr;
-	INT16 EndAddr;
+	UINT32 StAddr;
+	UINT32 EndAddr;
 	UINT32 Addr;
 
 	if (Offset < 0x80)
