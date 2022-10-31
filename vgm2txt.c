@@ -70,7 +70,7 @@ int main(int argc, char* argv[])
 		fgets(FileName, sizeof(FileName), stdin);
 	else
 		strcpy(FileName, argv[argbase + 1]);
-	sscanf(FileName, "%02u:%02u.%02u", &TimeMin, &TimeSec, &TimeMS);
+	sscanf(FileName, "%u:%u.%u", &TimeMin, &TimeSec, &TimeMS);
 	VGMWriteFrom = (TimeMin * 6000 + TimeSec * 100 + TimeMS) * 441;
 
 	TimeMin = TimeSec = TimeMS = 0;
@@ -79,7 +79,7 @@ int main(int argc, char* argv[])
 		fgets(FileName, sizeof(FileName), stdin);
 	else
 		strcpy(FileName, argv[argbase + 2]);
-	sscanf(FileName, "%02u:%02u.%02u", &TimeMin, &TimeSec, &TimeMS);
+	sscanf(FileName, "%u:u.%u", &TimeMin, &TimeSec, &TimeMS);
 	VGMWriteTo = (TimeMin * 6000 + TimeSec * 100 + TimeMS) * 441;
 	//if (! VGMWriteTo)
 	//	VGMWriteTo = VGMHead.lngTotalSamples;

@@ -434,7 +434,8 @@ static char* GenerateFileName(const char* title, UINT32 trackID, const char* ext
 		{
 			while(dst > fn && dst[-1] == ' ')
 				dst --;	// remove whitespaces before the comma
-			*dst = '\'';	dst ++;
+			*dst = ',';	dst ++;
+			*dst = ' ';	dst ++;
 			src ++;
 			while(*src == ' ')
 				src ++;
@@ -449,7 +450,7 @@ static char* GenerateFileName(const char* title, UINT32 trackID, const char* ext
 			src ++;
 			*dst = '(';	dst ++;
 		}
-		else if (*src == '>')	// < -> )
+		else if (*src == '>')	// > -> )
 		{
 			src ++;
 			*dst = ')';	dst ++;
