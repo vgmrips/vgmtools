@@ -17,6 +17,7 @@ typedef struct vgm_dma_action
 {
 	UINT32 posStart;
 	UINT32 posEnd;
+	UINT32 smplStart;
 	UINT32 dmaStartOfs;
 	UINT32 dmaLength;
 	UINT32 length;	// actual length
@@ -84,6 +85,7 @@ UINT8 ChipCnt;
 UINT32 DmaActAlloc;
 UINT32 DmaActCount;
 DMA_ACTION* DmaActions;
+UINT32 DmaActAtLoop;
 DRUM_TABLE DrumTbl;
 UINT8 OkiActionMask[2];	// [0] = 1st chip, [1] = 2nd chip
 UINT32 StreamEventCount[2];	// total event count, for memory preallocation, [0] = frequency changes, [1] = play commands
@@ -316,6 +318,7 @@ static void EnumerateOkiWrites(void)
 	DmaActions = NULL;
 	DmaActAlloc = 0;
 	DmaActCount = 0;
+	DmaActAtLoop = (UINT32)-1;
 	for (curChip = 0; curChip < 2; curChip ++)
 	{
 		activeDmaID[curChip] = (UINT32)-1;
@@ -337,6 +340,9 @@ static void EnumerateOkiWrites(void)
 	StopVGM = false;
 	while(VGMPos < VGMHead.lngEOFOffset)
 	{
+		if (VGMPos == VGMHead.lngLoopOffset)
+			DmaActAtLoop = activeDmaID[0];	// ID for DmaActions[] or (UINT32)-1
+
 		CmdLen = 0x00;
 		Command = VGMData[VGMPos + 0x00];
 
@@ -458,6 +464,7 @@ static void EnumerateOkiWrites(void)
 						dmaAct->chipID = curChip;
 						dmaAct->posStart = VGMPos;
 						dmaAct->posEnd = (UINT32)-1;
+						dmaAct->smplStart = VGMSmplPos;
 						{
 							UINT8* dsData = dmaState[curChip];
 							dmaAct->dmaStartOfs = ReadBE32(&dsData[0]);
@@ -583,6 +590,63 @@ static int drum_sort_compare(const void* p1, const void* p2)
 		return 0;
 }
 
+static UINT32 SearchDrumSound(DMA_ACTION* dmaAct, UINT32 sortKey, UINT32* numResults)
+{
+	UINT32 resCount;
+	UINT32 resIDs[0x10];	// result IDs
+	UINT32 srCount;
+	UINT32 srIDs[0x10];	// result IDs with "sort key" match
+	UINT32 curDrm;
+
+	resCount = srCount = 0;
+	for (curDrm = 0; curDrm < DrumTbl.DrmCount; curDrm ++)
+	{
+		DRUM_INF* dInf = &DrumTbl.Drums[curDrm];
+		UINT32 cmpLen = (dmaAct->length < dInf->length) ? dmaAct->length : dInf->length;
+		// Ignoring the last 4 bytes should make it resistant against
+		// PCM drivers that send "stream termination" commands.
+		if (cmpLen >= 0x14 && FuzzyCompare)
+			cmpLen -= 0x04;
+		if (! memcmp(dmaAct->data, dInf->data, cmpLen))
+		{
+			if (resCount >= 0x10)
+				break;
+			resIDs[resCount] = curDrm;
+			resCount ++;
+			if (dInf->sortKey == sortKey)
+			{
+				srIDs[srCount] = curDrm;
+				srCount ++;
+			}
+		}
+	}
+	if (srCount > 0)	// prefer results with "sort key" match
+	{
+		if (numResults != NULL)
+			*numResults = srCount;
+		if (srCount >= 2)
+		{
+			printf("Warning: Ambiguous drum found. VGM sample pos %u, length %u bytes, %u candidates\n",
+				dmaAct->smplStart, dmaAct->length, srCount);
+		}
+		return srIDs[0];	// return first (possiby only) result
+	}
+	else
+	{
+		if (numResults != NULL)
+			*numResults = resCount;
+		if (resCount == 0)
+			return (UINT32)-1;	// no match found
+
+		if (resCount > 1)
+		{
+			printf("Warning: Ambiguous drum found. VGM sample pos %u, length %u bytes, %u candidates\n",
+				dmaAct->smplStart, dmaAct->length, resCount);
+		}
+		return resIDs[0];	// return first (possiby only) result
+	}
+}
+
 static void GenerateDrumTable(void)
 {
 	UINT32 curDA;
@@ -596,23 +660,26 @@ static void GenerateDrumTable(void)
 	for (curDA = 0; curDA < DmaActCount; curDA ++)
 	{
 		DMA_ACTION* dmaAct = &DmaActions[curDA];
-		UINT32 drmIdFound = (UINT32)-1;
 		UINT32 sortKey = dmaAct->dmaStartOfs;
+		UINT32 resultCnt;
+		UINT32 drmIdFound = SearchDrumSound(dmaAct, sortKey, &resultCnt);
 
-		for (curDrm = 0; curDrm < DrumTbl.DrmCount; curDrm ++)
+		if (resultCnt > 1 && curDA == DmaActCount - 1 && DmaActAtLoop != (UINT32)-1)
 		{
-			DRUM_INF* dInf = &DrumTbl.Drums[curDrm];
-			UINT32 cmpLen = (dmaAct->length < dInf->length) ? dmaAct->length : dInf->length;
-			// Ignoring the last 4 bytes should make it resistant against
-			// PCM drivers that send "stream termination" commands.
-			if (cmpLen >= 0x14 && FuzzyCompare)
-				cmpLen -= 0x04;
-			if (! memcmp(dmaAct->data, dInf->data, cmpLen))
+			// ambiguous drum at EOF - check against "active" sample at loop point
+			DMA_ACTION* daLoop = &DmaActions[DmaActAtLoop];
+			// check that the "part before EOF" matches the beginning of the sample at loop
+			if (dmaAct->length <= daLoop->length && !memcmp(dmaAct->data, daLoop->data, dmaAct->length))
 			{
-				drmIdFound = curDrm;
-				break;
+				UINT32 drmIdLoop = SearchDrumSound(daLoop, sortKey, &resultCnt);
+				if (resultCnt == 1)
+				{
+					drmIdFound = drmIdLoop;
+					printf("Ambiguity resolved using drum at loop point!\n");
+				}
 			}
 		}
+
 		if (drmIdFound != (UINT32)-1)
 		{
 			DRUM_INF* dInf = &DrumTbl.Drums[drmIdFound];
