@@ -29,6 +29,13 @@ target_link_libraries(opl_23 ${ZLIB_LIBRARIES})
 install(TARGETS opl_23 RUNTIME DESTINATION "bin")
 
 
+add_executable(opt_oki
+    opt_oki.c
+)
+target_link_libraries(opt_oki ${ZLIB_LIBRARIES})
+install(TARGETS opt_oki RUNTIME DESTINATION "bin")
+
+
 add_executable(optvgm
     optvgm.cpp
     pcm_optimizer.cpp
@@ -217,13 +224,6 @@ install(TARGETS vgmmerge RUNTIME DESTINATION "bin")
 
 # extra tools not compiled by default, because they are
 # either in beta state or not of use/shouldn't be used without special knowledge
-add_executable(opt_oki EXCLUDE_FROM_ALL
-    opt_oki.c
-)
-target_link_libraries(opt_oki ${ZLIB_LIBRARIES})
-install(TARGETS opt_oki RUNTIME DESTINATION "bin" OPTIONAL)
-
-
 add_executable(optdac EXCLUDE_FROM_ALL
     optdac.c
 )
