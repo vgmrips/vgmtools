@@ -10,6 +10,12 @@ project (VGMTools LANGUAGES C CXX)
 find_package(ZLIB REQUIRED)
 
 
+add_executable(dacopt
+    dacopt.c
+)
+install(TARGETS dacopt RUNTIME DESTINATION "bin")
+
+
 add_executable(dro2vgm
     dro2vgm.c
 )
