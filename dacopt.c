@@ -1,7 +1,14 @@
 #include <stdio.h>
 #include <stdlib.h>
-#include <stdint.h>
 #include <string.h>
+
+#if _MSC_VER < 1400
+typedef unsigned char   uint8_t;
+typedef unsigned short  uint16_t;
+typedef unsigned int    uint32_t;
+#else
+#include <stdint.h>
+#endif
 
 #define THRESHOLD   128         // Amount of minimum samples required for a repeating loop
 #define GAP_THRESHOLD  200      // max gap between samples before splitting
@@ -191,17 +198,19 @@ _dacevent AddStream(int dstart, int dend, int rstart, int rend, uint32_t* sample
     if(g_v > 1)
         printf("ds=%d, de=%d, rs=%d, re=%d, freq=%d\n",dstart,dend,rstart,rend,freq );
 
-    _dacevent res = {
-        dstart,       // vgm dac sample position start
-        dend,         // vgm dac sample position end
-        rstart,       // repeat (datablock) start
-        rend,         // repeat (datablock) end
-        rstart,       // backup
-        dend-dstart,  // length
-        freq          // freq
-    };
+	{
+		_dacevent res = {
+			dstart,       // vgm dac sample position start
+			dend,         // vgm dac sample position end
+			rstart,       // repeat (datablock) start
+			rend,         // repeat (datablock) end
+			rstart,       // backup
+			dend-dstart,  // length
+			freq          // freq
+		};
 
-    return res;
+		return res;
+	}
 }
 
 
@@ -302,12 +311,12 @@ void dac_disable(_dacobject *o)
 // Read DAC logs, check for repetitions
 void dac_optimize(_dacobject *o) // startpos = 0
 {
+    int i,j,l,m, res=0,  lastused=0, counter=0;
+
     printf("%s: Optimizing...\n",dac_names[o->chipid]);
 
     if(!o->enabled)
         return;
-
-    int i,j,l,m, res=0,  lastused=0, counter=0;
 
     o->samples[o->samplecount] = 0;
     o->sampledelay[o->samplecount] = g_threshold+1;
@@ -400,9 +409,9 @@ void dac_optimize(_dacobject *o) // startpos = 0
 // Calculate block usage, relocations
 void dac_calculate_usage(_dacobject *o)
 {
-    printf("%s: Calculating Usage...\n",dac_names[o->chipid]);
-
     int i,j,k,totalused=0,totalunused=0,res;
+
+    printf("%s: Calculating Usage...\n",dac_names[o->chipid]);
 
     //uint8_t* blockusagemask;
     //blockusagemask = (uint8_t*) malloc(o->samplecount);
@@ -574,10 +583,10 @@ void dac_setloop(_dacobject *o)
 // returns 1 if command was not processed (that is, optimization is disabled)
 int dac_update(_dacobject *o)
 {
+    int writeok = 1;
+
     if(!o->enabled)
         return 1;
-
-    int writeok = 1;
 
     // at the end of a stream
     if(o->writecounter == o->events[o->eventpos].SourceEnd && !o->streamdone)
@@ -620,6 +629,15 @@ int dac_update(_dacobject *o)
 
 int OptimizeVGM()
 {
+    FILE *sourcefile, *destfile;
+	unsigned long sourcefile_size;
+	uint8_t *source, *dest;
+    uint32_t numsamples, samplecounter;
+    uint8_t *looppos, *srcptr, *endptr;
+    uint32_t id3offset;
+	int cpsize;
+    int writeok;
+
     int res, endofdata=0, skip=0, i=0;
     uint8_t d, cmd, data;
 
@@ -647,8 +665,6 @@ int OptimizeVGM()
 // ---------------------------------------------------------------------------- //
 // Open input file
 
-    FILE* sourcefile;
-
     sourcefile = fopen(file1,"rb");
     if(!sourcefile)
     {
@@ -657,12 +673,12 @@ int OptimizeVGM()
     }
     fseek(sourcefile,0,SEEK_END);
 
-    unsigned long sourcefile_size = ftell(sourcefile);
+    sourcefile_size = ftell(sourcefile);
 
     rewind(sourcefile);
 
-    uint8_t* source = (uint8_t*)malloc(sourcefile_size);
-    uint8_t* dest = (uint8_t*)malloc(sourcefile_size*2);
+    source = (uint8_t*)malloc(sourcefile_size);
+    dest = (uint8_t*)malloc(sourcefile_size*2);
 
     res = fread(source,1,sourcefile_size,sourcefile);
     if(res != sourcefile_size)
@@ -672,15 +688,15 @@ int OptimizeVGM()
     }
     fclose(sourcefile);
 
-    uint32_t numsamples = (*(uint32_t*)(source+0x18));
-    uint8_t* looppos = source + (*(uint32_t*)(source+0x1c)) + 0x1c;
-    uint8_t* srcptr = source + (*(uint32_t*)(source+0x34)) + 0x34;
-    uint8_t* endptr = source+sourcefile_size-5;
+    numsamples = (*(uint32_t*)(source+0x18));
+    looppos = source + (*(uint32_t*)(source+0x1c)) + 0x1c;
+    srcptr = source + (*(uint32_t*)(source+0x34)) + 0x34;
+    endptr = source+sourcefile_size-5;
 
 
     printf("Number of VGM samples = %d\n",numsamples);
 
-    uint32_t samplecounter=0;
+    samplecounter=0;
 
 // ---------------------------------------------------------------------------- //
 // Log DAC writes
@@ -768,7 +784,7 @@ int OptimizeVGM()
     endptr = source + (*(uint32_t*)(source+0x4)) + 0x4;
     fileptr = dest;
 
-    int cpsize=srcptr-source;
+    cpsize=srcptr-source;
     my_memcpy(&fileptr,source,cpsize);
 
     g_counter=0;
@@ -794,7 +810,6 @@ int OptimizeVGM()
 
 // ---------------------------------------------------------------------------- //
 // Write output file
-    int writeok;
     endofdata = 0;
     g_counter=0;
     hu_latch=0;
@@ -803,6 +818,8 @@ int OptimizeVGM()
 
     while((srcptr < endptr) && !endofdata)
     {
+        uint8_t d, cmd, data;
+
         //printf("srcptr = %p\n",srcptr-source);
         writeok=0;
         skip = 0;
@@ -816,9 +833,9 @@ int OptimizeVGM()
                 dac_setloop(&dac[0][i]);
         }
 
-        uint8_t d = *(srcptr);
-        uint8_t cmd = *(srcptr+1);
-        uint8_t data = *(srcptr+2);
+        d = *(srcptr);
+        cmd = *(srcptr+1);
+        data = *(srcptr+2);
 
         switch(d)
         {
@@ -941,14 +958,13 @@ int OptimizeVGM()
         srcptr += skip;
     }
 
-    uint32_t id3offset = *(uint32_t*)(source+0x14);
+    id3offset = *(uint32_t*)(source+0x14);
     if(id3offset>0)
         *(uint32_t*)(dest+0x14) = (fileptr-dest)-0x14;
 
     my_memcpy(&fileptr,srcptr, sourcefile_size-(srcptr-source));
     *(uint32_t*)(dest+0x04) = (fileptr-dest)-0x04;
 
-    FILE *destfile;
     destfile = fopen(file2,"wb");
     if(!destfile)
     {
@@ -971,11 +987,11 @@ int OptimizeVGM()
 
 int main(int argc, char* argv [])
 {
-    printf("\nVGM DAC Optimizer by ctr (ver 0.10 built %s %s)\n", __DATE__,__TIME__);
-    printf(  "========================\n");
-
     char tempfname[128];
     int i=1;
+
+    printf("\nVGM DAC Optimizer by ctr (ver 0.10 built %s %s)\n", __DATE__,__TIME__);
+    printf(  "========================\n");
 
     while(i<argc)
     {
