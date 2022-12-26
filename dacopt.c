@@ -198,19 +198,19 @@ _dacevent AddStream(int dstart, int dend, int rstart, int rend, uint32_t* sample
     if(g_v > 1)
         printf("ds=%d, de=%d, rs=%d, re=%d, freq=%d\n",dstart,dend,rstart,rend,freq );
 
-	{
-		_dacevent res = {
-			dstart,       // vgm dac sample position start
-			dend,         // vgm dac sample position end
-			rstart,       // repeat (datablock) start
-			rend,         // repeat (datablock) end
-			rstart,       // backup
-			dend-dstart,  // length
-			freq          // freq
-		};
+    {
+        _dacevent res = {
+            dstart,       // vgm dac sample position start
+            dend,         // vgm dac sample position end
+            rstart,       // repeat (datablock) start
+            rend,         // repeat (datablock) end
+            rstart,       // backup
+            dend-dstart,  // length
+            freq          // freq
+        };
 
-		return res;
-	}
+        return res;
+    }
 }
 
 
@@ -630,12 +630,12 @@ int dac_update(_dacobject *o)
 int OptimizeVGM()
 {
     FILE *sourcefile, *destfile;
-	unsigned long sourcefile_size;
-	uint8_t *source, *dest;
+    unsigned long sourcefile_size;
+    uint8_t *source, *dest;
     uint32_t numsamples, samplecounter;
     uint8_t *looppos, *srcptr, *endptr;
     uint32_t id3offset;
-	int cpsize;
+    int cpsize;
     int writeok;
 
     int res, endofdata=0, skip=0, i=0;
@@ -883,6 +883,7 @@ int OptimizeVGM()
                 // HuC6280 latch
                 else if(d==0xb9 && cmd==0x00)
                 {
+                    data &= 0x07;
                     if(data < 7)
                         hu_latch=data;
                     skip+=2;
