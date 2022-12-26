@@ -54,7 +54,7 @@ int main(int argc, char* argv[])
 	{
 		if (! strncmp(argv[argbase], "-digits:", 8))
 		{
-			DIGIT_COUNT = (UINT16)strtoul(argv[argbase] + 8, NULL, 0);
+			DIGIT_COUNT = (UINT8)strtoul(argv[argbase] + 8, NULL, 0);
 			argbase ++;
 		}
 		else if (! strcmp(argv[argbase], "-hexsplt"))
@@ -657,7 +657,7 @@ static void SplitVGMData(const UINT32 SplitDelay)
 					TrimVGMData(VGMSmplStart, 0x00, TempLng, false, true);
 
 					SplitFile ++;
-					sprintf(TempStr, "%s_%02u.vgm", FileBase, SplitFile);
+					sprintf(TempStr, "%s_%0*u.vgm", FileBase, DIGIT_COUNT, SplitFile);
 					WriteVGMFile(TempStr);
 				}
 #ifdef WIN32

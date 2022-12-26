@@ -185,9 +185,10 @@ OpenErr:
 
 static void WriteVGM2Txt(const char* FileName)
 {
-	const char* AY_NAMES[0x08] = {
-		"AY-3-8910A", "AY-3-8912A", "AY-3-8913A", "AY8930", "YM2149", "YM3439", "YMZ284",
-		"YMZ294"};
+	const char* AY_NAMES[0x14] = {
+		"AY-3-8910A", "AY-3-8912A", "AY-3-8913A", "AY8930", "AY-3-8914", NULL, NULL, NULL,
+		NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL,
+		"YM2149", "YM3439", "YMZ284", "YMZ294"};
 	FILE* hFile;
 	UINT32 TempLng;
 	char TempStr[0x80];
@@ -301,11 +302,11 @@ static void WriteVGM2Txt(const char* FileName)
 
 	WriteClockText(TempStr, VGMHead.lngHzAY8910, "AY8910");
 	fprintf(hFile, "AY8910 Clock:\t\t%s\n", TempStr);
-	if (VGMHead.bytAYType & ~0x13)
-		fprintf(hFile, "AY8910 Type:\t\t0x%02X - %s\n", VGMHead.bytAYType, "???");
-	else
+	if (VGMHead.bytAYType < 0x14 && AY_NAMES[VGMHead.bytAYType] != NULL)
 		fprintf(hFile, "AY8910 Type:\t\t0x%02X - %s\n", VGMHead.bytAYType,
-				AY_NAMES[(VGMHead.bytAYType >> 2) | VGMHead.bytAYType]);
+				AY_NAMES[VGMHead.bytAYType]);
+	else
+		fprintf(hFile, "AY8910 Type:\t\t0x%02X - %s\n", VGMHead.bytAYType, "???");
 	fprintf(hFile, "AY8910 Flags:\t\t0x%02X\n", VGMHead.bytAYFlag);
 
 	if (VGMHead.bytVolumeModifier <= VOLUME_MODIF_WRAP)
