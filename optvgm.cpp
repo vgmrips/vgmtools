@@ -15,7 +15,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <ctype.h>
-#include "zlib/zlib.h"
+#include <zlib.h>
 
 /* Copyright (C) 2005 Shay Green. This module is free software; you
 can redistribute it and/or modify it under the terms of the GNU Lesser
