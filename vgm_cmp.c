@@ -60,6 +60,7 @@ bool c352_write(UINT16 Register, UINT16 Data);
 bool x1_010_write(UINT16 Offset, UINT8 Value);
 bool es5503_write(UINT8 Register, UINT8 Data);
 bool vsu_write(UINT16 Register, UINT8 Data);
+bool wswan_write(UINT8 Register, UINT8 Data);
 
 VGM_HEADER VGMHead;
 UINT32 VGMDataLen;
@@ -765,10 +766,7 @@ static void CompressVGMData(void)
 				break;
 			case 0xBC:	// WonderSwan write
 				SetChipSet((VGMPnt[0x01] & 0x80) >> 7);
-				if (VGMPnt[0x01] == 0x0E)
-					WriteEvent = true;
-				else
-					WriteEvent = ym3812_write(0x20 + VGMPnt[0x01], VGMPnt[0x02]);
+				WriteEvent = wswan_write(VGMPnt[0x01], VGMPnt[0x02]);
 				CmdLen = 0x03;
 				break;
 			case 0xC6:	// WonderSwan memory write
@@ -776,7 +774,7 @@ static void CompressVGMData(void)
 				WriteEvent = true;
 				CmdLen = 0x04;
 				break;
-			case 0xC7:	// WonderSwan memory write
+			case 0xC7:	// VirtualBoy VSU write
 				SetChipSet((VGMPnt[0x01] & 0x80) >> 7);
 				TempSht = ((VGMPnt[0x01] & 0x7F) << 8) | (VGMPnt[0x02] << 0);
 				WriteEvent = vsu_write(TempSht, VGMPnt[0x03]);
@@ -788,7 +786,7 @@ static void CompressVGMData(void)
 				WriteEvent = x1_010_write(TempSht, VGMPnt[0x03]);
 				CmdLen = 0x04;
 				break;
-			case 0xE1:	// C352
+			case 0xE1:	// C352 write
 				SetChipSet((VGMPnt[0x01] & 0x80) >> 7);
 				TempSht = ((VGMPnt[0x01] & 0x7F) << 8) | (VGMPnt[0x02] << 0);
 				WriteEvent = c352_write(TempSht, (VGMPnt[0x03] << 8) | VGMPnt[0x04]);

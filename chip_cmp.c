@@ -257,6 +257,11 @@ typedef struct es5503_data
 	UINT8 RegData[0xE2];
 	UINT8 RegFirst[0xE2];
 } ES5503_DATA;
+typedef struct wonderswan_data
+{
+	UINT8 RegData[0x20];
+	UINT8 RegFirst[0x20];
+} WSWAN_DATA;
 typedef struct vsu_data
 {
 	UINT8 RegData[0x160];
@@ -300,6 +305,7 @@ typedef struct all_chips
 	ES5503_DATA ES5503;
 	C352_DATA C352;
 	X1_010_DATA X1_010;
+	WSWAN_DATA WSwan;
 	VSU_DATA VSU;
 } ALL_CHIPS;
 
@@ -349,6 +355,7 @@ bool c352_write(UINT16 Offset, UINT16 Value);
 bool x1_010_write(UINT16 Offset, UINT8 Value);
 bool es5503_write(UINT8 Register, UINT8 Data);
 bool vsu_write(UINT16 Register, UINT8 Data);
+bool wswan_write(UINT8 Register, UINT8 Data);
 
 // Function Prototypes from vgm_cmp.c
 bool GetNextChipCommand(void);
@@ -388,6 +395,7 @@ void InitAllChips(void)
 		memset(TempChp->QSound.KeyOn, 0x00, sizeof(UINT8) * 0x10);
 
 		memset(&TempChp->OKIM6258.RegFirst[0x08], 0x00, 0x0D-0x08);
+		memset(TempChp->WSwan.RegData, 0x00, 0x20);
 	}
 	memset(StreamFreqs, 0xFF, sizeof(UINT32) * 0x100);
 	VGM_Loops = false;
@@ -2629,6 +2637,8 @@ bool x1_010_write(UINT16 offset, UINT8 val)
 
 	if(offset >= 0x2000)
 		return false;
+	if (offset >= 0x0A00 && offset < 0x1200)
+		return false;
 
 	if (! chip->RegFirst[offset] && val == chip->RegData[offset])
 		return false;
@@ -2708,6 +2718,54 @@ bool vsu_write(UINT16 Register, UINT8 Data)
 			break;
 		}
 	}
+
+	if (! chip->RegFirst[Register] && Data == chip->RegData[Register])
+		return false;
+
+	chip->RegFirst[Register] = JustTimerCmds;
+	chip->RegData[Register] = Data;
+	return true;
+}
+
+bool wswan_write(UINT8 Register, UINT8 Data)
+{
+	WSWAN_DATA* chip = &ChDat->WSwan;
+
+	switch(0x80 | Register)
+	{
+	case 0x84:	// channel 2 frequency low
+	case 0x85:	// channel 2 frequency high
+		if (chip->RegData[0x10] & 0x40)	// Sweep mode on?
+		{
+			chip->RegFirst[Register] = 0x01;
+			return true;
+		}
+		break;
+	case 0x89:	// channel 1 volume / PCM value
+		if (chip->RegData[0x10] & 0x20)	// PCM mode on?
+		{
+			chip->RegFirst[Register] = 0x01;
+			return true;
+		}
+		break;
+	case 0x8D:	// Sweep Time
+		return true;	// resets sweep countdown
+	case 0x8E:	// noise type
+		if (Data & 0x08)
+			return true;	// reset noise RNG
+		break;
+	case 0x90:	// sound control
+		if (Data & 0x20)	// PCM mode on?
+			chip->RegFirst[0x09] = 0x01;
+		if (Data & 0x40)	// Sweep mode on?
+		{
+			chip->RegFirst[0x04] = 0x01;
+			chip->RegFirst[0x05] = 0x01;
+		}
+		break;
+	}
+	if (Register >= 0x20)
+		return true;
 
 	if (! chip->RegFirst[Register] && Data == chip->RegData[Register])
 		return false;
