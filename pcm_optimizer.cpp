@@ -443,8 +443,8 @@ static long copy_trailer( byte const* in_begin, byte const* in, long in_size,
 	
 	// copy any trailing data (gd3 tag)
 	long remain = in_size - (in - in_begin);
-	if ( (unsigned) remain > 0x200 )
-		printf( "Lots of data past end of commands: %ld\n", remain );
+	//if ( (unsigned) remain > 0x200 )
+	//	printf( "Lots of data past end of commands: %ld\n", remain );
 	memcpy( out, in, remain );
 	out += remain;
 	
@@ -453,7 +453,8 @@ static long copy_trailer( byte const* in_begin, byte const* in, long in_size,
 	long offset = in_size - new_size;
 	header_t* h = (header_t*) out_begin;
 	set_le32( h->eof_offset, get_le32( h->eof_offset ) - offset );
-	set_le32( h->gd3_offset, get_le32( h->gd3_offset ) - offset );
+	if ( get_le32( h->gd3_offset ) != 0 )
+		set_le32( h->gd3_offset, get_le32( h->gd3_offset ) - offset );
 	
 	return new_size;
 }
@@ -654,8 +655,8 @@ const char* update_vgm_header( void* header )
 	if ( version < 0x150 )
 	{
 		set_le32( h->data_offset, sizeof (header_t) - offsetof (header_t,data_offset) );
+		set_le32( h->version, 0x150 );
 	}
-	set_le32( h->version, 0x150 );
 	
 	return NULL;
 }

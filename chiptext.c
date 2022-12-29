@@ -992,7 +992,7 @@ void ym2151_write(char* TempStr, UINT8 Register, UINT8 Data)
 		switch(Register)
 		{
 		case 0x01:	// LFO reset(bit 1), Test Register (other bits)
-			sprintf(WriteStr, "Test Register, LFO %s", OnOff(~Data & 0x02));
+			sprintf(WriteStr, "Test Register, LFO %s", (Data & 0x02) ? "stopped/reset" : "running");
 			break;
 		case 0x08:
 			sprintf(WriteStr, "Ch %u Key On/Off: M1 %s, M2 %s, C1 %s, C2 %s", Data & 0x07,

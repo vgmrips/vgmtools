@@ -1,7 +1,7 @@
 
 // Optimizes Mega Drive/Sega Genesis VGMs. Always gzip compresses output.
 //
-// optvgm [-s] file.vgm/vgz [out.vgz]
+// optvgm [-s] [-n] file.vgm/vgz [out.vgz]
 //
 // Specifying only input path optimizes in place. Optimized data is always verified
 // *before* being written.
@@ -98,6 +98,10 @@ int main( int argc, char** argv )
 				opt_flags |= optimize_shared_only;
 				break;
 			
+			case 'N':
+				opt_flags |= skip_verification;
+				break;
+			
 			default:
 				printf( "Invalid option\n" );
 				arg = argc; // cause help to be printed
@@ -108,9 +112,10 @@ int main( int argc, char** argv )
 	// print help
 	if ( arg >= argc )
 	{
-		printf( "%s [-s] file.vgm/vgz [out.vgz] # Optimize Mega Drive/Sega Genesis VGM/VGZ\n",
+		printf( "%s [-s] [-n] file.vgm/vgz [out.vgz] # Optimize Mega Drive/Sega Genesis VGM/VGZ\n",
 				argv [0] );
 		printf( "-s # Optimized shared samples only\n" );
+		printf( "-n # skip verification (use at own risk)\n" );
 		return 0;
 	}
 	

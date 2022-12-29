@@ -2634,6 +2634,18 @@ bool x1_010_write(UINT16 offset, UINT8 val)
 	//	(val&2)==2 [waveform mode] -> (val&4) == one-shot enable
 	if(offset < 0x80 && (offset&0x07) == 0x00 && (val&0x01))
 		chip->RegFirst[offset] = 1;
+	/*if(offset < 0x80 && (offset&0x07) == 0x00 && (val&0x01))
+	{
+		if (val & 0x02)
+		{
+			if (val&0x04)
+				chip->RegFirst[offset] = 1;
+		}
+		else
+		{
+			chip->RegFirst[offset] = 1;
+		}
+	}*/
 
 	if(offset >= 0x2000)
 		return false;
