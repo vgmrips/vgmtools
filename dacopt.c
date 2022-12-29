@@ -12,8 +12,8 @@ typedef unsigned int    uint32_t;
 
 #define THRESHOLD   128         // Amount of minimum samples required for a repeating loop
 #define GAP_THRESHOLD  200      // max gap between samples before splitting
-#define DETECTION_MODE 1        // 0= Check for exact matches, 1= Use a tolerance margin
-#define DETECTION_TOLERANCE 3   // Tolerance margin
+#define DETECTION_MODE 0        // 0= Check for exact matches, 1= Use a tolerance margin
+#define DETECTION_TOLERANCE 0   // Tolerance margin
 #define STEP 1                 // Skip Step. larger values sacrifice optimization for speed
 #define DEBUG 0                 // Verbose
 #define SPECIAL_MODE 0
@@ -1027,8 +1027,7 @@ int main(int argc, char* argv [])
         i++;
     }
 
-    if(g_detection_tolerance > 0)
-        g_detection_mode = 0;
+    g_detection_mode = (g_detection_tolerance > 0) ? 1 : 0;
 
     if(i+1>argc)
     {
