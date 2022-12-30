@@ -43,6 +43,7 @@ static void ShowFileStats(const char* FileTitle);
 #endif
 static void PrintSampleTime(char* buffer, const UINT32 Samples, bool LoopMode);
 static void ShowStatistics(void);
+static void PrintTrackTime(UINT32 TitleLen, const char* TimeTotal, const char* TimeLoop);
 UINT32 GetTitleLines(UINT32* StrAlloc, char** String, const char* TitleStr);
 
 
@@ -243,17 +244,6 @@ static bool OpenVGMFile(const char* FileName)
 		CurPos += 0x0C;
 		TempLng = CurPos + VGMTag.lngTagLength;
 		VGMTag.strTrackNameE = ReadWStrFromFile(hFile, &CurPos, TempLng);
-		// I only need the English Track Title
-		/*VGMTag.strTrackNameJ = ReadWStrFromFile(hFile, &CurPos, TempLng);
-		VGMTag.strGameNameE = ReadWStrFromFile(hFile, &CurPos, TempLng);
-		VGMTag.strGameNameJ = ReadWStrFromFile(hFile, &CurPos, TempLng);
-		VGMTag.strSystemNameE = ReadWStrFromFile(hFile, &CurPos, TempLng);
-		VGMTag.strSystemNameJ = ReadWStrFromFile(hFile, &CurPos, TempLng);
-		VGMTag.strAuthorNameE = ReadWStrFromFile(hFile, &CurPos, TempLng);
-		VGMTag.strAuthorNameJ = ReadWStrFromFile(hFile, &CurPos, TempLng);
-		VGMTag.strReleaseDate = ReadWStrFromFile(hFile, &CurPos, TempLng);
-		VGMTag.strCreator = ReadWStrFromFile(hFile, &CurPos, TempLng);
-		VGMTag.strNotes = ReadWStrFromFile(hFile, &CurPos, TempLng);*/
 	}
 	else
 	{
@@ -321,6 +311,7 @@ static wchar_t* ReadWStrFromFile(gzFile hFile, UINT32* FilePos, UINT32 EOFPos)
 	// Unicode 2-Byte -> 4-Byte conversion is not neccessary,
 	// but it's easier to handle wchar_t than unsigned short
 	// (note: wchar_t is 16-bit on Windows, but 32-bit on Linux)
+	// TODO: This currently goes very wrong with emoticons, as they DO need a proper conversion.
 	CurPos = *FilePos;
 	TextStr = (wchar_t*)malloc((EOFPos - CurPos) / 0x02 * sizeof(wchar_t));
 	if (TextStr == NULL)
@@ -344,6 +335,37 @@ static wchar_t* ReadWStrFromFile(gzFile hFile, UINT32* FilePos, UINT32 EOFPos)
 	*FilePos = CurPos;
 
 	return TextStr;
+}
+
+static void AddDummyFile(const char* FileName)
+{
+	UINT32 TempLng;
+	char* TempPnt;
+
+	if (TrackAlloc <= TrackCount)
+	{
+		TrackAlloc += 0x100;
+		TrackList = (TRACK_LIST*)realloc(TrackList, sizeof(TRACK_LIST) * TrackAlloc);
+	}
+	CurTrkEntry = &TrackList[TrackCount];
+	TrackCount ++;
+
+	TempPnt = strrchr(FileName, '\\');
+	if (TempPnt == NULL)
+		TempPnt = (char*)FileName;
+	else
+		TempPnt ++;
+	TempLng = strlen(TempPnt);
+	CurTrkEntry->Title = (char*)malloc(TempLng + 0x01);
+	strcpy(CurTrkEntry->Title, TempPnt);
+	TempPnt = strrchr(CurTrkEntry->Title, '.');
+	if (TempPnt != NULL)
+		*TempPnt = '\0';	// strip ".vgm"
+
+	CurTrkEntry->SmplTotal = (UINT32)-1;
+	CurTrkEntry->SmplLoop = (UINT32)-1;
+
+	return;
 }
 
 static void ReadDirectory(const char* DirName)
@@ -532,10 +554,15 @@ static void ReadPlaylist(const char* FileName)
 
 //printf("  Full File Path: %s\n", FileVGM);
 		if (! OpenVGMFile(FileVGM))
+		{
 			printf("%s\tError opening the file!\n", RetStr);
+			AddDummyFile(FileVGM);
+		}
 #ifdef SHOW_FILE_STATS
 		else
+		{
 			ShowFileStats(RetStr);
+		}
 #endif
 		LineNo ++;
 	}
@@ -580,9 +607,14 @@ static void PrintSampleTime(char* buffer, const UINT32 Samples, bool LoopMode)
 	UINT16 MinVal;
 	UINT16 SecVal;
 
+	if (Samples == (UINT32)-1)
+	{
+		sprintf(buffer, " -:--");
+		return;
+	}
 	if (! Samples && LoopMode)
 	{
-		sprintf(buffer, " -");
+		sprintf(buffer, " -   ");	// '-' at minute position, others = spaces (due to right-alignment)
 		return;
 	}
 
@@ -595,9 +627,9 @@ static void PrintSampleTime(char* buffer, const UINT32 Samples, bool LoopMode)
 	HourVal = (UINT16)SmplVal;
 
 	if (HourVal)
-		sprintf(buffer, "%2u:%02u:%02u", HourVal, MinVal, SecVal);
+		sprintf(buffer, "%u:%02u:%02u", HourVal, MinVal, SecVal);
 	else
-		sprintf(buffer, "%2u:%02u", MinVal, SecVal);
+		sprintf(buffer, "%u:%02u", MinVal, SecVal);
 
 	return;
 }
@@ -608,10 +640,8 @@ static void ShowStatistics(void)
 	UINT32 CurTL;
 	char* TitleStr;
 	UINT32 TitleLen;
-	INT32 Spaces;
 	char TimeTotal[0x10];
 	char TimeLoop[0x10];
-	//char* TempPnt;
 	UINT32 TempStrAlloc;
 	char* TempStr;
 	UINT32 CurLine;
@@ -647,27 +677,14 @@ static void ShowStatistics(void)
 			if (CurLine)
 				printf("\n");
 
-			TitleLen = strlen(TitleStr);
-			if (TitleLen <= MAX_TITLE_CHARS)
-				Spaces = MAX_TITLE_CHARS - TitleLen;
-			else
-				Spaces = 0;
-
-			printf("%.*s", MAX_TITLE_CHARS, TitleStr);
-
+			TitleLen = printf("%.*s", MAX_TITLE_CHARS, TitleStr);
 			TitleStr += TitleLen + 1;
-		}
-
-		while(Spaces)
-		{
-			printf(" ");
-			Spaces --;
 		}
 
 		PrintSampleTime(TimeTotal, CurTrkEntry->SmplTotal, false);
 		PrintSampleTime(TimeLoop, CurTrkEntry->SmplLoop, true);
+		PrintTrackTime(TitleLen, TimeTotal, TimeLoop);
 
-		printf("%s  %s\n", TimeTotal, TimeLoop);
 		free(TitleWithNumber);
 	}
 	printf("\n");
@@ -678,20 +695,36 @@ static void ShowStatistics(void)
 	}
 
 	TitleStr = "Total Length";
-	TitleLen = strlen(TitleStr);
-	Spaces = MAX_TITLE_CHARS - TitleLen;
-
-	printf("%.*s", MAX_TITLE_CHARS, TitleStr);
-	while(Spaces)
-	{
-		printf(" ");
-		Spaces --;
-	}
+	TitleLen = printf("%.*s", MAX_TITLE_CHARS, TitleStr);
 
 	PrintSampleTime(TimeTotal, AllTotal, false);
 	PrintSampleTime(TimeLoop, AllTotal + AllLoop, false);
+	PrintTrackTime(TitleLen, TimeTotal, TimeLoop);
 
-	printf("%s  %s\n", TimeTotal, TimeLoop);
+	return;
+}
+
+static void PrintTrackTime(UINT32 TitleLen, const char* TimeTotal, const char* TimeLoop)
+{
+	char TimeStrAll[0x20];
+	INT32 TSALen;
+	INT32 Spaces;
+
+	TSALen = sprintf(TimeStrAll, "%5s %6s", TimeTotal, TimeLoop);
+
+	// strip trailing spaces
+	while(TSALen > 0 && TimeStrAll[TSALen - 1] == ' ')
+		TSALen --;
+	TimeStrAll[TSALen] = '\0';
+
+	Spaces = MAX_TITLE_CHARS - TitleLen;
+	// TimeStrAll is left-aligned for up to 12 characters.
+	// If larger, right-align it by removing padding between title and time string.
+	if (TSALen > 12)
+		Spaces -= (TSALen - 12);
+	for (; Spaces < 0; Spaces ++)
+		putchar('\b');
+	printf("%*s%s\n", Spaces, "", TimeStrAll);
 
 	return;
 }
