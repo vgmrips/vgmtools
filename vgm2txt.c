@@ -39,11 +39,11 @@ int main(int argc, char* argv[])
 	UINT32 TimeMS;
 	char FileName[0x100];
 
-	printf("VGM Text Writer\n---------------\n\n");
+	fprintf(stderr, "VGM Text Writer\n---------------\n\n");
 
 	ErrVal = 0;
 	argbase = 1;
-	printf("File Name:\t");
+	fprintf(stderr, "File Name:\t");
 	if (argc <= argbase + 0)
 	{
 		ReadFilename(FileName, sizeof(FileName));
@@ -51,41 +51,58 @@ int main(int argc, char* argv[])
 	else
 	{
 		strcpy(FileName, argv[argbase + 0]);
-		printf("%s\n", FileName);
+		fprintf(stderr, "%s\n", FileName);
 	}
 	if (! strlen(FileName))
 		return 0;
 
 	if (! OpenVGMFile(FileName))
 	{
-		printf("Error opening the file!\n");
+		fprintf(stderr, "Error opening the file!\n");
 		ErrVal = 1;
 		goto EndProgram;
 	}
-	printf("\n");
+	fprintf(stderr, "\n");
 
 	TimeMin = TimeSec = TimeMS = 0;
-	printf("Start Time:\t");
+	fprintf(stderr, "Start Time:\t");
 	if (argc <= argbase + 1)
+	{
 		fgets(FileName, sizeof(FileName), stdin);
+	}
 	else
+	{
 		strcpy(FileName, argv[argbase + 1]);
+		fprintf(stderr, "%s\n", FileName);
+	}
 	sscanf(FileName, "%u:%u.%u", &TimeMin, &TimeSec, &TimeMS);
 	VGMWriteFrom = (TimeMin * 6000 + TimeSec * 100 + TimeMS) * 441;
 
 	TimeMin = TimeSec = TimeMS = 0;
-	printf("End Time:\t");
+	fprintf(stderr, "End Time:\t");
 	if (argc <= argbase + 2)
+	{
 		fgets(FileName, sizeof(FileName), stdin);
+	}
 	else
+	{
 		strcpy(FileName, argv[argbase + 2]);
-	sscanf(FileName, "%u:u.%u", &TimeMin, &TimeSec, &TimeMS);
+		fprintf(stderr, "%s\n", FileName);
+	}
+	sscanf(FileName, "%u:%u.%u", &TimeMin, &TimeSec, &TimeMS);
 	VGMWriteTo = (TimeMin * 6000 + TimeSec * 100 + TimeMS) * 441;
 	//if (! VGMWriteTo)
 	//	VGMWriteTo = VGMHead.lngTotalSamples;
 
-	strcpy(FileName, FileBase);
-	strcat(FileName, ".txt");
+	if (argc > argbase + 3)
+		strcpy(FileName, argv[argbase + 3]);
+	else
+		strcpy(FileName, "");
+	if (FileName[0] == '\0')
+	{
+		strcpy(FileName, FileBase);
+		strcat(FileName, ".txt");
+	}
 	WriteVGM2Txt(FileName);
 
 	free(VGMData);
@@ -197,9 +214,16 @@ static void WriteVGM2Txt(const char* FileName)
 
 	memset(TempStr, 0x00, 0x80);
 
-	hFile = fopen(FileName, "wt");
-	if (hFile == NULL)
-		return;
+	if (! strcmp(FileName, "-"))
+	{
+		hFile = stdout;
+	}
+	else
+	{
+		hFile = fopen(FileName, "wt");
+		if (hFile == NULL)
+			return;
+	}
 
 	fprintf(hFile, "VGM Header:\n");
 	memcpy(TempStr, &VGMData[0x00], 0x04);
@@ -427,15 +451,16 @@ static void WriteVGM2Txt(const char* FileName)
 	}
 	__except(EXCEPTION_EXECUTE_HANDLER)
 	{
-		printf("Program Error!\n");
+		fprintf(stderr, "Program Error!\n");
 	}
 #else
 	WriteVGMData2Txt(hFile);
 #endif
 
-	fclose(hFile);
+	if (hFile != stdout)
+		fclose(hFile);
 
-	printf("File written.\n");
+	fprintf(stderr, "File written.\n");
 
 	return;
 }
@@ -1505,13 +1530,13 @@ static void WriteVGMData2Txt(FILE* hFile)
 				ROMSize = VGMWriteTo - VGMWriteFrom;
 			else
 				ROMSize = VGMHead.lngTotalSamples - VGMWriteFrom;
-			printf("%04.3f %% - %s / %s (%08X / %08X) ...\r", (float)TempLng / ROMSize * 100,
+			fprintf(stderr, "%04.3f %% - %s / %s (%08X / %08X) ...\r", (float)TempLng / ROMSize * 100,
 					MinSecStr, TempStr, VGMPos, VGMHead.lngEOFOffset);
 			CmdTimer = GetTickCount() + 200;
 		}
 #endif
 	}
-	printf("\t\t\t\t\t\t\t\t\r");
+	fprintf(stderr, "%*s\r", 64, "");
 
 	return;
 }
