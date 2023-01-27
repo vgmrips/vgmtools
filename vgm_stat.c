@@ -1,7 +1,6 @@
 // vgm_stat.c - VGM Statistics
 //
-// TODO: Proper hours support.
-// TODO: Fix UTF-8 rendering (multibyte characters aren't handled correctly)
+// TODO: Fix UTF-8 rendering (multibyte characters result in incorrect padding)
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -67,9 +66,11 @@ UINT32 TrackAlloc;
 TRACK_LIST* TrackList;
 TRACK_LIST* CurTrkEntry;
 bool IsPlayList;
+bool Utf8Output;
 
 int main(int argc, char* argv[])
 {
+	int argbase;
 	int ErrVal;
 	char FileName[MAX_PATH];
 	char* FileExt;
@@ -82,6 +83,22 @@ int main(int argc, char* argv[])
 
 //printf("ZLib Version: %s\n", zlibVersion());
 	ErrVal = 0;
+	Utf8Output = false;
+
+	argbase = 1;
+	while(argbase < argc && argv[argbase][0] == '-')
+	{
+		if (! stricmp(argv[argbase], "-utf8"))
+		{
+			Utf8Output = true;
+			argbase ++;
+		}
+		else
+		{
+			break;
+		}
+	}
+
 	printf("File Path or PlayList:\t");
 	if (argc <= 0x01)
 	{
@@ -89,7 +106,7 @@ int main(int argc, char* argv[])
 	}
 	else
 	{
-		strcpy(FileName, argv[0x01]);
+		strcpy(FileName, argv[argbase]);
 		printf("%s\n", FileName);
 	}
 	if (! strlen(FileName))
@@ -250,16 +267,18 @@ static bool OpenVGMFile(const char* FileName)
 		VGMTag.strTrackNameE = L"";
 	}
 
-	TempLng = wcslen(VGMTag.strTrackNameE);
+	TempLng = wcslen(VGMTag.strTrackNameE) * 0x04;	// 4 bytes = worst case for UTF-8
 	if (TempLng)
 	{
 #ifdef WIN32
 		UINT32 CPMode;
-		CurTrkEntry->Title = (char*)malloc(TempLng + 0x01);
-		if (ftell(stdout) == -1) // Outputting to console
+		if (Utf8Output)
+			CPMode = CP_UTF8;
+		else if (ftell(stdout) == -1) // Outputting to console
 			CPMode = GetConsoleOutputCP();
 		else // Outputting to file
 			CPMode = CP_ACP;
+		CurTrkEntry->Title = (char*)malloc(TempLng + 0x01);
 		WideCharToMultiByte(CPMode, 0x00, VGMTag.strTrackNameE, -1, CurTrkEntry->Title, TempLng + 0x01, NULL, NULL);
 #else
 		CurTrkEntry->Title = (char*)malloc(TempLng + 0x01);
@@ -304,32 +323,60 @@ static wchar_t* ReadWStrFromFile(gzFile hFile, UINT32* FilePos, UINT32 EOFPos)
 {
 	UINT32 CurPos;
 	wchar_t* TextStr;
-	wchar_t* TempStr;
 	UINT32 StrLen;
 	UINT16 UnicodeChr;
+#if WCHAR_MAX >= 0x10000
+	UINT16 ucs2First = 0;
+#endif
 
-	// Unicode 2-Byte -> 4-Byte conversion is not neccessary,
-	// but it's easier to handle wchar_t than unsigned short
-	// (note: wchar_t is 16-bit on Windows, but 32-bit on Linux)
-	// TODO: This currently goes very wrong with emoticons, as they DO need a proper conversion.
 	CurPos = *FilePos;
 	TextStr = (wchar_t*)malloc((EOFPos - CurPos) / 0x02 * sizeof(wchar_t));
 	if (TextStr == NULL)
 		return NULL;
 
 	gzseek(hFile, CurPos, SEEK_SET);
-	TempStr = TextStr;
-	StrLen = 0x00;
+	StrLen = 0;
 	do
 	{
 		gzread(hFile, &UnicodeChr, 0x02);
-		*TempStr = (wchar_t)UnicodeChr;
-		TempStr ++;
-		CurPos += 0x02;
+#if WCHAR_MAX < 0x10000
+		// Windows: uses UCS-2 encoding
+		TextStr[StrLen] = (wchar_t)UnicodeChr;
 		StrLen ++;
+#else
+		// Linux: do USC-2 -> UTF-32 conversion
+		if (! ucs2First && (UnicodeChr >= 0xD800 && UnicodeChr <= 0xDFFF))
+		{
+			ucs2First = UnicodeChr;
+		}
+		else if (ucs2First)
+		{
+			if (UnicodeChr >= 0xDC00 && UnicodeChr <= 0xDFFF)
+			{
+				UINT16 x = ((UnicodeChr & 0x03FF) << 0) | ((ucs2First & 0x003F) << 10);
+				UINT16 w = 1 + ((ucs2First & 0x07C0) >> 6);
+				TextStr[StrLen] = (wchar_t)((w << 16) | (x << 0));
+				StrLen ++;
+			}
+			else
+			{
+				// bad UCS2 surrogate bytes - just copy them
+				TextStr[StrLen + 0] = (wchar_t)ucs2First;
+				TextStr[StrLen + 1] = (wchar_t)UnicodeChr;
+				StrLen += 2;
+			}
+			ucs2First = 0;
+		}
+		else
+		{
+			TextStr[StrLen] = (wchar_t)UnicodeChr;
+			StrLen ++;
+		}
+#endif
+		CurPos += 0x02;
 		if (CurPos >= EOFPos)
 			break;
-	} while(*(TempStr - 1));
+	} while(UnicodeChr != 0);
 
 	TextStr = (wchar_t*)realloc(TextStr, StrLen * sizeof(wchar_t));
 	*FilePos = CurPos;
