@@ -35,7 +35,7 @@ static UINT8 CheckVGMFile(UINT8 Mode);
 static bool ChipCommandIsUnknown(UINT8 Command);
 static bool ChipCommandIsValid(UINT8 Command);
 static UINT32 RelocateVGMLoop(void);
-static UINT32 CalcGD3Length(UINT32 DataPos, UINT16 TagEntries);
+static UINT32 CalcGD3Length(UINT32 DataPos, UINT16 TagEntries, UINT16* FullTags);
 static void StripVGMData(void);
 static bool StripClock(bool* StripAllPtr, UINT32* ClockPtr);
 
@@ -371,14 +371,25 @@ static bool OpenVGMFile(const char* FileName, bool* Compressed)
 
 	// Read Data
 	if (*Compressed)
+	{
 		VGMDataLen = 0x04 + VGMHead.lngEOFOffset;	// size from EOF offset
+		if (VGMDataLen < FileSize && FileSize <= 0x10000000)
+			VGMDataLen = FileSize;	// use file size from GZ file when <=256 MB
+	}
 	else
+	{
 		VGMDataLen = FileSize;	// size of the actual file
+	}
 	VGMData = (UINT8*)malloc(VGMDataLen);
 	if (VGMData == NULL)
 		goto OpenErr;
 	gzseek(hFile, 0x00, SEEK_SET);
-	gzread(hFile, VGMData, VGMDataLen);
+	TempLng = gzread(hFile, VGMData, VGMDataLen);
+	if (TempLng < VGMDataLen)
+	{
+		VGMDataLen = TempLng;
+		VGMData = (UINT8*)realloc(VGMData, VGMDataLen);
+	}
 
 	gzclose(hFile);
 
@@ -2043,6 +2054,8 @@ static UINT8 CheckVGMFile(UINT8 Mode)
 	UINT32 VGMEoFPos;	// EoF - End of File
 	UINT32 VGMVer;
 	UINT32 GD3Ver;
+	UINT32 GD3Len;
+	UINT16 GD3TagsFound;
 	UINT8 VGMErr;
 	UINT8 GD3Flags;
 	UINT8 RetVal;
@@ -2391,10 +2404,11 @@ static UINT8 CheckVGMFile(UINT8 Mode)
 	//	4-7	 F0	In Header
 	//	 0	 11	GD3 found
 	//	 1	 02	GD3 Offset wrong
-	//	 2	 04
+	//	 2	 04	Tags incomplete
 	//	 3	 08
 	//VGMErr = 0x00;
 	GD3Flags = 0x00;
+	GD3TagsFound = 0;
 	if (CountLen != VGMHead.lngTotalSamples)
 		VGMErr |= 0x01;
 	if (CountLoop != VGMHead.lngLoopSamples)
@@ -2451,16 +2465,16 @@ static UINT8 CheckVGMFile(UINT8 Mode)
 			printf("GD3 Tag version newer than supported - correction may be skipped!\n");
 
 		memcpy(&CmdLen, &VGMData[VGMGD3Pos + 0x08], 0x04);
-		TempLng = CalcGD3Length(VGMGD3Pos + 0x0C, GD3T_ENT_V100);
-		if (TempLng != CmdLen)
+		GD3Len = CalcGD3Length(VGMGD3Pos + 0x0C, GD3T_ENT_V100, &GD3TagsFound);
+		if (GD3Len != CmdLen)
 		{
-			printf("Wrong GD3 Length! (Header: 0x%06X  File: 0x%06X)\n", CmdLen, TempLng);
+			printf("Wrong GD3 Length! (Header: 0x%06X  File: 0x%06X)\n", CmdLen, GD3Len);
 			if (GD3Ver == 0x100)
 			{
 				VGMErr |= 0x20;
 				// Catch the special case where VGMTool r2 adds an additional \0 character.
 				// In that case, -CheckT does an automatic fix.
-				if (TempLng == CmdLen - 0x02 && ! *(UINT16*)(VGMData + VGMGD3Pos + 0x0C + TempLng))
+				if (GD3Len == CmdLen - 0x02 && ! *(UINT16*)(VGMData + VGMGD3Pos + 0x0C + GD3Len))
 					GD3Flags |= 0x80;
 			}
 			else
@@ -2468,9 +2482,14 @@ static UINT8 CheckVGMFile(UINT8 Mode)
 				// unknown GD3 version - don't fix length
 			}
 		}
+		if (GD3TagsFound < GD3T_ENT_V100)
+		{
+			printf("GD3 tags cut short during tag %u / %u!\n", 1 + GD3TagsFound, GD3T_ENT_V100);
+			VGMErr |= 0x20;
+			GD3Flags |= 0x04;
+		}
 
-		TempLng = 0x0C + CmdLen;	// calculate EOF based on current GD3 length
-		VGMEoFPos = VGMGD3Pos + TempLng;
+		VGMEoFPos = VGMGD3Pos + 0x0C + GD3Len;	// calculate EOF based on actual GD3 length
 	}
 
 	if (StopCmd != 0x66)
@@ -2605,31 +2624,41 @@ static UINT8 CheckVGMFile(UINT8 Mode)
 		}
 
 		if (GD3Flags & 0x02)	// GD3 Offset wrong
-		{
 			VGMHead.lngGD3Offset = VGMGD3Pos - 0x14;
-		}
 		RetVal |= 0x10;
 	}
 	if (VGMErr & 0x20)	// fix GD3 tag length and/or EOF offset
 	{
+		if (GD3Flags & 0x04)	// add missing '\0' terminators
+		{
+			UINT32 bytesAdd = (GD3T_ENT_V100 - GD3TagsFound) * 0x02;	// space for missing '\0' chars
+
+			if (VGMDataLen + bytesAdd > OldVGMDataLen)
+			{
+				OldVGMDataLen = VGMDataLen + bytesAdd;
+				VGMData = (UINT8*)realloc(VGMData, OldVGMDataLen);
+			}
+
+			CurPos = VGMGD3Pos + 0x0C + GD3Len;
+			if (CurPos <= VGMDataLen)
+				memset(&VGMData[CurPos], 0x00, bytesAdd);
+			GD3Len += bytesAdd;
+			VGMEoFPos += bytesAdd;
+			RetVal |= 0x40;
+		}
 		if (GD3Flags & 0x01)
 		{
-			CurPos = 0x14 + VGMHead.lngGD3Offset;
-			memcpy(&CmdLen, &VGMData[CurPos + 0x08], 0x04);
-			TempLng = CalcGD3Length(CurPos + 0x0C, GD3T_ENT_V100);
-			if (TempLng != CmdLen)
+			memcpy(&CmdLen, &VGMData[VGMGD3Pos + 0x08], 0x04);
+			if (GD3Len != CmdLen)
 			{
-				if (TempLng < CmdLen && GD3Ver > 0x100)
-				{
-					printf("GD3 Tag longer than counted - skip correction!\n");
-					TempLng = CmdLen;
-				}
-				memcpy(&VGMData[CurPos + 0x08], &TempLng, 0x04);	// rewrite GD3 length
+				if (CmdLen <= GD3Len || GD3Ver <= 0x100)
+					memcpy(&VGMData[VGMGD3Pos + 0x08], &GD3Len, 0x04);	// rewrite GD3 length
+				else
+					printf("GD3 Tag longer than counted - skipping correction!\n");
 				GD3Fix = true;
 			}
 
-			TempLng += 0x0C;
-			VGMEoFPos = CurPos + TempLng;
+			VGMEoFPos = VGMGD3Pos + 0x0C + GD3Len;
 		}
 
 		VGMDataLen = VGMEoFPos;
@@ -2660,7 +2689,7 @@ static UINT8 CheckVGMFile(UINT8 Mode)
 	}
 	if (VGMErr & 0x40)	// insert missing command 0x66 (EOD)
 	{
-		if (VGMDataLen >= OldVGMDataLen)
+		if (VGMDataLen + 0x01 > OldVGMDataLen)
 		{
 			OldVGMDataLen = VGMDataLen + 0x01;
 			VGMData = (UINT8*)realloc(VGMData, OldVGMDataLen);
@@ -2962,7 +2991,7 @@ static UINT32 RelocateVGMLoop(void)
 	return 0x00;
 }
 
-static UINT32 CalcGD3Length(UINT32 DataPos, UINT16 TagEntries)
+static UINT32 CalcGD3Length(UINT32 DataPos, UINT16 TagEntries, UINT16* FullTags)
 {
 	UINT32 CurPos;
 	UINT16* CurChr;
@@ -2971,11 +3000,17 @@ static UINT32 CalcGD3Length(UINT32 DataPos, UINT16 TagEntries)
 	CurPos = DataPos;
 	for (CurEnt = 0x00; CurEnt < TagEntries; CurEnt ++)
 	{
-		do
+		while(CurPos < VGMDataLen)
 		{
 			CurChr = (UINT16*)&VGMData[CurPos];
 			CurPos += 0x02;
-		} while(*CurChr);
+			if (*CurChr == 0)
+			{
+				if (FullTags != NULL)
+					(*FullTags) ++;
+				break;	// exit after (UINT16)'\0' terminator
+			}
+		}
 	}
 
 	return CurPos - DataPos;
