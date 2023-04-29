@@ -252,6 +252,7 @@ typedef struct _k053260_channel
 	UINT16		start;
 	UINT8		bank;
 	bool		play;
+	bool		reverse;
 //	UINT8		ppcm; // packed PCM (4 bit signed)
 } K053260_CHANNEL;
 typedef struct k053260_data
@@ -1948,7 +1949,6 @@ void k053260_write(UINT8 Register, UINT8 Data)
 	K053260_DATA* ic = &ChDat->K053260;
 	K053260_CHANNEL* TempChn;
 	UINT8 CurChn;
-	UINT8 TempByt;
 	UINT32 Addr;
 	UINT32 CurByt;
 	UINT32 DataLen;
@@ -1990,17 +1990,20 @@ void k053260_write(UINT8 Register, UINT8 Data)
 		switch(Register)
 		{
 		case 0x28:
-			TempChn = ic->channels;
-			TempByt = Data & 0x0F;
-			for (CurChn = 0; CurChn < 4; CurChn ++, TempChn ++)
+			for (CurChn = 0; CurChn < 4; CurChn ++)
 			{
-				if ((TempByt & 0x01) != TempChn->play)
+				bool newPlay = (Data >> CurChn) & 0x01;
+				bool newRev = (Data >> CurChn) & 0x10;
+				TempChn = &ic->channels[CurChn];
+
+				if (newPlay != TempChn->play || newRev != TempChn->reverse)
 				{
-					TempChn->play = TempByt & 0x01;
-					if (TempByt & 0x01)
+					if (newPlay)
 					{
 						Addr = (TempChn->bank << 16) | (TempChn->start << 0);
 						DataLen = TempChn->size;
+						if (newRev)
+							Addr -= DataLen;	// reverse mode: begin at "Addr", then play backwards
 						if (Addr >= ic->ROMSize)
 						{
 							printf("K053260: start out of range: $%08x\n", Addr);
@@ -2016,8 +2019,9 @@ void k053260_write(UINT8 Register, UINT8 Data)
 						for (CurByt = 0x00; CurByt < DataLen; CurByt ++, Addr ++)
 							ic->ROMUsage[Addr] |= 0x01;
 					}
+					TempChn->play = newPlay;
+					TempChn->reverse = newRev;
 				}
-				TempByt >>= 1;
 			}
 			break;
 		case 0x2A: // loop, ppcm
