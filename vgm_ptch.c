@@ -2045,7 +2045,6 @@ static UINT8 CheckVGMFile(UINT8 Mode)
 	UINT8 StopCmd;
 	UINT32 CountLen;
 	UINT32 CountLoop;
-	UINT32 VGMLoop;
 	UINT32 LoopPos;
 	UINT16 CmdDelay;
 	UINT32 VGMDataPos;
@@ -2067,13 +2066,7 @@ static UINT8 CheckVGMFile(UINT8 Mode)
 	OldVGMDataLen = VGMDataLen;
 	HasLoop = VGMHead.lngLoopOffset ? true : false;
 	if (! HasLoop && VGMHead.lngLoopSamples)
-	{
 		printf("LoopOffset missing, but LoopSamples > 0!\n");
-		HasLoop = true;
-		printf("Assume song to have a loop!\n");
-	}
-	if (HasLoop)
-		VGMLoop = VGMHead.lngTotalSamples - VGMHead.lngLoopSamples;
 	if (VGMHead.lngLoopOffset)
 		LoopPos = 0x1C + VGMHead.lngLoopOffset;
 	else
@@ -2216,7 +2209,7 @@ static UINT8 CheckVGMFile(UINT8 Mode)
 	// We avoid using VGMHead.lngEOFOffset here, as we want to be able to fix a potentially wrong offset.
 	while(CurPos < VGMDataLen)
 	{
-		if (HasLoop && CurPos == LoopPos)
+		if (CurPos == LoopPos)
 			InLoop = true;
 
 		CmdLen = 0x00;
@@ -2718,11 +2711,11 @@ static UINT8 CheckVGMFile(UINT8 Mode)
 		VGMHead.lngTotalSamples = CountLen;
 		RetVal |= 0x01;
 	}
-	if (HasLoop && (VGMErr & 0x02))	// fix loop sample count OR loop offset
+	if (VGMErr & 0x02)	// fix loop sample count OR loop offset
 	{
 		if ((Mode & 0x03) == 0x01)
 		{
-			if (InLoop)
+			if (InLoop || ! HasLoop)
 			{
 				VGMHead.lngLoopSamples = CountLoop;
 				RetVal |= 0x02;
@@ -2888,6 +2881,9 @@ static UINT32 RelocateVGMLoop(void)
 		CmdLen = 0x00;
 		CmdDelay = 0x00;
 		Command = VGMData[CurPos + 0x00];
+		if (VGMSmplPos == VGMLoop && Command != 0x67)	// !=0x67 -> set loop position AFTER sample ROM blocks
+			return CurPos;
+
 		if (Command >= 0x70 && Command <= 0x8F)
 		{
 			switch(Command & 0xF0)
@@ -2981,12 +2977,12 @@ static UINT32 RelocateVGMLoop(void)
 		}
 		CurPos += CmdLen;
 		VGMSmplPos += CmdDelay;
-		if (VGMSmplPos == VGMLoop)
-			return CurPos;
 
 		if (StopVGM)
 			break;
 	}
+	if (VGMSmplPos == VGMLoop)
+		return CurPos;
 
 	return 0x00;
 }
