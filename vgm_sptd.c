@@ -241,6 +241,8 @@ static void SplitVGMData(const UINT32 SplitDelay)
 	bool IgnoreCmd;
 	UINT32 LastCmdDly;
 	UINT32 AddMask;
+	UINT16 pwmInitValue;
+	UINT32 pwmLastSmplPos;
 
 	// +0x100 - Make sure to have enough room for additional delays
 	DstData = (UINT8*)malloc(VGMDataLen + 0x100);
@@ -257,6 +259,8 @@ static void SplitVGMData(const UINT32 SplitDelay)
 	StopVGM = false;
 	EmptyFile = true;
 	AddMask = 0x00;
+	pwmLastSmplPos = 0;
+	pwmInitValue = 0;
 	while(VGMPos < VGMHead.lngEOFOffset)
 	{
 		CmdLen = 0x00;
@@ -566,6 +570,26 @@ static void SplitVGMData(const UINT32 SplitDelay)
 				}
 				CmdLen = 0x03;
 				break;
+			case 0xB2:	// PWM register write
+				TempByt = VGMData[VGMPos + 0x01] >> 4;
+				TempSht = ((VGMData[VGMPos + 0x01] & 0x0F) << 8) | (VGMData[VGMPos + 0x02] << 0);
+				if (TempByt == 0x01)	// PWM timer setup command
+				{
+					pwmInitValue = 0;	// reset initial sample value
+				}
+				else if (TempByt >= 0x02 && TempByt <= 0x04)
+				{
+					if (VGMSmplPos - pwmLastSmplPos > 10000)
+						pwmInitValue = 0;	// PWM is a constant stream, so reset sample value on interruption
+					if (pwmInitValue == 0)
+						pwmInitValue = TempSht;
+					if (TempSht == pwmInitValue)
+						IgnoreCmd = true;
+					pwmLastSmplPos = VGMSmplPos;
+				}
+
+				CmdLen = 0x03;
+				break;
 			case 0x68:	// PCM RAM write
 				CmdLen = 0x0C;
 				break;
@@ -650,8 +674,10 @@ static void SplitVGMData(const UINT32 SplitDelay)
 			}
 			else if (CmdDelay >= SplitDelay || StopVGM)
 			{
-				//TempLng = VGMSmplPos - CmdDelay;
-				TempLng = LastCmdDly;
+				if (CmdDelay >= SplitDelay)
+					TempLng = LastCmdDly;
+				else
+					TempLng = VGMSmplPos;
 				if (TempLng > VGMSmplStart)	// prevent 0-sample files
 				{
 					TrimVGMData(VGMSmplStart, 0x00, TempLng, false, true);

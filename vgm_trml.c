@@ -3051,6 +3051,7 @@ void TrimVGMData(const INT32 StartSmpl, const INT32 LoopSmpl, const INT32 EndSmp
 
 	CmdLen = 0x00;
 	CmdDelay = 0x00;
+	IsDelay = false;
 	DelayOff = false;
 	ForceCmdWrite = false;
 	while(VGMPos < VGMHead.lngEOFOffset)

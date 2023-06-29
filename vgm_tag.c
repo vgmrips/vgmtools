@@ -510,6 +510,12 @@ static void Copy2TagStr(wchar_t** TagStr, const char* DataStr)
 				DstStr ++;
 				DataLen ++;
 				continue;
+			case '\\':
+				*DstStr = L'\\';
+				SrcStr ++;
+				DstStr ++;
+				DataLen ++;
+				continue;
 			}
 		}
 		else if (*SrcStr == '&')
@@ -557,7 +563,7 @@ static void Copy2TagStr(wchar_t** TagStr, const char* DataStr)
 		DstStr ++;
 		DataLen ++;
 	}
-	*DstStr = 0x0000;
+	*DstStr = L'\0';
 
 	return;
 }
