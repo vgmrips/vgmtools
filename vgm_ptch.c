@@ -857,7 +857,8 @@ static UINT8 ParseStripCommand(const char* StripCmd)
 		{
 			if (! (ChipMask & (1 << CurCSet)))
 			{
-				TempChip = (STRIP_GENERIC*)( (STRIP_DATA*)TempChip + 1 );
+				if (TempChip != NULL)
+					TempChip = (STRIP_GENERIC*)( (STRIP_DATA*)TempChip + 1 );
 				continue;	// bit not set - skip
 			}
 
@@ -924,6 +925,8 @@ static UINT8 ParseStripCommand(const char* StripCmd)
 			}
 
 			// advance by one STRIP_DATA
+			if (TempChip == NULL)
+				break;
 			TempChip = (STRIP_GENERIC*)( (STRIP_DATA*)TempChip + 1 );
 		}
 
@@ -3283,6 +3286,36 @@ static void StripVGMData(void)
 						if (WriteEvent && ChipID && StripVGM[0].RF5C164.All)
 							VGMPnt[0x06] &= ~0x80;
 						break;
+					case 0x03:	// PWM Database
+						if (StripVGM[0].PWM.All)
+							WriteEvent = false;
+						if (WriteEvent && ChipID && StripVGM[0].PWM.All)
+							VGMPnt[0x06] &= ~0x80;
+						break;
+					case 0x04:	// OKIM6258 PCM Database
+						if (StripVGM[ChipID].OKIM6258.All)
+							WriteEvent = false;
+						if (WriteEvent && ChipID && StripVGM[0].OKIM6258.All)
+							VGMPnt[0x06] &= ~0x80;
+						break;
+					case 0x05:	// HuC6280 PCM Database
+						if (StripVGM[ChipID].HuC6280.All)
+							WriteEvent = false;
+						if (WriteEvent && ChipID && StripVGM[0].HuC6280.All)
+							VGMPnt[0x06] &= ~0x80;
+						break;
+					//case 0x06:	// SCSP PCM Database
+					//	if (StripVGM[ChipID].SCSP.All)
+					//		WriteEvent = false;
+					//	if (WriteEvent && ChipID && StripVGM[0].SCSP.All)
+					//		VGMPnt[0x06] &= ~0x80;
+					//	break;
+					case 0x07:	// NES APU PCM Database
+						if (StripVGM[ChipID].NESAPU.All)
+							WriteEvent = false;
+						if (WriteEvent && ChipID && StripVGM[0].NESAPU.All)
+							VGMPnt[0x06] &= ~0x80;
+						break;
 					default:
 						if (StripVGM[ChipID].Unknown)
 							WriteEvent = false;
@@ -3395,6 +3428,12 @@ static void StripVGMData(void)
 						if (StripVGM[ChipID].RF5C164.All)
 							WriteEvent = false;
 						if (WriteEvent && ChipID && StripVGM[0].RF5C164.All)
+							VGMPnt[0x06] &= ~0x80;
+						break;
+					case 0xC2:	// NES APU RAM write
+						if (StripVGM[ChipID].NESAPU.All)
+							WriteEvent = false;
+						if (WriteEvent && ChipID && StripVGM[0].NESAPU.All)
 							VGMPnt[0x06] &= ~0x80;
 						break;
 					}

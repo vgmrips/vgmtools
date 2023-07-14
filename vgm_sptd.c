@@ -674,6 +674,7 @@ static void SplitVGMData(const UINT32 SplitDelay)
 			}
 			else if (CmdDelay >= SplitDelay || StopVGM)
 			{
+				//TODO: Shouldn't I use VGMSmplEnd here?
 				if (CmdDelay >= SplitDelay)
 					TempLng = LastCmdDly;
 				else
