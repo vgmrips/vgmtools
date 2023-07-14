@@ -3938,7 +3938,7 @@ static void StripVGMData(void)
 		}
 		VGMHead.lngLoopOffset = NewLoopS - 0x1C;
 	}
-	printf("\t\t\t\t\t\t\t\t\r");
+	printf("%*s\r", 64, "");
 
 	if (VGMHead.lngGD3Offset)
 	{

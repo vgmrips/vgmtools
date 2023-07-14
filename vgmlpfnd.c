@@ -727,7 +727,7 @@ static void FindEqualitiesVGM(void)
 		CurCmd += STEP_SIZE;
 	}
 	if (! SilentMode)
-		fprintf(stderr, "\t\t\t\t\r");
+		fprintf(stderr, "%*s\r", 64, "");
 	fprintf(stderr, "Done.\n");
 	if (! SilentMode)
 		fprintf(stderr, "\n");
@@ -770,6 +770,8 @@ static bool EqualityCheck(UINT32 CmpCmd, UINT32 SrcCmd, UINT32 CmdCount)
 	if (SrcCmd + CmdCount >= VGMCmdCount)
 		BlkFlags |= 0x02;	// Notify user that it matched until the End of File
 
+	if (! SilentMode)
+		fprintf(stderr, "%*s\r", 64, "");
 	if (LabelMode)
 	{
 		LabelID ++;
