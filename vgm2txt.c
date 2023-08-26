@@ -21,6 +21,7 @@ static void WriteVGMData2Txt(FILE* hFile);
 
 
 
+static const UINT32 minWaitSize = 200;
 VGM_HEADER VGMHead;
 UINT32 VGMDataLen;
 UINT8* VGMData;
@@ -29,6 +30,7 @@ INT32 VGMSmplPos;
 INT32 VGMWriteFrom;
 INT32 VGMWriteTo;
 char FileBase[0x100];
+bool noWaitMode;
 
 int main(int argc, char* argv[])
 {
@@ -43,6 +45,17 @@ int main(int argc, char* argv[])
 
 	ErrVal = 0;
 	argbase = 1;
+	noWaitMode = false;
+
+	if (argc > argbase)
+	{
+		if (! stricmp(argv[argbase], "-NoWait"))
+		{
+			noWaitMode = true;
+			argbase ++;
+		}
+	}
+
 	fprintf(stderr, "File Name:\t");
 	if (argc <= argbase + 0)
 	{
@@ -489,10 +502,12 @@ static void WriteVGMData2Txt(FILE* hFile)
 	UINT32 CmdTimer;
 #endif
 	char TempStr[0x100];
+	char HexDumpStr[0x20];
 	char MinSecStr[0x80];
 	UINT32 CmdLen;
 	bool StopVGM;
 	bool WriteEvents;
+	bool ShowThisEvt;
 	UINT32 ChipCounters[0x20];
 	UINT8 CurChip;
 	const UINT8* VGMPnt;
@@ -629,6 +644,8 @@ static void WriteVGMData2Txt(FILE* hFile)
 	WriteEvents = (VGMSmplPos >= VGMWriteFrom);
 	while(VGMPos < VGMHead.lngEOFOffset)
 	{
+		UINT32 VGMCmdSmplPos = VGMSmplPos;
+		ShowThisEvt = true;
 		CmdLen = 0x00;
 		Command = VGMData[VGMPos + 0x00];
 		if (Command >= 0x70 && Command <= 0x8F)
@@ -639,10 +656,11 @@ static void WriteVGMData2Txt(FILE* hFile)
 				TempSht = (Command & 0x0F) + 0x01;
 				VGMSmplPos += TempSht;
 				WriteEvents = (VGMSmplPos >= VGMWriteFrom);
-				if (WriteEvents)
+				ShowThisEvt = !noWaitMode || (minWaitSize && TempSht >= minWaitSize);
+				if (WriteEvents && ShowThisEvt)
 				{
 					PrintMinSec(VGMSmplPos, MinSecStr);
-					sprintf(TempStr, "Wait:\t%2u sample(s) (   %03.2f ms)\t(total\t%u (%s))",
+					sprintf(TempStr, "Wait:\t%2u sample(s) (   %03.2f ms)\ttotal %7u (%s)",
 							TempSht, TempSht / 44.1, VGMSmplPos, MinSecStr);
 				}
 				break;
@@ -650,10 +668,11 @@ static void WriteVGMData2Txt(FILE* hFile)
 				TempSht = Command & 0x0F;
 				VGMSmplPos += TempSht;
 				WriteEvents = (VGMSmplPos >= VGMWriteFrom);
-				if (WriteEvents)
+				ShowThisEvt = !noWaitMode || (minWaitSize && TempSht >= minWaitSize);
+				if (WriteEvents && ShowThisEvt)
 				{
 					PrintMinSec(VGMSmplPos, MinSecStr);
-					sprintf(TempStr, "Wait:\t%2u sample(s) (   %03.2f ms)\t(total\t%u (%s))",
+					sprintf(TempStr, "PCMWait\t%2u sample(s) (   %03.2f ms)\ttotal %7u (%s)",
 							TempSht, TempSht / 44.1, VGMSmplPos, MinSecStr);
 				}
 				break;
@@ -778,10 +797,11 @@ static void WriteVGMData2Txt(FILE* hFile)
 				TempSht = 735;
 				VGMSmplPos += TempSht;
 				WriteEvents = (VGMSmplPos >= VGMWriteFrom);
-				if (WriteEvents)
+				ShowThisEvt = !noWaitMode || (minWaitSize && TempSht >= minWaitSize);
+				if (WriteEvents && ShowThisEvt)
 				{
 					PrintMinSec(VGMSmplPos, MinSecStr);
-					sprintf(TempStr, "Wait:\t%u samples (1/60 s)\t(total\t%u (%s))",
+					sprintf(TempStr, "Wait:\t%u samples (1/60 s)\ttotal %7u (%s)",
 							TempSht, VGMSmplPos, MinSecStr);
 				}
 				CmdLen = 0x01;
@@ -790,10 +810,11 @@ static void WriteVGMData2Txt(FILE* hFile)
 				TempSht = 882;
 				VGMSmplPos += TempSht;
 				WriteEvents = (VGMSmplPos >= VGMWriteFrom);
-				if (WriteEvents)
+				ShowThisEvt = !noWaitMode || (minWaitSize && TempSht >= minWaitSize);
+				if (WriteEvents && ShowThisEvt)
 				{
 					PrintMinSec(VGMSmplPos, MinSecStr);
-					sprintf(TempStr, "Wait:\t%u samples (1/50 s)\t(total\t%u (%s))",
+					sprintf(TempStr, "Wait:\t%u samples (1/50 s)\ttotal %7u (%s)",
 							TempSht, VGMSmplPos, MinSecStr);
 				}
 				CmdLen = 0x01;
@@ -802,10 +823,11 @@ static void WriteVGMData2Txt(FILE* hFile)
 				memcpy(&TempSht, &VGMPnt[0x01], 0x02);
 				VGMSmplPos += TempSht;
 				WriteEvents = (VGMSmplPos >= VGMWriteFrom);
-				if (WriteEvents)
+				ShowThisEvt = !noWaitMode || (minWaitSize && TempSht >= minWaitSize);
+				if (WriteEvents && ShowThisEvt)
 				{
 					PrintMinSec(VGMSmplPos, MinSecStr);
-					sprintf(TempStr, "Wait:\t%u samples (   %03.2f ms)\t(total\t%u (%s))",
+					sprintf(TempStr, "Wait:\t%u samples (   %03.2f ms)\ttotal %7u (%s)",
 							TempSht, TempSht / 44.1, VGMSmplPos, MinSecStr);
 				}
 				CmdLen = 0x03;
@@ -1496,19 +1518,31 @@ static void WriteVGMData2Txt(FILE* hFile)
 		{
 			if (VGMPos == VGMHead.lngLoopOffset)
 				fprintf(hFile, "--- Loop Point ---\n");
+		}
+		if (WriteEvents && ShowThisEvt)
+		{
 			for (TempLng = 0x00; TempLng < CmdLen; TempLng ++)
 			{
 				if ((Command == 0x67 || Command == 0x68) && TempLng >= 0x03)
 					break;
 				if (TempLng >= 0x04)
 					break;
-				sprintf(MinSecStr + TempLng * 0x03, "%02X ", VGMData[VGMPos + TempLng]);
+				sprintf(HexDumpStr + TempLng * 3, "%02X ", VGMData[VGMPos + TempLng]);
 			}
 			if (TempLng < 0x04)
-				memset(MinSecStr + TempLng * 0x03, ' ', (0x04 - TempLng) * 0x03);
-			MinSecStr[0x04 * 0x03 - 0x01] = 0x00;
+				memset(HexDumpStr + TempLng * 3, ' ', (0x04 - TempLng) * 3);
+			HexDumpStr[0x04 * 3 - 0x01] = 0x00;
 
-			fprintf(hFile, "0x%08X: %s %s\n", VGMPos, MinSecStr, TempStr);
+			if (!noWaitMode)
+			{
+				fprintf(hFile, "0x%08X: %s %s\n", VGMPos, HexDumpStr, TempStr);
+			}
+			else
+			{
+				PrintMinSec(VGMCmdSmplPos, &MinSecStr[0x20]);
+				fprintf(hFile, "0x%08X: %s smpl %7u  %s\t%s\n",
+					VGMPos, HexDumpStr, VGMCmdSmplPos, &MinSecStr[0x20], TempStr);
+			}
 		}
 		if (VGMWriteTo && VGMSmplPos > VGMWriteTo)
 			StopVGM = true;

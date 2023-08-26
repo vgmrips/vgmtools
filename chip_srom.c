@@ -1578,7 +1578,7 @@ void okim6295_write(UINT8 Offset, UINT8 Data)
 					printf("%c", '0' + CurChn);
 
 					SampleLen = chip->voice[CurChn].stop - chip->voice[CurChn].start + 1;
-					MaskBase = &chip->ROMUsage[TempLng | chip->voice[CurChn].start];
+					MaskBase = &chip->ROMUsage[TempLng | (chip->voice[CurChn].start & 0x3FFFF)];
 					for (CurSmpl = 0x00; CurSmpl < SampleLen; CurSmpl ++)
 						MaskBase[CurSmpl] |= 0x01;
 				}
