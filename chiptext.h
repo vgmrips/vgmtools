@@ -3,7 +3,7 @@
 
 #include "stdtype.h"
 
-void InitChips(UINT32* ChipCounts);
+void InitChips(UINT32 ChipCntSize, UINT32* ChipCounts);
 void SetChip(UINT8 ChipID);
 void GetFullChipName(char* TempStr, UINT8 ChipType);
 void GGStereo(char* TempStr, UINT8 Data);
