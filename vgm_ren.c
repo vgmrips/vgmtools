@@ -250,7 +250,7 @@ static bool OpenVGMFile(const char* FileName)
 	CurTrkEntry->PathDst = NULL;
 	CurTrkEntry->Compressed = ! gzdirect(hFile);
 
-	TempLng = (VGMTag.strTrackNameE != NULL) ? wcslen(VGMTag.strTrackNameE) : 0;
+	TempLng = (VGMTag.strTrackNameE != NULL) ? wcslen(VGMTag.strTrackNameE) * 0x04 : 0;	// 4 bytes = worst case for UTF-8
 	if (TempLng)
 	{
 #ifdef WIN32
