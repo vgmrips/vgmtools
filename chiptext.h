@@ -40,7 +40,7 @@ void k051649_write(char* TempStr, UINT8 Port, UINT8 Register, UINT8 Data);
 void okim6295_write(char* TempStr, UINT8 Port, UINT8 Data);
 void okim6258_write(char* TempStr, UINT8 Port, UINT8 Data);
 void multipcm_write(char* TempStr, UINT8 Port, UINT8 Data);
-void multipcm_bank_write(char* TempStr, UINT8 Port, UINT8 Data);
+void multipcm_bank_write(char* TempStr, UINT8 Port, UINT16 Data);
 void upd7759_write(char* TempStr, UINT8 Port, UINT8 Data);
 void scsp_write(char* TempStr, UINT16 Register, UINT8 Data);
 void vsu_write(char* TempStr, UINT16 Register, UINT8 Data);

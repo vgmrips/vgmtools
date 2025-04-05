@@ -133,6 +133,12 @@ int main(int argc, char* argv[])
 
 	printf("\nAll tracks\t");
 	PrintVolMod(MaxLvlAlbum);
+	if (MaxLvlAlbum >= 0x7FFF)
+	{
+		printf("Warning! At least one of the tracks clipped!\n");
+		printf("Please regenerate the WAV files with a lower volume. (e.g. %.2f)\n", RecVolume / 2.0);
+		printf("Then rerun vgm_vol.\n");
+	}
 	printf("\n");
 
 //EndProgram:

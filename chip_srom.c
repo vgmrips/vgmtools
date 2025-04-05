@@ -2606,6 +2606,8 @@ void es5503_write(UINT8 Register, UINT8 Data)
 			{
 				if ((TempOsc->control & 0x08) && ! TempOsc->vol)
 					break;	// IRQ + Vol 0 -> probably used for timing
+				if (chip->ROMData == NULL)
+					break;
 
 				AddrSt = TempOsc->wavetblpointer & es5503_wavemasks[TempOsc->wavetblsize];
 				AddrEnd = AddrSt + TempOsc->wtsize;

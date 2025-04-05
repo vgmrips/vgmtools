@@ -3994,7 +3994,7 @@ void k054539_write(char* TempStr, UINT16 Register, UINT8 Data)
 		case 0:
 			sprintf(RedirectStr, "Direction: %s, Sample Mode: %s",
 				(Data & 0x20) ? "Backwards" : "Forwards",
-				K054539_SAMPLE_MODES[(Data & 0x0C) >> 2], Data);
+				K054539_SAMPLE_MODES[(Data & 0x0C) >> 2]);
 			break;
 		case 1:
 			sprintf(RedirectStr, "Loop %s", OnOff(Data & 0x01));

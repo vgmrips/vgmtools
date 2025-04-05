@@ -405,7 +405,7 @@ static char* GenerateFileName(const char* title, UINT32 trackID, const char* ext
 	if (TrkCntDigits > 0)
 		dst += sprintf(dst, "%0*u ", TrkCntDigits, trackID);
 
-	for (src = title; *src != '\0' && (dst - fn) < fnSize; )
+	for (src = title; *src != '\0' && (size_t)(dst - fn) < fnSize; )
 	{
 		// replace:
 		//	" -> '

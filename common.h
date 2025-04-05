@@ -95,7 +95,7 @@ static void ReadFilename(char* buffer, size_t bufsize)
 {
 	char* retStr;
 
-	retStr = fgets(buffer, bufsize, stdin);
+	retStr = fgets(buffer, (int)bufsize, stdin);
 	if (retStr == NULL)
 		buffer[0] = '\0';
 
