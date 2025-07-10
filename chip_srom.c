@@ -252,7 +252,6 @@ typedef struct _k053260_channel
 	UINT16		start;
 	UINT8		bank;
 	bool		play;
-	bool		reverse;
 //	UINT8		ppcm; // packed PCM (4 bit signed)
 } K053260_CHANNEL;
 typedef struct k053260_data
@@ -337,6 +336,29 @@ typedef struct x1010_data
 	UINT8 reg[0x2000];
 	X1_010_CHNINFO chnInfo[SETA_NUM_CHANNELS];
 } X1_010_DATA;
+
+#define K007232_PCM_MAX   2
+
+typedef struct {
+    UINT8  vol[2];    // [0]=left, [1]=right
+    UINT32 addr;      // current PCM address (17 bits)
+    INT32  counter;
+    UINT32 start;     // start address (17 bits)
+    UINT16 step;      // frequency/step value (12 bits)
+    UINT32 bank;      // base bank address (upper bits, shifted left by 17)
+    UINT8  play;      // playing flag
+    UINT8  mute;
+} K007232_Channel;
+
+typedef struct k007232_data
+{
+    K007232_Channel channel[K007232_PCM_MAX];
+    UINT8 wreg[0x10];
+    UINT32 ROMSize;
+    UINT8* ROMData;
+    UINT8* ROMUsage;
+    UINT8 loop_en;
+} K007232_DATA;
 
 enum {
 	C352_FLG_BUSY       = 0x8000,   // channel is busy
@@ -507,6 +529,7 @@ typedef struct all_chips
 	X1_010_DATA X1_010;
 	C352_DATA C352;
 	GA20_DATA GA20;
+	K007232_DATA K007232;
 } ALL_CHIPS;
 
 void InitAllChips(void);
@@ -530,6 +553,7 @@ void multipcm_write(UINT8 Port, UINT8 Data);
 void multipcm_bank_write(UINT8 Bank, UINT16 Data);
 void upd7759_write(UINT8 Port, UINT8 Data);
 void okim6295_write(UINT8 Offset, UINT8 Data);
+void k007232_write(UINT8 offset, UINT8 data);
 static void k054539_proc_channel(K054539_DATA* chip, UINT8 Chn);
 void k054539_write(UINT8 Port, UINT8 Offset, UINT8 Data);
 void c140_write(UINT8 Port, UINT8 Offset, UINT8 Data);
@@ -599,10 +623,9 @@ void InitAllChips(void)
 		ChDat->K054539.flags = K054539_RESET_FLAGS;
 		ChDat->C140.banking_type = 0x00;
 		ChDat->ES5506.voiceCount = 32;
-
 		for (CurChn = 0; CurChn < 28; CurChn ++)
 			ChDat->MultiPCM.slot[CurChn].SmplID = 0xFFFF;
-	}
+    }
 
 	SetChipSet(0x00);
 
@@ -1578,7 +1601,7 @@ void okim6295_write(UINT8 Offset, UINT8 Data)
 					printf("%c", '0' + CurChn);
 
 					SampleLen = chip->voice[CurChn].stop - chip->voice[CurChn].start + 1;
-					MaskBase = &chip->ROMUsage[TempLng | (chip->voice[CurChn].start & 0x3FFFF)];
+					MaskBase = &chip->ROMUsage[TempLng | chip->voice[CurChn].start];
 					for (CurSmpl = 0x00; CurSmpl < SampleLen; CurSmpl ++)
 						MaskBase[CurSmpl] |= 0x01;
 				}
@@ -1596,6 +1619,101 @@ void okim6295_write(UINT8 Offset, UINT8 Data)
 	}
 
 	return;
+}
+
+void k007232_write(UINT8 offset, UINT8 data)
+{
+    K007232_DATA* chip = &ChDat->K007232;
+    int ch;
+    K007232_Channel* v;
+
+    // Handle register 0x1F as a special "read" trigger
+    if (offset == 0x1F) {
+        // "data" is the original offset; treat as a read at that offset
+        if (data == 5 || data == 11) {
+            ch = (data >= 6) ? 1 : 0;
+            v = &chip->channel[ch];
+            v->play = 1;
+            v->addr = v->start;
+            v->counter = 0x1000;
+
+            // Mark ROM usage as for a key-on
+            if (chip->ROMData && chip->ROMUsage) {
+                UINT32 current = v->bank + v->addr;
+                UINT32 end = current;
+                while (end < chip->ROMSize) {
+                    if (chip->ROMData[end] & 0x80) break;
+                    end++;
+                }
+                if (end < chip->ROMSize) end++; // include terminator
+                for (UINT32 addr = current; addr < end && addr < chip->ROMSize; addr++)
+                    chip->ROMUsage[addr] |= 0x01;
+            }
+        }
+        return;
+    }
+
+    if(offset >= 0x14 && offset <= 0x15) {
+        switch(offset) {
+            case 0x14:
+                chip->channel[0].bank = data << 17;
+                break;
+            case 0x15:
+                chip->channel[1].bank = data << 17;
+                break;
+        }
+        return;
+    }
+
+    ch = offset / 6;
+    if(ch >= K007232_PCM_MAX) return;
+
+    v = &chip->channel[ch];
+    const int reg_base = ch * 6;
+
+    chip->wreg[offset] = data;
+
+    switch(offset - reg_base)
+    {
+        case 0x00: // Pitch LSB
+        case 0x01: // Pitch MSB
+            v->step = ((chip->wreg[reg_base + 1] & 0x0F) << 8) |
+                       chip->wreg[reg_base];
+            break;
+        case 0x02: // Start LSB
+        case 0x03: // Start MID
+        case 0x04: // Start MSB
+            v->start = ((chip->wreg[reg_base + 4] & 0x01) << 16) |
+                       (chip->wreg[reg_base + 3] << 8) |
+                        chip->wreg[reg_base + 2];
+            break;
+        case 0x05: // Key On
+            v->play = 1;
+            v->addr = v->start;
+            v->counter = 0x1000;
+
+            // Mark ROM usage
+            if(chip->ROMData && chip->ROMUsage) {
+                UINT32 current = v->bank + (v->addr);
+                UINT32 end = current;
+
+                // Find terminator (0x80)
+                while(end < chip->ROMSize) {
+                    if(chip->ROMData[end] & 0x80) break;
+                    end++;
+                }
+                if(end < chip->ROMSize) end++; // Include terminator
+
+                // Mark used bytes
+                for(UINT32 addr = current; addr < end && addr < chip->ROMSize; addr++)
+                    chip->ROMUsage[addr] |= 0x01;
+            }
+            break;
+        case 0x0D: // Loop Enable
+            chip->loop_en = data;
+            break;
+    }
+    return;
 }
 
 static UINT32 c140_sample_addr(C140_DATA* chip, UINT8 adr_msb, UINT8 adr_lsb,
@@ -1949,6 +2067,7 @@ void k053260_write(UINT8 Register, UINT8 Data)
 	K053260_DATA* ic = &ChDat->K053260;
 	K053260_CHANNEL* TempChn;
 	UINT8 CurChn;
+	UINT8 TempByt;
 	UINT32 Addr;
 	UINT32 CurByt;
 	UINT32 DataLen;
@@ -1990,20 +2109,17 @@ void k053260_write(UINT8 Register, UINT8 Data)
 		switch(Register)
 		{
 		case 0x28:
-			for (CurChn = 0; CurChn < 4; CurChn ++)
+			TempChn = ic->channels;
+			TempByt = Data & 0x0F;
+			for (CurChn = 0; CurChn < 4; CurChn ++, TempChn ++)
 			{
-				bool newPlay = (Data >> CurChn) & 0x01;
-				bool newRev = (Data >> CurChn) & 0x10;
-				TempChn = &ic->channels[CurChn];
-
-				if (newPlay != TempChn->play || newRev != TempChn->reverse)
+				if ((TempByt & 0x01) != TempChn->play)
 				{
-					if (newPlay)
+					TempChn->play = TempByt & 0x01;
+					if (TempByt & 0x01)
 					{
 						Addr = (TempChn->bank << 16) | (TempChn->start << 0);
 						DataLen = TempChn->size;
-						if (newRev)
-							Addr -= DataLen;	// reverse mode: begin at "Addr", then play backwards
 						if (Addr >= ic->ROMSize)
 						{
 							printf("K053260: start out of range: $%08x\n", Addr);
@@ -2019,9 +2135,8 @@ void k053260_write(UINT8 Register, UINT8 Data)
 						for (CurByt = 0x00; CurByt < DataLen; CurByt ++, Addr ++)
 							ic->ROMUsage[Addr] |= 0x01;
 					}
-					TempChn->play = newPlay;
-					TempChn->reverse = newRev;
 				}
+				TempByt >>= 1;
 			}
 			break;
 		case 0x2A: // loop, ppcm
@@ -2606,8 +2721,6 @@ void es5503_write(UINT8 Register, UINT8 Data)
 			{
 				if ((TempOsc->control & 0x08) && ! TempOsc->vol)
 					break;	// IRQ + Vol 0 -> probably used for timing
-				if (chip->ROMData == NULL)
-					break;
 
 				AddrSt = TempOsc->wavetblpointer & es5503_wavemasks[TempOsc->wavetblsize];
 				AddrEnd = AddrSt + TempOsc->wtsize;
@@ -3098,7 +3211,7 @@ void write_rom_data(UINT8 ROMType, UINT32 ROMSize, UINT32 DataStart, UINT32 Data
 	X1_010_DATA* x1_010;
 	C352_DATA* c352;
 	GA20_DATA* ga20;
-
+	K007232_DATA* k007232;
 	switch(ROMType)
 	{
 	case 0x80:	// SegaPCM ROM
@@ -3463,6 +3576,22 @@ void write_rom_data(UINT8 ROMType, UINT32 ROMSize, UINT32 DataStart, UINT32 Data
 		memcpy(ga20->ROMData + DataStart, ROMData, DataLength);
 		memset(ga20->ROMUsage + DataStart, 0x00, DataLength);
 		break;
+	case 0x94:	// K007232 ROM
+		k007232 = &ChDat->K007232;
+
+		if (k007232->ROMSize != ROMSize)
+		{
+			k007232->ROMData = (UINT8*)realloc(k007232->ROMData, ROMSize);
+			k007232->ROMUsage = (UINT8*)realloc(k007232->ROMUsage, ROMSize);
+			k007232->ROMSize = ROMSize;
+			memset(k007232->ROMData, 0xFF, ROMSize);
+			memset(k007232->ROMUsage, 0x02, ROMSize);
+		}
+
+		ROM_BORDER_CHECK
+		memcpy(k007232->ROMData + DataStart, ROMData, DataLength);
+		memset(k007232->ROMUsage + DataStart, 0x00, DataLength);
+		break;
 	case 0xC0:	// RF5C68 RAM
 	case 0xC1:	// RF5C164 RAM
 		rf5c = (ROMType == 0xC0) ? &ChDat->RF5C68 : &ChDat->RF5C164;
@@ -3544,6 +3673,7 @@ UINT32 GetROMMask(UINT8 ROMType, UINT8** MaskData)
 	X1_010_DATA* x1_010;
 	C352_DATA* c352;
 	GA20_DATA* ga20;
+	K007232_DATA* k007232;
 
 	switch(ROMType)
 	{
@@ -3645,9 +3775,14 @@ UINT32 GetROMMask(UINT8 ROMType, UINT8** MaskData)
 		return c352->ROMSize;
 	case 0x93:	// GA20 ROM
 		ga20 = &ChDat->GA20;
-
+		
 		*MaskData = ga20->ROMUsage;
 		return ga20->ROMSize;
+	case 0x94:	// K007232 ROM
+		k007232 = &ChDat->K007232;
+
+		*MaskData = k007232->ROMUsage;
+		return k007232->ROMSize;
 	case 0xC0:	// RF5C68 RAM
 		rf5c = &ChDat->RF5C68;
 
@@ -3696,6 +3831,7 @@ UINT32 GetROMData(UINT8 ROMType, UINT8** ROMData)
 	X1_010_DATA* x1_010;
 	C352_DATA* c352;
 	GA20_DATA* ga20;
+	K007232_DATA* k007232;
 
 	switch(ROMType)
 	{
@@ -3799,6 +3935,11 @@ UINT32 GetROMData(UINT8 ROMType, UINT8** ROMData)
 
 		*ROMData = ga20->ROMData;
 		return ga20->ROMSize;
+	case 0x94:	// GA20 ROM
+		k007232 = &ChDat->K007232;
+
+		*ROMData = k007232->ROMData;
+		return k007232->ROMSize;
 	case 0xC0:	// RF5C68 RAM
 		rf5c = &ChDat->RF5C68;
 

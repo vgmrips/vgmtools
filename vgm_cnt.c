@@ -31,7 +31,7 @@ static void DoChipCommand(UINT8 ChipSet, UINT8 ChipID, UINT16 Reg, UINT16 Data);
 static void DoKeyOnOff(CHIP_STATE* CState, UINT8 Chn, UINT8 OnOff, UINT8 VolFlag);
 
 
-#define CHIP_COUNT	0x20
+#define CHIP_COUNT	0x2A
 
 VGM_HEADER VGMHead;
 UINT32 VGMDataLen;
@@ -168,7 +168,8 @@ static void CountVGMData()
 	{	"SN76496", "YM2413", "YM2612", "YM2151", "SegaPCM", "RF5C68", "YM2203", "YM2608",
 		"YM2610", "YM3812", "YM3526", "Y8950", "YMF262", "YMF278B PCM", "YMF271", "YMZ280B",
 		"RF5C164", "PWM", "AY8910", "GameBoy", "NES APU", "MultiPCM", "uPD7759", "OKIM6258",
-		"OKIM6295", "K051649", "K054539", "HuC6280", "C140", "K053260", "Pokey", "QSound"};
+		"OKIM6295", "K051649", "K054539", "HuC6280", "C140", "K053260", "Pokey", "QSound",
+		"K007232"};
 	const char* SPCCHIP_STRS[CHIP_COUNT] =
 	{	"", "", "", "", "", "", "", "",
 		"", "", "", "", "", "YMF278B FM", "", "",
@@ -290,6 +291,9 @@ static void CountVGMData()
 			break;
 		case 0x1F:
 			TempLng = VGMHead.lngHzQSound;
+			break;
+		case 0x2A:
+			TempLng = VGMHead.lngHzK007232;
 			break;
 		default:
 			TempLng = 0x00;
@@ -564,6 +568,9 @@ static void CountVGMData()
 					case 0x8F:	// QSound ROM Image
 						DoChipCommand(CurChip, 0x1F, 0xFFFF, TempByt);
 						break;
+					case 0x94:	// K007232 ROM Image
+						DoChipCommand(CurChip, 0x2A, 0xFFFF, TempByt);
+						break;
 					default:
 						break;
 					}
@@ -768,6 +775,11 @@ static void CountVGMData()
 			case 0xC4:	// Q-Sound write
 				DoChipCommand(0x00, 0x1F, VGMPnt[0x03], (VGMPnt[0x01] << 8) | (VGMPnt[0x02] << 0));
 				CmdLen = 0x04;
+				break;
+			case 0x41:	// K007232 write
+				CurChip = (VGMPnt[0x01] & 0x80) >> 7;
+				DoChipCommand(CurChip, 0x2A, VGMPnt[0x01] & 0x7F, VGMPnt[0x02]);
+				CmdLen = 0x03;
 				break;
 			case 0x90:	// DAC Ctrl: Setup Chip
 				CmdLen = 0x05;
@@ -1145,6 +1157,13 @@ static void DoChipCommand(UINT8 ChipSet, UINT8 ChipID, UINT16 Reg, UINT16 Data)
 			}
 		}
 		break;
+		case 0x2A:	// K007232
+			if (Reg == 0x05 || Reg == 0x0B)
+			{
+				UINT8 ch = (Reg == 0x05) ? 0 : 1;
+				DoKeyOnOff(TempChp, ch, 1, 0x00);
+			}
+			break;
 	}
 
 	return;

@@ -35,7 +35,7 @@ static UINT8 CheckVGMFile(UINT8 Mode);
 static bool ChipCommandIsUnknown(UINT8 Command);
 static bool ChipCommandIsValid(UINT8 Command);
 static UINT32 RelocateVGMLoop(void);
-static UINT32 CalcGD3Length(UINT32 DataPos, UINT16 TagEntries, UINT16* FullTags);
+static UINT32 CalcGD3Length(UINT32 DataPos, UINT16 TagEntries);
 static void StripVGMData(void);
 static bool StripClock(bool* StripAllPtr, UINT32* ClockPtr);
 
@@ -167,6 +167,7 @@ int main(int argc, char* argv[])
 		printf("    -SetHzK053260  Sets the K053260 chip clock\n");
 		printf("    -SetHzPokey    Sets the Pokey chip clock\n");
 		printf("    -SetHzQSound   Sets the QSound chip clock\n");
+		printf("    -SetHzK007232  Sets the K007232 chip clock\n");
 		printf("\n");
 		printf("Setting a clock rate to 0 disables the chip.\n");
 		goto EndProgram;
@@ -210,6 +211,7 @@ int main(int argc, char* argv[])
 		printf("    K053260       *\n");
 		printf("    Pokey         *\n");
 		printf("    QSound        *0..15\n");
+		printf("    K007232       *0..2\n");
 		printf("    DacCtrl        0..255\n");
 		printf("* strip whole chip only, no channel stripping\n");
 		printf("\n");
@@ -371,25 +373,14 @@ static bool OpenVGMFile(const char* FileName, bool* Compressed)
 
 	// Read Data
 	if (*Compressed)
-	{
 		VGMDataLen = 0x04 + VGMHead.lngEOFOffset;	// size from EOF offset
-		if (VGMDataLen < FileSize && FileSize <= 0x10000000)
-			VGMDataLen = FileSize;	// use file size from GZ file when <=256 MB
-	}
 	else
-	{
 		VGMDataLen = FileSize;	// size of the actual file
-	}
 	VGMData = (UINT8*)malloc(VGMDataLen);
 	if (VGMData == NULL)
 		goto OpenErr;
 	gzseek(hFile, 0x00, SEEK_SET);
-	TempLng = gzread(hFile, VGMData, VGMDataLen);
-	if (TempLng < VGMDataLen)
-	{
-		VGMDataLen = TempLng;
-		VGMData = (UINT8*)realloc(VGMData, VGMDataLen);
-	}
+	gzread(hFile, VGMData, VGMDataLen);
 
 	gzclose(hFile);
 
@@ -842,6 +833,11 @@ static UINT8 ParseStripCommand(const char* StripCmd)
 			CurChip = 0x1F;
 			TempChip = (STRIP_GENERIC*)&StripVGM[0].QSound;
 		}
+		else if (! stricmp(ChipPos, "K007232"))
+		{
+			CurChip = 0x2A;
+			TempChip = (STRIP_GENERIC*)&StripVGM[0].K007232;
+		}
 		else if (! stricmp(ChipPos, "DacCtrl"))
 		{
 			CurChip = 0x7F;
@@ -857,8 +853,7 @@ static UINT8 ParseStripCommand(const char* StripCmd)
 		{
 			if (! (ChipMask & (1 << CurCSet)))
 			{
-				if (TempChip != NULL)
-					TempChip = (STRIP_GENERIC*)( (STRIP_DATA*)TempChip + 1 );
+				TempChip = (STRIP_GENERIC*)( (STRIP_DATA*)TempChip + 1 );
 				continue;	// bit not set - skip
 			}
 
@@ -925,8 +920,6 @@ static UINT8 ParseStripCommand(const char* StripCmd)
 			}
 
 			// advance by one STRIP_DATA
-			if (TempChip == NULL)
-				break;
 			TempChip = (STRIP_GENERIC*)( (STRIP_DATA*)TempChip + 1 );
 		}
 
@@ -1364,6 +1357,11 @@ static UINT8 PatchVGM(int ArgCount, char* ArgList[])
 			{
 				ChipHzPnt = &VGMHead.lngHzQSound;
 				OldVal = 0x161;
+			}
+			else if (! stricmp(CmdStr, "K007232"))
+			{
+				ChipHzPnt = &VGMHead.lngHzK007232;
+				OldVal = 0x172;
 			}
 			else
 			{
@@ -2045,31 +2043,32 @@ static UINT8 CheckVGMFile(UINT8 Mode)
 	bool StopVGM;
 	bool HasLoop;
 	bool InLoop;
-	UINT8 StopCmd;
 	UINT32 CountLen;
 	UINT32 CountLoop;
+	UINT32 VGMLoop;
 	UINT32 LoopPos;
 	UINT16 CmdDelay;
-	UINT32 VGMDataPos;
 	UINT32 VGMEoDPos;	// EoD - End of Data
 	UINT32 VGMGD3Pos;
-	UINT32 VGMEoFPos;	// EoF - End of File
 	UINT32 VGMVer;
 	UINT32 GD3Ver;
-	UINT32 GD3Len;
-	UINT16 GD3TagsFound;
 	UINT8 VGMErr;
 	UINT8 GD3Flags;
 	UINT8 RetVal;
 	bool BadCmdFound;
-	UINT32 OldVGMDataLen;
+	UINT32 NewDataPos;
 	bool GD3Fix;
 	bool CmdWarning[0x100];
 
-	OldVGMDataLen = VGMDataLen;
 	HasLoop = VGMHead.lngLoopOffset ? true : false;
 	if (! HasLoop && VGMHead.lngLoopSamples)
+	{
 		printf("LoopOffset missing, but LoopSamples > 0!\n");
+		HasLoop = true;
+		printf("Assume song to have a loop!\n");
+	}
+	if (HasLoop)
+		VGMLoop = VGMHead.lngTotalSamples - VGMHead.lngLoopSamples;
 	if (VGMHead.lngLoopOffset)
 		LoopPos = 0x1C + VGMHead.lngLoopOffset;
 	else
@@ -2081,26 +2080,21 @@ static UINT8 CheckVGMFile(UINT8 Mode)
 	InLoop = false;
 	if (VGMHead.lngVersion < 0x150)
 	{
-		VGMDataPos = 0x40;
+		CurPos = 0x40;
 	}
 	else
 	{
-		VGMDataPos = 0x34 + VGMHead.lngDataOffset;
-
+		CurPos = 0x34 + VGMHead.lngDataOffset;
+		Command = VGMData[CurPos + 0x00];
 		BadCmdFound = false;
-		Command = VGMData[VGMDataPos + 0x00];
-		if (VGMHead.lngVersion > 0x171 && ChipCommandIsUnknown(Command))
-			BadCmdFound = true;	// ignore unknown commands for higher-than-known versions
-
+		if (VGMHead.lngVersion > 0x161 && ChipCommandIsUnknown(Command))
+			BadCmdFound = true;
 		if (! VGMHead.lngDataOffset || (! BadCmdFound && ! ChipCommandIsValid(Command)))
 		{
 			VGMErr |= 0x04;
-			printf("Bad Data Offset 0x%X!", VGMDataPos);
+			printf("Bad Data Offset 0x%X!", CurPos);
 
-			// try to find actual beginning of the VGM data
-			// Note: This currently works ONLY when the Data Offset is smaller than it should be.
 			StopVGM = false;
-			CurPos = VGMDataPos;
 			while(CurPos < VGMDataLen)
 			{
 				Command = VGMData[CurPos + 0x00];
@@ -2192,28 +2186,24 @@ static UINT8 CheckVGMFile(UINT8 Mode)
 
 				CurPos += CmdLen;
 			}
-			if (StopVGM)
-			{
-				VGMDataPos = CurPos;
-				printf("  New Offset is: 0x%X\n", VGMDataPos);
-			}
-			else
-			{
-				printf("  Unable to locate data!\n");
-			}
+			NewDataPos = CurPos;
+			printf("  New Offset is: 0x%X\n", NewDataPos);
 		}
+
+		if (VGMHead.lngDataOffset)
+			CurPos = 0x34 + VGMHead.lngDataOffset;
 	}
 
 	memset(CmdWarning, 0x00, 0x100);
 	StopVGM = false;
 	BadCmdFound = false;
-	StopCmd = 0x00;
-	CurPos = VGMDataPos;
-	// We avoid using VGMHead.lngEOFOffset here, as we want to be able to fix a potentially wrong offset.
-	while(CurPos < VGMDataLen)
+	while(CurPos < VGMDataLen)	// I have my reasons for NOT using VGMHead.lngEOFOffset
 	{
-		if (CurPos == LoopPos)
-			InLoop = true;
+		if (HasLoop)
+		{
+			if (CurPos == LoopPos)
+				InLoop = true;
+		}
 
 		CmdLen = 0x00;
 		CmdDelay = 0x00;
@@ -2237,7 +2227,6 @@ static UINT8 CheckVGMFile(UINT8 Mode)
 			{
 			case 0x66:	// End Of File
 				CmdLen = 0x01;
-				StopCmd = Command;
 				StopVGM = true;
 				break;
 			case 0x62:	// 1/60s delay
@@ -2293,17 +2282,6 @@ static UINT8 CheckVGMFile(UINT8 Mode)
 				{
 				case 0x30:
 				case 0x40:
-					// detect the "Gd3 " signature in the VGM data stream
-					// (for VGMs without EOD command)
-					if (Command == 'G' && CurPos + 0x04 <= VGMDataLen)
-					{
-						memcpy(&TempLng, &VGMData[CurPos], 0x04);
-						if (TempLng == FCC_GD3)
-						{
-							StopVGM = true;
-							break;
-						}
-					}
 					CmdLen = 0x02;
 					if (CmdWarning[Command] && ! ChipCommandIsValid(Command))
 					{
@@ -2357,11 +2335,7 @@ static UINT8 CheckVGMFile(UINT8 Mode)
 					break;
 				default:
 					CmdLen = 0x01;
-					if (VGMHead.lngGD3Offset)
-					{
-						if (CurPos >= 0x14 + VGMHead.lngGD3Offset)
-							StopVGM = true;
-					}
+					//StopVGM = true;
 					if (! BadCmdFound)
 					{
 						CmdWarning[Command] = true;
@@ -2382,17 +2356,14 @@ static UINT8 CheckVGMFile(UINT8 Mode)
 			break;
 	}
 	VGMEoDPos = CurPos;
-	VGMEoFPos = VGMEoDPos;
 
 	// VGMErr Bits:
 	//	Bit	Val	Error Description
 	//	 0	 01	Total Samples
 	//	 1	 02	Loop Samples / Loop Offset
 	//	 2	 04	Bad Data Offset
-	//	 3	 08	unused data after EOD
 	//	 4	 10	GD3 Tag Offset
 	//	 5	 20	GD3 Tag Length / EOF Offset
-	//	 6	 40	EOD command missing
 	//	 7	 80	Version too low
 	// GD3Flags Bits:
 	//	Bit	Val	Error Description
@@ -2400,77 +2371,98 @@ static UINT8 CheckVGMFile(UINT8 Mode)
 	//	4-7	 F0	In Header
 	//	 0	 11	GD3 found
 	//	 1	 02	GD3 Offset wrong
-	//	 2	 04	Tags incomplete
-	//	 3	 08
+	//	 3	 04
+	//	 4	 08
 	//VGMErr = 0x00;
 	GD3Flags = 0x00;
-	GD3TagsFound = 0;
+	GD3Fix = false;
 	if (CountLen != VGMHead.lngTotalSamples)
 		VGMErr |= 0x01;
 	if (CountLoop != VGMHead.lngLoopSamples)
 		VGMErr |= 0x02;
+
+	if (CurPos > 0x04 + VGMHead.lngEOFOffset)
+		printf("Warning! EOF Offset before EOF command!\n");
+	if (! StopVGM)
+		printf("Warning! File end before EOF command!\n");
 	if (HasLoop && ! InLoop)
 		printf("Warning! Loop offset between commands!\n");
 
-	// GD3 checks
-	VGMGD3Pos = VGMHead.lngGD3Offset ? (0x14 + VGMHead.lngGD3Offset) : 0x00;
-	if (VGMGD3Pos <= VGMDataLen - 0x04)	// file must be large enough for GD3 tag
+	if (VGMHead.lngGD3Offset)
 	{
 		// Check for GD3 Tag at GD3 Offset
-		memcpy(&TempLng, &VGMData[VGMGD3Pos], 0x04);
+		CurPos = 0x14 + VGMHead.lngGD3Offset;
+		if (CurPos <= VGMDataLen - 0x04)	// avoid crashes
+			memcpy(&TempLng, &VGMData[CurPos], 0x04);
+		else
+			TempLng = 0x00;
 		if (TempLng == FCC_GD3)
+		{
 			GD3Flags |= 0x01;	// GD3 Check - found
+			VGMGD3Pos = CurPos;
+		}
 	}
 	if (! (GD3Flags & 0x01))
 	{
 		if (VGMEoDPos <= VGMDataLen - 0x04)
 		{
 			// Check for GD3 Tag at EoD
-			memcpy(&TempLng, &VGMData[VGMEoDPos], 0x04);
-			if (TempLng == FCC_GD3)
-			{
-				GD3Flags |= 0x01;	// GD3 Check - found
-				VGMGD3Pos = VGMEoDPos;
-			}
+			CurPos = VGMEoDPos;
+			memcpy(&TempLng, &VGMData[CurPos], 0x04);
 		}
-	}
-	if (! (GD3Flags & 0x01) && VGMHead.lngGD3Offset)
-	{
-		printf("GD3 Offset set, but GD3 Tag not found!\n");
-		VGMErr |= 0x10;
-		GD3Flags |= 0x10;	// GD3 Header - set
+		else
+		{
+			TempLng = 0x00;
+		}
+		if (TempLng != FCC_GD3)
+		{
+			GD3Flags |= 0x00;	// GD3 Check - missing
+			if (VGMHead.lngGD3Offset)
+			{
+				printf("GD3 Offset set, but GD3 Tag not found!\n");
+				VGMErr |= 0x10;
+				GD3Flags |= 0x10;	// GD3 Header - set
+			}
+			//else - all ok
+		}
+		else
+		{
+			GD3Flags |= 0x01;	// GD3 Check - found
+			VGMGD3Pos = CurPos;
+		}
 	}
 	if (GD3Flags & 0x01)
 	{
+		CurPos = VGMGD3Pos;
 		if (! VGMHead.lngGD3Offset)
 		{
 			printf("GD3 Tag found, but GD3 Offset missing!\n");
 			VGMErr |= 0x10;
 			GD3Flags |= 0x00;	// GD3 Header - not set
 		}
-		else if (VGMGD3Pos != 0x14 + VGMHead.lngGD3Offset)	// VGMGD3Pos == GD3 Offset ?
+		else if (CurPos != 0x14 + VGMHead.lngGD3Offset)	// CurPos == GD3 Offset ?
 		{
 			printf("Wrong GD3 Tag Offset! (Header: 0x%06X  File: 0x%06X)\n",
-					0x14 + VGMHead.lngGD3Offset, VGMGD3Pos);
+					0x14 + VGMHead.lngGD3Offset, CurPos);
 			VGMErr |= 0x10;
 			GD3Flags |= 0x02;	// GD3 Offset - wrong
 		}
 
-		memcpy(&GD3Ver, &VGMData[VGMGD3Pos + 0x04], 0x04);
+		memcpy(&GD3Ver, &VGMData[CurPos + 0x04], 0x04);
 		if (GD3Ver > 0x100)
 			printf("GD3 Tag version newer than supported - correction may be skipped!\n");
 
-		memcpy(&CmdLen, &VGMData[VGMGD3Pos + 0x08], 0x04);
-		GD3Len = CalcGD3Length(VGMGD3Pos + 0x0C, GD3T_ENT_V100, &GD3TagsFound);
-		if (GD3Len != CmdLen)
+		memcpy(&CmdLen, &VGMData[CurPos + 0x08], 0x04);
+		TempLng = CalcGD3Length(CurPos + 0x0C, GD3T_ENT_V100);
+		if (TempLng != CmdLen)
 		{
-			printf("Wrong GD3 Length! (Header: 0x%06X  File: 0x%06X)\n", CmdLen, GD3Len);
+			printf("Wrong GD3 Length! (Header: 0x%06X  File: 0x%06X)\n", CmdLen, TempLng);
 			if (GD3Ver == 0x100)
 			{
 				VGMErr |= 0x20;
 				// Catch the special case where VGMTool r2 adds an additional \0 character.
 				// In that case, -CheckT does an automatic fix.
-				if (GD3Len == CmdLen - 0x02 && ! *(UINT16*)(VGMData + VGMGD3Pos + 0x0C + GD3Len))
+				if (TempLng == CmdLen - 0x02 && ! *(UINT16*)(VGMData + CurPos + 0x0C + TempLng))
 					GD3Flags |= 0x80;
 			}
 			else
@@ -2478,44 +2470,24 @@ static UINT8 CheckVGMFile(UINT8 Mode)
 				// unknown GD3 version - don't fix length
 			}
 		}
-		if (GD3TagsFound < GD3T_ENT_V100)
+
+		//TempLng += 0x0C;	// calculate EOF based on calculated GD3 length
+		TempLng = 0x0C + CmdLen;	// calculate EOF based on current GD3 length
+		if (CurPos + TempLng != 0x04 + VGMHead.lngEOFOffset)	// Check EOF Offset
 		{
-			printf("GD3 tags cut short during tag %u / %u!\n", 1 + GD3TagsFound, GD3T_ENT_V100);
+			printf("Wrong EOF Offset! (Header: 0x%06X  File: 0x%06X)\n",
+					0x04 + VGMHead.lngEOFOffset, CurPos + TempLng);
 			VGMErr |= 0x20;
-			GD3Flags |= 0x04;
-		}
-
-		VGMEoFPos = VGMGD3Pos + 0x0C + GD3Len;	// calculate EOF based on actual GD3 length
-	}
-
-	if (StopCmd != 0x66)
-	{
-		printf("Warning! VGM data not terminated by EOD command 0x66!\n");
-		VGMErr |= 0x40;
-	}
-	if (! (GD3Flags & 0x01))
-	{
-		if (VGMEoDPos < VGMDataLen)
-		{
-			printf("%u bytes unused at the end of the file! (EOD: 0x%06X, file size: 0x%06X)\n",
-				VGMDataLen - VGMEoDPos, VGMEoDPos, VGMDataLen);
-			VGMErr |= 0x08;
 		}
 	}
 	else
 	{
-		if (VGMEoDPos < VGMGD3Pos)
+		if (VGMEoDPos != 0x04 + VGMHead.lngEOFOffset)	// Check EOF Offset
 		{
-			printf("%u bytes unused between data and GD3 tag! (EOD: 0x%06X, GD3: 0x%06X)\n",
-				VGMGD3Pos - VGMEoDPos, VGMEoDPos, VGMGD3Pos);
-			VGMErr |= 0x08;
+			printf("Wrong EOF Offset! (Header: 0x%06X  File: 0x%06X)\n",
+					0x04 + VGMHead.lngEOFOffset, VGMEoDPos);
+			VGMErr |= 0x20;
 		}
-	}
-	if (VGMEoFPos != 0x04 + VGMHead.lngEOFOffset)	// Check EOF Offset
-	{
-		printf("Wrong EOF Offset! (Header: 0x%06X  File: 0x%06X)\n",
-				0x04 + VGMHead.lngEOFOffset, VGMEoFPos);
-		VGMErr |= 0x20;
 	}
 
 	if (VGMHead.lngVersion >= 0x0150)
@@ -2596,129 +2568,17 @@ static UINT8 CheckVGMFile(UINT8 Mode)
 		return 0x00;
 
 	RetVal = 0x00;
-	GD3Fix = false;
-
-	// at first, fix all wrong offsets
-	if (VGMErr & 0x04)	// fix data offset
-	{
-		VGMHead.lngDataOffset = VGMDataPos - 0x34;
-		RetVal |= 0x01;
-	}
-	if (VGMErr & 0x10)	// fix GD3 tag offset
-	{
-		switch(GD3Flags & 0x11)
-		{
-		case 0x10:	// GD3 offset set, but no GD3 found
-			VGMHead.lngGD3Offset = 0x00;
-			break;
-		case 0x01:	// GD3 offset missing, but GD3 found
-			GD3Flags |= 0x02;	// GD3 offset correction
-			break;
-		case 0x00:	// GD3 completely missing
-		case 0x11:	// GD3 found, offset is good
-			break;
-		}
-
-		if (GD3Flags & 0x02)	// GD3 Offset wrong
-			VGMHead.lngGD3Offset = VGMGD3Pos - 0x14;
-		RetVal |= 0x10;
-	}
-	if (VGMErr & 0x20)	// fix GD3 tag length and/or EOF offset
-	{
-		if (GD3Flags & 0x04)	// add missing '\0' terminators
-		{
-			UINT32 bytesAdd = (GD3T_ENT_V100 - GD3TagsFound) * 0x02;	// space for missing '\0' chars
-
-			if (VGMDataLen + bytesAdd > OldVGMDataLen)
-			{
-				OldVGMDataLen = VGMDataLen + bytesAdd;
-				VGMData = (UINT8*)realloc(VGMData, OldVGMDataLen);
-			}
-
-			CurPos = VGMGD3Pos + 0x0C + GD3Len;
-			if (CurPos <= VGMDataLen)
-				memset(&VGMData[CurPos], 0x00, bytesAdd);
-			GD3Len += bytesAdd;
-			VGMEoFPos += bytesAdd;
-			RetVal |= 0x40;
-		}
-		if (GD3Flags & 0x01)
-		{
-			memcpy(&CmdLen, &VGMData[VGMGD3Pos + 0x08], 0x04);
-			if (GD3Len != CmdLen)
-			{
-				if (CmdLen <= GD3Len || GD3Ver <= 0x100)
-					memcpy(&VGMData[VGMGD3Pos + 0x08], &GD3Len, 0x04);	// rewrite GD3 length
-				else
-					printf("GD3 Tag longer than counted - skipping correction!\n");
-				GD3Fix = true;
-			}
-
-			VGMEoFPos = VGMGD3Pos + 0x0C + GD3Len;
-		}
-
-		VGMDataLen = VGMEoFPos;
-		VGMHead.lngEOFOffset = VGMDataLen - 0x04;
-		RetVal |= 0x20;
-	}
-	if (VGMErr & 0x08)	// strip unused data after EOD
-	{
-		if (VGMGD3Pos > VGMDataPos)
-		{
-			UINT32 bytCount = VGMDataLen - VGMGD3Pos;
-			UINT32 bytSub = VGMGD3Pos - VGMEoDPos;
-			memmove(&VGMData[VGMEoDPos], &VGMData[VGMGD3Pos], bytCount);
-			VGMDataLen -= bytSub;
-			VGMHead.lngGD3Offset -= bytSub;
-			VGMGD3Pos -= bytSub;
-			VGMHead.lngEOFOffset -= bytSub;
-			VGMEoFPos -= bytSub;
-		}
-		else
-		{
-			UINT32 bytSub = VGMDataLen - VGMEoDPos;
-			VGMDataLen -= bytSub;
-			VGMHead.lngEOFOffset -= bytSub;
-			VGMEoFPos -= bytSub;
-		}
-		RetVal |= 0x08;
-	}
-	if (VGMErr & 0x40)	// insert missing command 0x66 (EOD)
-	{
-		if (VGMDataLen + 0x01 > OldVGMDataLen)
-		{
-			OldVGMDataLen = VGMDataLen + 0x01;
-			VGMData = (UINT8*)realloc(VGMData, OldVGMDataLen);
-		}
-		memmove(&VGMData[VGMEoDPos + 0x01], &VGMData[VGMEoDPos], VGMDataLen - VGMEoDPos);
-		VGMData[VGMEoDPos] = 0x66;
-		VGMDataLen += 0x01;
-		if (VGMGD3Pos >= VGMEoDPos)
-		{
-			VGMHead.lngGD3Offset += 0x01;
-			VGMGD3Pos += 0x01;
-		}
-		VGMEoDPos += 0x01;
-		VGMHead.lngEOFOffset += 0x01;
-		VGMEoFPos += 0x01;
-		RetVal |= 0x40;
-	}
-
-	if (VGMErr & 0x80)	// fix VGM version
-	{
-		VGMHead.lngVersion = VGMVer;
-		RetVal |= 0x80;
-	}
-	if (VGMErr & 0x01)	// fix sample count
+	if (VGMErr & 0x01)
 	{
 		VGMHead.lngTotalSamples = CountLen;
 		RetVal |= 0x01;
 	}
-	if (VGMErr & 0x02)	// fix loop sample count OR loop offset
+	//if (HasLoop && CountLoop != VGMHead.lngLoopSamples)
+	if (HasLoop && (VGMErr & 0x02))
 	{
 		if ((Mode & 0x03) == 0x01)
 		{
-			if (InLoop || ! HasLoop)
+			if (InLoop)
 			{
 				VGMHead.lngLoopSamples = CountLoop;
 				RetVal |= 0x02;
@@ -2726,7 +2586,7 @@ static UINT8 CheckVGMFile(UINT8 Mode)
 			else
 			{
 				printf("Can't fix loop samples due to incorrect loop offset!\n");
-				printf("Please try to relocate the loop offset!\n");
+				printf("Try to relocate the loop offset!\n");
 			}
 		}
 		else if ((Mode & 0x03) == 0x02)
@@ -2743,6 +2603,65 @@ static UINT8 CheckVGMFile(UINT8 Mode)
 			}
 		}
 	}
+	if (VGMErr & 0x04)
+	{
+		VGMHead.lngDataOffset = NewDataPos - 0x34;
+		RetVal |= 0x01;
+	}
+
+	//	 4	 10	GD3 Tag Offset
+	//	 5	 20	GD3 Tag Length / EOF Offset
+	if (VGMErr & 0x10)
+	{
+		switch(GD3Flags & 0x11)
+		{
+		case 0x10:	// GD3 offset set, but no GD3 found
+			VGMHead.lngGD3Offset = 0x00;
+			break;
+		case 0x01:	// GD3 offset missing, but GD3 found
+			GD3Flags |= 0x02;	// GD3 offset correction
+			break;
+		case 0x00:	// GD3 completely missing
+		case 0x11:	// GD3 found, offset is good
+			break;
+		}
+
+		if (GD3Flags & 0x02)	// GD3 Offset wrong
+		{
+			VGMHead.lngGD3Offset = VGMGD3Pos - 0x14;
+		}
+		RetVal |= 0x10;
+	}
+	if (VGMErr & 0x20)
+	{
+		if (GD3Flags & 0x01)
+		{
+			CurPos = 0x14 + VGMHead.lngGD3Offset;
+			memcpy(&CmdLen, &VGMData[CurPos + 0x08], 0x04);
+			TempLng = CalcGD3Length(CurPos + 0x0C, GD3T_ENT_V100);
+			if (TempLng != CmdLen)
+			{
+				if (TempLng < CmdLen && GD3Ver > 0x100)
+				{
+					printf("GD3 Tag longer than counted - skip correction!\n");
+					TempLng = CmdLen;
+				}
+				memcpy(&VGMData[CurPos + 0x08], &TempLng, 0x04);	// rewrite GD3 length
+				GD3Fix = true;
+			}
+
+			TempLng += 0x0C;
+			VGMEoDPos = CurPos + TempLng;
+		}
+		VGMDataLen = VGMEoDPos;
+		VGMHead.lngEOFOffset = VGMDataLen - 0x04;
+		RetVal |= 0x20;
+	}
+	if (VGMErr & 0x80)
+	{
+		VGMHead.lngVersion = VGMVer;
+		RetVal |= 0x80;
+	}
 	if ((VGMErr & ~0x20) || ! GD3Fix)
 		KeepDate = false;
 
@@ -2751,13 +2670,10 @@ static UINT8 CheckVGMFile(UINT8 Mode)
 
 static bool ChipCommandIsUnknown(UINT8 Command)
 {
-	return (Command <= 0x2F ||
-			(Command >= 0x32 && Command <= 0x4E && Command != 0x3F) ||
-			Command == 0x60 || (Command >= 0x69 && Command <= 0x6F) ||
-			(Command >= 0x96 && Command <= 0x9F) ||
-			(Command >= 0xC9 && Command <= 0xCF) ||
-			(Command >= 0xD7 && Command <= 0xDF) ||
-			Command >= 0xE2);
+	//return ((Command <= 0x4E && Command != 0x30) || /*(Command >= 0xA1 && Command <= 0xAF) ||*/
+	return ((Command != 0x3F && Command >= 0x32 && Command <= 0x4E) || /*(Command >= 0xA1 && Command <= 0xAF) ||*/
+			(Command >= 0xBC && Command <= 0xBF) || (Command >= 0xC5 && Command <= 0xCF) ||
+			(Command >= 0xD5 && Command <= 0xDF) || Command >= 0xE1);
 }
 
 static bool ChipCommandIsValid(UINT8 Command)
@@ -2853,7 +2769,8 @@ static bool ChipCommandIsValid(UINT8 Command)
 		return true;
 	if (Command == 0xC4 && VGMHead.lngHzQSound)
 		return true;
-	// TODO: VGM v1.71 chips
+	if (Command == 0x41 && VGMHead.lngHzK007232)
+		return true;
 
 	return false;
 }
@@ -2884,9 +2801,6 @@ static UINT32 RelocateVGMLoop(void)
 		CmdLen = 0x00;
 		CmdDelay = 0x00;
 		Command = VGMData[CurPos + 0x00];
-		if (VGMSmplPos == VGMLoop && Command != 0x67)	// !=0x67 -> set loop position AFTER sample ROM blocks
-			return CurPos;
-
 		if (Command >= 0x70 && Command <= 0x8F)
 		{
 			switch(Command & 0xF0)
@@ -2980,17 +2894,17 @@ static UINT32 RelocateVGMLoop(void)
 		}
 		CurPos += CmdLen;
 		VGMSmplPos += CmdDelay;
+		if (VGMSmplPos == VGMLoop)
+			return CurPos;
 
 		if (StopVGM)
 			break;
 	}
-	if (VGMSmplPos == VGMLoop)
-		return CurPos;
 
 	return 0x00;
 }
 
-static UINT32 CalcGD3Length(UINT32 DataPos, UINT16 TagEntries, UINT16* FullTags)
+static UINT32 CalcGD3Length(UINT32 DataPos, UINT16 TagEntries)
 {
 	UINT32 CurPos;
 	UINT16* CurChr;
@@ -2999,17 +2913,11 @@ static UINT32 CalcGD3Length(UINT32 DataPos, UINT16 TagEntries, UINT16* FullTags)
 	CurPos = DataPos;
 	for (CurEnt = 0x00; CurEnt < TagEntries; CurEnt ++)
 	{
-		while(CurPos < VGMDataLen)
+		do
 		{
 			CurChr = (UINT16*)&VGMData[CurPos];
 			CurPos += 0x02;
-			if (*CurChr == 0)
-			{
-				if (FullTags != NULL)
-					(*FullTags) ++;
-				break;	// exit after (UINT16)'\0' terminator
-			}
-		}
+		} while(*CurChr);
 	}
 
 	return CurPos - DataPos;
@@ -3286,36 +3194,6 @@ static void StripVGMData(void)
 						if (WriteEvent && ChipID && StripVGM[0].RF5C164.All)
 							VGMPnt[0x06] &= ~0x80;
 						break;
-					case 0x03:	// PWM Database
-						if (StripVGM[0].PWM.All)
-							WriteEvent = false;
-						if (WriteEvent && ChipID && StripVGM[0].PWM.All)
-							VGMPnt[0x06] &= ~0x80;
-						break;
-					case 0x04:	// OKIM6258 PCM Database
-						if (StripVGM[ChipID].OKIM6258.All)
-							WriteEvent = false;
-						if (WriteEvent && ChipID && StripVGM[0].OKIM6258.All)
-							VGMPnt[0x06] &= ~0x80;
-						break;
-					case 0x05:	// HuC6280 PCM Database
-						if (StripVGM[ChipID].HuC6280.All)
-							WriteEvent = false;
-						if (WriteEvent && ChipID && StripVGM[0].HuC6280.All)
-							VGMPnt[0x06] &= ~0x80;
-						break;
-					//case 0x06:	// SCSP PCM Database
-					//	if (StripVGM[ChipID].SCSP.All)
-					//		WriteEvent = false;
-					//	if (WriteEvent && ChipID && StripVGM[0].SCSP.All)
-					//		VGMPnt[0x06] &= ~0x80;
-					//	break;
-					case 0x07:	// NES APU PCM Database
-						if (StripVGM[ChipID].NESAPU.All)
-							WriteEvent = false;
-						if (WriteEvent && ChipID && StripVGM[0].NESAPU.All)
-							VGMPnt[0x06] &= ~0x80;
-						break;
 					default:
 						if (StripVGM[ChipID].Unknown)
 							WriteEvent = false;
@@ -3413,6 +3291,12 @@ static void StripVGMData(void)
 						if (WriteEvent && ChipID && StripVGM[0].QSound.All)
 							VGMPnt[0x06] &= ~0x80;
 						break;
+					case 0x94:	// K007232 ROM Image
+						if (StripVGM[ChipID].K007232.All)
+							WriteEvent = false;
+						if (WriteEvent && ChipID && StripVGM[0].K007232.All)
+							VGMPnt[0x06] &= ~0x80;
+						break;
 					}
 					break;
 				case 0xC0:	// RAM Write
@@ -3428,12 +3312,6 @@ static void StripVGMData(void)
 						if (StripVGM[ChipID].RF5C164.All)
 							WriteEvent = false;
 						if (WriteEvent && ChipID && StripVGM[0].RF5C164.All)
-							VGMPnt[0x06] &= ~0x80;
-						break;
-					case 0xC2:	// NES APU RAM write
-						if (StripVGM[ChipID].NESAPU.All)
-							WriteEvent = false;
-						if (WriteEvent && ChipID && StripVGM[0].NESAPU.All)
 							VGMPnt[0x06] &= ~0x80;
 						break;
 					}
@@ -3736,6 +3614,14 @@ static void StripVGMData(void)
 					WriteEvent = false;
 				CmdLen = 0x04;
 				break;
+			case 0x41:	// K007232 write
+				ChipID = (VGMPnt[0x01] & 0x80) >> 7;
+				if (StripVGM[ChipID].K007232.All)
+					WriteEvent = false;
+				if (WriteEvent && ChipID && StripVGM[0].K007232.All)
+					VGMPnt[0x01] &= ~0x80;
+				CmdLen = 0x03;
+				break;
 			case 0x90:	// DAC Ctrl: Setup Chip
 				if (StripVGM[0].DacCtrl.All ||
 					GetFromMask(StripVGM[0].DacCtrl.StrMsk, VGMPnt[0x01]))
@@ -3938,7 +3824,7 @@ static void StripVGMData(void)
 		}
 		VGMHead.lngLoopOffset = NewLoopS - 0x1C;
 	}
-	printf("%*s\r", 64, "");
+	printf("\t\t\t\t\t\t\t\t\r");
 
 	if (VGMHead.lngGD3Offset)
 	{
@@ -4003,6 +3889,7 @@ static void StripVGMData(void)
 	StripClock(&StripVGM[0].K053260.All, &VGMHead.lngHzK053260);
 	StripClock(&StripVGM[0].Pokey.All, &VGMHead.lngHzPokey);
 	StripClock(&StripVGM[0].QSound.All, &VGMHead.lngHzQSound);
+	StripClock(&StripVGM[0].K007232.All, &VGMHead.lngHzK007232);
 	//StripClock(&StripVGM[0].SCSP.All, &VGMHead.lngHzSCSP);
 
 	// PatchVGM will rewrite the header later

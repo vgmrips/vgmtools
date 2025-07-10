@@ -867,6 +867,19 @@ static void CompressVGMData(void)
 				//WriteEvent = qsound_write(VGMPnt[0x03], (VGMPnt[0x01] << 8) | (VGMPnt[0x02] << 0));
 				CmdLen = 0x04;
 				break;
+case 0x41: // K007232 write (mono)
+    // Channel 0 volume: reg 0x00 or 0x06 -- use left nibble for both
+    if (VGMPnt[1] == 0x10 || VGMPnt[1] == 0x11) {
+        UINT8 left = (VGMPnt[2] >> 4) & 0x0F;
+        VGMPnt[2] = (left << 4) | left;
+    }
+    // Channel 1 volume: reg 0x01 or 0x07 -- use right nibble for both
+    else if (VGMPnt[1] == 0x12 || VGMPnt[1] == 0x13) {
+        UINT8 right = VGMPnt[2] & 0x0F;
+        VGMPnt[2] = (right << 4) | right;
+    }
+    CmdLen = 0x03;
+    break;
 			case 0xc8:	// X1-010 write
 				TempSht = VGMPnt[0x01]<<8 | VGMPnt[0x02]<<0;
 				TempByt = VGMPnt[0x03];

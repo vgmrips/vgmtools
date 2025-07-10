@@ -54,6 +54,7 @@ struct chip_mappings
 	CHIP_MAP AY8910;
 	CHIP_MAP GBDMG;
 	CHIP_MAP NESAPU;
+	CHIP_MAP K007232;
 	CHIP_MAP Default;
 };	// CHIP_MAPS
 typedef struct data_block_mapping
@@ -1184,6 +1185,13 @@ static void MergeVGMData(void)
 
 INLINE UINT16 GetCmdLen(UINT8 Command)
 {
+    // Handle special commands up front
+    switch(Command)
+    {
+        case 0x41: // K007232 write
+            return 0x03;
+        // (add here any other special cases)
+    }
 	switch(Command & 0xF0)
 	{
 	case 0x70:

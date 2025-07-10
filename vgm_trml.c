@@ -129,9 +129,10 @@ typedef struct rewrite_chipset_new
 	CHIP_DATA X1_010;
 	CHIP_DATA C352;
 	CHIP_DATA GA20;
+	CHIP_DATA K007232;
 } REWRT_CHIPSET_NEW;
 
-#define CHIP_COUNT	0x29
+#define CHIP_COUNT	0x2A
 
 static const char* CHIP_STRS[CHIP_COUNT] =
 {	"SN76496", "YM2413", "YM2612", "YM2151", "SegaPCM", "RF5C68", "YM2203", "YM2608",
@@ -139,7 +140,7 @@ static const char* CHIP_STRS[CHIP_COUNT] =
 	"RF5C164", "PWM", "AY8910", "GameBoy", "NES APU", "MultiPCM", "uPD7759", "OKIM6258",
 	"OKIM6295", "K051649", "K054539", "HuC6280", "C140", "K053260", "Pokey", "QSound",
 	"SCSP", "WSwan", "VSU", "SAA1099", "ES5503", "ES5506", "X1-010", "C352",
-	"GA20"};
+	"GA20", "K007232"};
 static const char* CHIP_STRS2[CHIP_COUNT] =
 {	"", "", "", "", "", "", "", "",
 	"", "", "", "", "", "YMF278B/PCM", "", "",
@@ -607,6 +608,14 @@ static void PrepareChipMemory(void)
 				TempRC->GA20.Chns.ChnCount = 0x04;
 			}
 		}
+		if (VGMHead.lngHzK007232)
+		{
+			if (! CurCSet || (VGMHead.lngHzK007232 & 0x40000000))
+			{
+				TempRC->K007232.Regs.RegCount = 0x16;
+				TempRC->K007232.Chns.ChnCount = 0x02;
+			}
+		}
 	}
 
 	return;
@@ -899,10 +908,11 @@ static void SetImportantCommands(void)
 				break;
 			case 0x28:	// GA20
 				break;
+			case 0x2A:  // K007232
+				break;
 			}
 		}
 	}
-
 	return;
 }
 
@@ -1732,6 +1742,9 @@ static void InitializeVGM(UINT8** DstDataRef, UINT32* DstPosRef)
 				ChipCmd = 0xBF;
 				CmdType = 0x12;
 				break;
+			case 0x2A:  // K007232
+				ChipCmd = 0x41;
+				CmdType = 0x80;
 			default:
 				CmdType = 0xFF;
 				break;
@@ -2035,6 +2048,21 @@ static UINT32 ReadCommand(UINT8 Mask)
 	TempChp = NULL;
 	switch(Command)
 	{
+		case 0x41:	// K007232 write
+			TempChp = &RC[ChipID].K007232;
+			TempReg = &TempChp->Regs;
+			if (TempReg->RegCount)
+			{
+				CmdReg = VGMData[VGMPos + 0x01] & 0x1F; // 5-bit register (0..0x13 used)
+				if (CmdReg < TempReg->RegCount)
+				{
+					TempReg->RegMask[CmdReg] |= Mask;
+					if (Mask == 0x01)
+						TempReg->RegData.R08[CmdReg] = VGMData[VGMPos + 0x02];
+				}
+			}
+			CmdLen = 0x03;
+			break;
 	case 0x50:	// SN76496 write
 		TempChp = &RC[ChipID].SN76496;
 		TempReg = &TempChp->Regs;
@@ -2855,8 +2883,24 @@ static void CommandCheck(UINT8 Mode, UINT8 Command, CHIP_DATA* ChpData, UINT16 C
 		break;
 	case 0xBF:	// GA20 write
 		break;
+		case 0x41:	// K007232 write
+			// K007232 key on is at register 0x05 (ch0) and 0x0B (ch1)
+			if (CmdReg == 0x05)
+			{
+				CurChn = 0;
+				KeyOnOff = 1; // always on when written
+				TempChn->ChnMask &= ~(1 << CurChn);
+				TempChn->ChnMask |= (KeyOnOff << CurChn);
+			}
+			else if (CmdReg == 0x0B)
+			{
+				CurChn = 1;
+				KeyOnOff = 1;
+				TempChn->ChnMask &= ~(1 << CurChn);
+				TempChn->ChnMask |= (KeyOnOff << CurChn);
+			}
+			break;
 	}
-
 	return;
 }
 
@@ -3051,7 +3095,6 @@ void TrimVGMData(const INT32 StartSmpl, const INT32 LoopSmpl, const INT32 EndSmp
 
 	CmdLen = 0x00;
 	CmdDelay = 0x00;
-	IsDelay = false;
 	DelayOff = false;
 	ForceCmdWrite = false;
 	while(VGMPos < VGMHead.lngEOFOffset)

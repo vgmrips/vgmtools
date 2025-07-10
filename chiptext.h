@@ -3,7 +3,7 @@
 
 #include "stdtype.h"
 
-void InitChips(UINT32 ChipCntSize, UINT32* ChipCounts);
+void InitChips(UINT32* ChipCounts);
 void SetChip(UINT8 ChipID);
 void GetFullChipName(char* TempStr, UINT8 ChipType);
 void GGStereo(char* TempStr, UINT8 Data);
@@ -40,7 +40,7 @@ void k051649_write(char* TempStr, UINT8 Port, UINT8 Register, UINT8 Data);
 void okim6295_write(char* TempStr, UINT8 Port, UINT8 Data);
 void okim6258_write(char* TempStr, UINT8 Port, UINT8 Data);
 void multipcm_write(char* TempStr, UINT8 Port, UINT8 Data);
-void multipcm_bank_write(char* TempStr, UINT8 Port, UINT16 Data);
+void multipcm_bank_write(char* TempStr, UINT8 Port, UINT8 Data);
 void upd7759_write(char* TempStr, UINT8 Port, UINT8 Data);
 void scsp_write(char* TempStr, UINT16 Register, UINT8 Data);
 void vsu_write(char* TempStr, UINT16 Register, UINT8 Data);
@@ -53,5 +53,6 @@ void es5506_w16(char* TempStr, UINT8 offset, UINT16 data);
 void k054539_write(char* TempStr, UINT16 Register, UINT8 Data);
 void wswan_write(char* TempStr, UINT8 Register, UINT8 Data);
 void ws_mem_write(char* TempStr, UINT16 Offset, UINT8 Data);
+void k007232_write(char* TempStr, UINT8 offset, UINT8 data);
 
 #endif	// __CHIPTEXT_H__
