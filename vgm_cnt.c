@@ -169,12 +169,15 @@ static void CountVGMData()
 		"YM2610", "YM3812", "YM3526", "Y8950", "YMF262", "YMF278B PCM", "YMF271", "YMZ280B",
 		"RF5C164", "PWM", "AY8910", "GameBoy", "NES APU", "MultiPCM", "uPD7759", "OKIM6258",
 		"OKIM6295", "K051649", "K054539", "HuC6280", "C140", "K053260", "Pokey", "QSound",
-		"K007232"};
+		"SCSP", "WSwan", "VSU", "SAA1099", "ES5503", "ES5506", "X1-010", "C352",
+		"GA20", "Mikey", "K007232"};
 	const char* SPCCHIP_STRS[CHIP_COUNT] =
 	{	"", "", "", "", "", "", "", "",
 		"", "", "", "", "", "YMF278B FM", "", "",
 		"", "", "", "", "FDS", "", "", "",
-		"", "", "", "", "", "", "", ""};
+		"", "", "", "", "", "", "", "",
+		"", "", "", "", "", "", "", "",
+		"", "", ""};
 
 	UINT8 Command;
 	UINT8 TempByt;
@@ -1158,6 +1161,8 @@ static void DoChipCommand(UINT8 ChipSet, UINT8 ChipID, UINT16 Reg, UINT16 Data)
 		}
 		break;
 		case 0x2A:	// K007232
+			if (Reg == 0x1F)
+				Reg = Data;	// chip read - data value contains register ID
 			if (Reg == 0x05 || Reg == 0x0B)
 			{
 				UINT8 ch = (Reg == 0x05) ? 0 : 1;

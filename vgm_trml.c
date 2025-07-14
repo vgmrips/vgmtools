@@ -913,6 +913,7 @@ static void SetImportantCommands(void)
 			}
 		}
 	}
+
 	return;
 }
 
@@ -2048,21 +2049,21 @@ static UINT32 ReadCommand(UINT8 Mask)
 	TempChp = NULL;
 	switch(Command)
 	{
-		case 0x41:	// K007232 write
-			TempChp = &RC[ChipID].K007232;
-			TempReg = &TempChp->Regs;
-			if (TempReg->RegCount)
+	case 0x41:	// K007232 write
+		TempChp = &RC[ChipID].K007232;
+		TempReg = &TempChp->Regs;
+		if (TempReg->RegCount)
+		{
+			CmdReg = VGMData[VGMPos + 0x01] & 0x7F;
+			if (CmdReg < TempReg->RegCount)
 			{
-				CmdReg = VGMData[VGMPos + 0x01] & 0x1F; // 5-bit register (0..0x13 used)
-				if (CmdReg < TempReg->RegCount)
-				{
-					TempReg->RegMask[CmdReg] |= Mask;
-					if (Mask == 0x01)
-						TempReg->RegData.R08[CmdReg] = VGMData[VGMPos + 0x02];
-				}
+				TempReg->RegMask[CmdReg] |= Mask;
+				if (Mask == 0x01)
+					TempReg->RegData.R08[CmdReg] = VGMData[VGMPos + 0x02];
 			}
-			CmdLen = 0x03;
-			break;
+		}
+		CmdLen = 0x03;
+		break;
 	case 0x50:	// SN76496 write
 		TempChp = &RC[ChipID].SN76496;
 		TempReg = &TempChp->Regs;
@@ -2883,24 +2884,27 @@ static void CommandCheck(UINT8 Mode, UINT8 Command, CHIP_DATA* ChpData, UINT16 C
 		break;
 	case 0xBF:	// GA20 write
 		break;
-		case 0x41:	// K007232 write
-			// K007232 key on is at register 0x05 (ch0) and 0x0B (ch1)
-			if (CmdReg == 0x05)
-			{
-				CurChn = 0;
-				KeyOnOff = 1; // always on when written
-				TempChn->ChnMask &= ~(1 << CurChn);
-				TempChn->ChnMask |= (KeyOnOff << CurChn);
-			}
-			else if (CmdReg == 0x0B)
-			{
-				CurChn = 1;
-				KeyOnOff = 1;
-				TempChn->ChnMask &= ~(1 << CurChn);
-				TempChn->ChnMask |= (KeyOnOff << CurChn);
-			}
-			break;
+	case 0x41:	// K007232 write
+		if (CmdReg == 0x1F)
+			CmdReg = TempReg->RegData.R08[CmdReg];
+		// K007232 key on is at register 0x05 (ch0) and 0x0B (ch1)
+		if (CmdReg == 0x05)
+		{
+			CurChn = 0;
+			KeyOnOff = 1; // always on when written
+			TempChn->ChnMask &= ~(1 << CurChn);
+			TempChn->ChnMask |= (KeyOnOff << CurChn);
+		}
+		else if (CmdReg == 0x0B)
+		{
+			CurChn = 1;
+			KeyOnOff = 1;
+			TempChn->ChnMask &= ~(1 << CurChn);
+			TempChn->ChnMask |= (KeyOnOff << CurChn);
+		}
+		break;
 	}
+
 	return;
 }
 
@@ -3095,6 +3099,7 @@ void TrimVGMData(const INT32 StartSmpl, const INT32 LoopSmpl, const INT32 EndSmp
 
 	CmdLen = 0x00;
 	CmdDelay = 0x00;
+	IsDelay = false;
 	DelayOff = false;
 	ForceCmdWrite = false;
 	while(VGMPos < VGMHead.lngEOFOffset)
