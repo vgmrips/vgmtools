@@ -2775,6 +2775,7 @@ static bool ChipCommandIsValid(UINT8 Command)
 		return true;
 	if (Command == 0x31 && (VGMHead.lngHzAY8910 || VGMHead.lngHzYM2203))
 		return true;
+	// VGM v1.51
 	if (((Command == 0x50 || Command == 0x4F) && VGMHead.lngHzPSG) ||
 		((Command == 0x30 || Command == 0x3F) && (VGMHead.lngHzPSG & 0x40000000)))
 		return true;
@@ -2827,6 +2828,7 @@ static bool ChipCommandIsValid(UINT8 Command)
 		return true;
 	if (Command == 0x68 && (VGMHead.lngHzRF5C68 || VGMHead.lngHzRF5C164))
 		return true;
+	// VGM v1.61
 	if (Command == 0xB3 && VGMHead.lngHzGBDMG)
 		return true;
 	if (Command == 0xB4 && VGMHead.lngHzNESAPU)
@@ -2853,7 +2855,26 @@ static bool ChipCommandIsValid(UINT8 Command)
 		return true;
 	if (Command == 0xC4 && VGMHead.lngHzQSound)
 		return true;
-	// TODO: VGM v1.71 chips
+	// VGM v1.71
+	if (Command == 0xC5 && VGMHead.lngHzSCSP)
+		return true;
+	if ((Command == 0xBC || Command == 0xC6) && VGMHead.lngHzWSwan)
+		return true;
+	if (Command == 0xC7 && VGMHead.lngHzVSU)
+		return true;
+	if (Command == 0xBD && VGMHead.lngHzSAA1099)
+		return true;
+	if (Command == 0xD5 && VGMHead.lngHzES5503)
+		return true;
+	if ((Command == 0xBE || Command == 0xD6) && VGMHead.lngHzES5506)
+		return true;
+	if (Command == 0xC8 && VGMHead.lngHzX1_010)
+		return true;
+	if (Command == 0xE1 && VGMHead.lngHzC352)
+		return true;
+	if (Command == 0xBF && VGMHead.lngHzGA20)
+		return true;
+	// VGM v1.72
 
 	return false;
 }
