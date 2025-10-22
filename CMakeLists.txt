@@ -7,6 +7,9 @@
 cmake_minimum_required(VERSION 3.6)	# actual minimum is 3.3
 project (VGMTools LANGUAGES C CXX)
 
+set(CMAKE_C_STANDARD 90)
+set(CMAKE_CXX_STANDARD 98)
+
 find_package(ZLIB REQUIRED)
 
 if(MSVC)

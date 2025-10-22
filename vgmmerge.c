@@ -630,7 +630,7 @@ static void MergeVGMData(void)
 				PtchCmdFlags = 0x00;
 				Command = TempVGM->Data[TempVGM->Pos];
 
-				// Make the VGMs looks nicer ;)
+				// Make the VGMs look nicer ;)
 				// (write data blocks of all VGMs first, other commands later)
 				if (! WasDblk)
 				{
