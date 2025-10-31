@@ -96,6 +96,7 @@ typedef struct strip_data
 	STRIP_PSG HuC6280;
 	STRIP_OPL4WT C140;
 	STRIP_PCM K053260;
+	STRIP_PCM K007232;
 	STRIP_PSG Pokey;
 	STRIP_OPX QSound;
 	bool Unknown;

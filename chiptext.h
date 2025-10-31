@@ -53,5 +53,6 @@ void es5506_w16(char* TempStr, UINT8 offset, UINT16 data);
 void k054539_write(char* TempStr, UINT16 Register, UINT8 Data);
 void wswan_write(char* TempStr, UINT8 Register, UINT8 Data);
 void ws_mem_write(char* TempStr, UINT16 Offset, UINT8 Data);
+void k007232_write(char* TempStr, UINT8 offset, UINT8 data);
 
 #endif	// __CHIPTEXT_H__

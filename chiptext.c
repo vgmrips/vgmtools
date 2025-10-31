@@ -52,6 +52,7 @@ typedef struct chip_count
 	UINT32 C352;
 	UINT32 GA20;
 	UINT32 Mikey;
+	UINT32 K007232;
 } CHIP_CNT;
 
 
@@ -512,6 +513,10 @@ INLINE UINT32 GetChipName(UINT8 ChipType, const char** RetName)
 	case 0x29:
 		ChipName = "Mikey";
 		ChipCnt = ChpCnt.Mikey;
+		break;
+	case 0x2A:
+		ChipName = "K007232";
+		ChipCnt = ChpCnt.K007232;
 		break;
 	default:
 		ChipName = "Unknown";
@@ -4148,4 +4153,86 @@ void ws_mem_write(char* TempStr, UINT16 Offset, UINT8 Data)
 	sprintf(TempStr, "%sMem 0x%04X = 0x%02X", ChipStr, Offset, Data);
 
 	return;
+}
+
+void k007232_write(char* TempStr, UINT8 offset, UINT8 data)
+{
+	WriteChipID(0x2A);
+	
+    if (offset < 0x0C)
+    {
+		UINT8 ch = (offset >= 6 && offset < 0x0C) ? 1 : 0; // Channel 0 or 1
+		UINT8 reg = offset % 6; // offset offset within the channel
+
+        // offsets for pitch, start address, and key on/off
+        switch (reg)
+        {
+        case 0: // Pitch LSB
+            sprintf(RedirectStr, "Pitch LSB: 0x%02X", data);
+            break;
+        case 1: // Pitch MSB + frequency mode
+        {
+            static const char* freq_modes[4] = { "12-bit", "8-bit", "4-bit", "reserved" };
+            int freq_mode = (data >> 4) & 3;
+            sprintf(RedirectStr, "Pitch MSB: 0x%01X, Freq Mode: %s",
+                data & 0x0F, freq_modes[freq_mode]);
+            break;
+        }
+        case 2: // Start address LSB
+            sprintf(RedirectStr, "Start Address LSB: 0x%02X", data);
+            break;
+        case 3: // Start address MID
+            sprintf(RedirectStr, "Start Address MID: 0x%02X", data);
+            break;
+        case 4: // Start address MSB (bit 0 only)
+            sprintf(RedirectStr, "Start Address MSB (bit 0): %u", data & 0x01);
+            break;
+        case 5: // Key on/off trigger
+            sprintf(RedirectStr, "Key On/Off Trigger: %s", (data & 1) ? "Start" : "Stop");
+            break;
+        }
+        sprintf(WriteStr, "Ch%u: %s", ch, RedirectStr);
+    }
+    else
+    {
+        // offsets for external control, loop enable, and bankswitching
+        switch (offset)
+        {
+        case 0x0C: // External port write (volume/pan control, typically)
+            sprintf(WriteStr, "External Port Write: 0x%02X", data);
+            break;
+        case 0x0D: // Loop enable for channels
+            sprintf(WriteStr, "Loop Enable: Ch0: %s, Ch1: %s",
+                (data & 0x01) ? "On" : "Off",
+                (data & 0x02) ? "On" : "Off");
+            break;
+        case 0x10: // Left volume for Channel 0
+            sprintf(WriteStr, "Left Volume (Ch0): 0x%02X", data);
+            break;
+        case 0x11: // Right volume for Channel 0
+            sprintf(WriteStr, "Right Volume (Ch0): 0x%02X", data);
+            break;
+        case 0x12: // Left volume for Channel 1
+            sprintf(WriteStr, "Left Volume (Ch1): 0x%02X", data);
+            break;
+        case 0x13: // Right volume for Channel 1
+            sprintf(WriteStr, "Right Volume (Ch1): 0x%02X", data);
+            break;
+        case 0x14: // Bankswitch for Channel 0
+            sprintf(WriteStr, "Bankswitch (Ch0): 0x%02X", data);
+            break;
+        case 0x15: // Bankswitch for Channel 1
+            sprintf(WriteStr, "Bankswitch (Ch1): 0x%02X", data);
+            break;
+		case 0x1F: // Special command for k007232 read
+			sprintf(WriteStr, "Read register 0x%2X", data);
+			break;
+        default:
+            sprintf(WriteStr, "Unknown Register 0x%02X: data 0x%02X", offset, data);
+            break;
+        }
+    }
+
+    // Final output string
+    sprintf(TempStr, "K007232: %s", WriteStr);
 }

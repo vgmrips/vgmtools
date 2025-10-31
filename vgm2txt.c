@@ -454,6 +454,12 @@ static void WriteVGM2Txt(const char* FileName)
 	WriteClockText(TempStr, VGMHead.lngHzGA20, "GA20");
 	fprintf(hFile, "GA20 Clock:\t\t%s\n", TempStr);
 
+	WriteClockText(TempStr, VGMHead.lngHzMikey, "MIKEY");
+	fprintf(hFile, "MIKEY Clock:\t\t%s\n", TempStr);
+	
+	WriteClockText(TempStr, VGMHead.lngHzK007232, "K007232");
+	fprintf(hFile, "K007232 Clock:\t\t%s\n", TempStr);
+	
 	fprintf(hFile, "\n");
 	fprintf(hFile, "VGMData:\n");
 	VGMPos = VGMHead.lngDataOffset;
@@ -1009,6 +1015,9 @@ static void WriteVGMData2Txt(FILE* hFile)
 						case 0x93:	// GA20 ROM Image
 							strcpy(MinSecStr, "GA20 ROM");
 							break;
+						case 0x94:	// K007232 ROM Image
+							strcpy(MinSecStr, "K007232 ROM");
+							break;
 						default:
 							strcpy(MinSecStr, "Unknown ROM Type");
 							break;
@@ -1445,6 +1454,14 @@ static void WriteVGMData2Txt(FILE* hFile)
 					x1_010_write(TempStr, ((VGMPnt[0x01] & 0x7F)<<8) | VGMPnt[0x02], VGMPnt[0x03]);
 				}
 				CmdLen = 0x04;
+				break;
+			case 0x41:	// K007232 write
+				if (WriteEvents)
+				{
+					SetChip((VGMPnt[0x01] & 0x80) >> 7);
+					k007232_write(TempStr, VGMPnt[0x01] & 0x7F, VGMPnt[0x02]);
+				}
+				CmdLen = 0x03;
 				break;
 			case 0x90:	// DAC Ctrl: Setup Chip
 				if (WriteEvents)

@@ -167,6 +167,7 @@ int main(int argc, char* argv[])
 		printf("    -SetHzK053260  Sets the K053260 chip clock\n");
 		printf("    -SetHzPokey    Sets the Pokey chip clock\n");
 		printf("    -SetHzQSound   Sets the QSound chip clock\n");
+		printf("    -SetHzK007232  Sets the K007232 chip clock\n");
 		printf("\n");
 		printf("Setting a clock rate to 0 disables the chip.\n");
 		goto EndProgram;
@@ -210,6 +211,7 @@ int main(int argc, char* argv[])
 		printf("    K053260       *\n");
 		printf("    Pokey         *\n");
 		printf("    QSound        *0..15\n");
+		printf("    K007232       *0..1\n");
 		printf("    DacCtrl        0..255\n");
 		printf("* strip whole chip only, no channel stripping\n");
 		printf("\n");
@@ -842,6 +844,11 @@ static UINT8 ParseStripCommand(const char* StripCmd)
 			CurChip = 0x1F;
 			TempChip = (STRIP_GENERIC*)&StripVGM[0].QSound;
 		}
+		else if (! stricmp(ChipPos, "K007232"))
+		{
+			CurChip = 0x2A;
+			TempChip = (STRIP_GENERIC*)&StripVGM[0].K007232;
+		}
 		else if (! stricmp(ChipPos, "DacCtrl"))
 		{
 			CurChip = 0x7F;
@@ -1364,6 +1371,11 @@ static UINT8 PatchVGM(int ArgCount, char* ArgList[])
 			{
 				ChipHzPnt = &VGMHead.lngHzQSound;
 				OldVal = 0x161;
+			}
+			else if (! stricmp(CmdStr, "K007232"))
+			{
+				ChipHzPnt = &VGMHead.lngHzK007232;
+				OldVal = 0x172;
 			}
 			else
 			{
@@ -2875,6 +2887,8 @@ static bool ChipCommandIsValid(UINT8 Command)
 	if (Command == 0xBF && VGMHead.lngHzGA20)
 		return true;
 	// VGM v1.72
+	if (Command == 0x41 && VGMHead.lngHzK007232)
+		return true;
 
 	return false;
 }
@@ -3434,6 +3448,12 @@ static void StripVGMData(void)
 						if (WriteEvent && ChipID && StripVGM[0].QSound.All)
 							VGMPnt[0x06] &= ~0x80;
 						break;
+					case 0x94:	// K007232 ROM Image
+						if (StripVGM[ChipID].K007232.All)
+							WriteEvent = false;
+						if (WriteEvent && ChipID && StripVGM[0].K007232.All)
+							VGMPnt[0x06] &= ~0x80;
+						break;
 					}
 					break;
 				case 0xC0:	// RAM Write
@@ -3757,6 +3777,14 @@ static void StripVGMData(void)
 					WriteEvent = false;
 				CmdLen = 0x04;
 				break;
+			case 0x41:	// K007232 write
+				ChipID = (VGMPnt[0x01] & 0x80) >> 7;
+				if (StripVGM[ChipID].K007232.All)
+					WriteEvent = false;
+				if (WriteEvent && ChipID && StripVGM[0].K007232.All)
+					VGMPnt[0x01] &= ~0x80;
+				CmdLen = 0x03;
+				break;
 			case 0x90:	// DAC Ctrl: Setup Chip
 				if (StripVGM[0].DacCtrl.All ||
 					GetFromMask(StripVGM[0].DacCtrl.StrMsk, VGMPnt[0x01]))
@@ -4024,6 +4052,7 @@ static void StripVGMData(void)
 	StripClock(&StripVGM[0].K053260.All, &VGMHead.lngHzK053260);
 	StripClock(&StripVGM[0].Pokey.All, &VGMHead.lngHzPokey);
 	StripClock(&StripVGM[0].QSound.All, &VGMHead.lngHzQSound);
+	StripClock(&StripVGM[0].K007232.All, &VGMHead.lngHzK007232);
 	//StripClock(&StripVGM[0].SCSP.All, &VGMHead.lngHzSCSP);
 
 	// PatchVGM will rewrite the header later

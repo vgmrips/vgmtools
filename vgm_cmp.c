@@ -577,6 +577,12 @@ static void CompressVGMData(void)
 				memcpy(&TempLng, &VGMPnt[0x01], 0x04);
 				CmdLen = 0x05;
 				break;
+			case 0x41:	// K007232 write
+				WriteEvent = true;
+				SetChipSet((VGMPnt[0x01] & 0x80) >> 7);
+			//	WriteEvent = chip_reg_write(0x1D, CurChip, 0x00, VGMPnt[0x01] & 0x7F, VGMPnt[0x02]);
+				CmdLen = 0x03;
+				break;
 			case 0x4F:	// GG Stereo
 				WriteEvent = GGStereo(VGMPnt[0x01]);
 				CmdLen = 0x02;

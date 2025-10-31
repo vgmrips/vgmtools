@@ -1190,8 +1190,8 @@ INLINE UINT16 GetCmdLen(UINT8 Command)
 	case 0x80:
 		return 0x01;
 	case 0x30:
-	case 0x40:
 		return 0x02;
+	case 0x40:
 	case 0x50:
 	case 0xA0:
 	case 0xB0:
