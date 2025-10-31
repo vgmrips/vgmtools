@@ -45,6 +45,8 @@ static UINT16 GetSystemString(const char* SystemName);
 static UINT8 TagVGM(const int ArgCount, char* ArgList[]);
 static bool RemoveEqualTag(wchar_t** TagE, wchar_t** TagJ, UINT8 Mode);
 static bool RemoveUnknown(wchar_t** Tag);
+static bool TrimWhitespaceR(wchar_t* Tag);
+static void ShowTagNames(UINT32 Mask);
 static void ShowTag(const UINT8 UnicodeMode);
 char* ConvertWStr2ASCII_NCR(const wchar_t* WideStr);
 char* ConvertWStr2UTF8(const wchar_t* WideStr);
@@ -55,7 +57,30 @@ static wchar_t* wcscap(wchar_t* string);
 #define SYSMODE_JAP	true
 
 
-const SYSTEM_SHORT SYSTEM_NAMES[] =
+#define TAGID_TITLE_EN	0
+#define TAGID_TITLE_JP	1
+#define TAGID_GAME_EN	2
+#define TAGID_GAME_JP	3
+#define TAGID_SYSTEM_EN	4
+#define TAGID_SYSTEM_JP	5
+#define TAGID_AUTHOR_EN	6
+#define TAGID_AUTHOR_JP	7
+#define TAGID_YEAR		8
+#define TAGID_CREATOR	9
+#define TAGID_NOTES		10
+#define TAG_COUNT		11
+
+static const char* TAG_NAMES[TAG_COUNT] = {
+	"TitleEN", "TitleJP",
+	"GameEN", "GameJP",
+	"SystemEN", "SystemJP",
+	"AuthorEN", "AuthorJP",
+	"Year",
+	"Creator",
+	"Notes",
+};
+
+static const SYSTEM_SHORT SYSTEM_NAMES[] =
 //	short		long (english)			long (japanese)
 {	{"SMS",		"Sega Master System", "&#x30BB;&#x30AC;&#x30DE;&#x30B9;&#x30BF;&#x30FC;&#x30B7;&#x30B9;&#x30C6;&#x30E0;"},
 	{"SGG",		"Sega Game Gear", "&#x30BB;&#x30AC;&#x30B2;&#x30FC;&#x30E0;&#x30AE;&#x30A2;"},
@@ -76,8 +101,8 @@ const SYSTEM_SHORT SYSTEM_NAMES[] =
 	{"NGP",		"Neo Geo Pocket", "&#x30CD;&#x30AA;&#x30B8;&#x30AA;&#x30DD;&#x30B1;&#x30C3;&#x30C8;"},
 	{"NGPC",	"Neo Geo Pocket Color", "&#x30CD;&#x30AA;&#x30B8;&#x30AA;&#x30DD;&#x30B1;&#x30C3;&#x30C8;&#x30AB;&#x30E9;&#x30FC;"},
 	{"SCD",		"Sega MegaCD / SegaCD", "&#x30E1;&#x30AC;CD"},
-	{"32X",		"Sega 32X", "&#x30B9;&#x30FC;&#x30D1;&#x30FC;32X"},
-	{"SCD32",	"Sega Mega-CD 32X / Sega CD 32X", "&#x30E1;&#x30AC;CD 32X"},
+	{"32X",		"Sega 32X / Mega 32X", "&#x30B9;&#x30FC;&#x30D1;&#x30FC;32X"},
+	{"SCD32",	"Sega MegaCD 32X / SegaCD 32X", "&#x30E1;&#x30AC;CD 32X"},
 	{"Nmc*",	"Namco System *", "&#x30ca;&#x30e0;&#x30b3;&#x30b7;&#x30b9;&#x30c6;&#x30e0;*"},
 	{"SX",		"Sega X", "&#x30bb;&#x30ac; X"},
 	{"SY",		"Sega Y", "&#x30bb;&#x30ac; Y"},
@@ -170,6 +195,7 @@ int main(int argc, char* argv[])
 		printf("\t-NotesB     Notes and Comments (insert at beginning)\n");
 		printf("\t-NotesE     Notes and Comments (append to end)\n");
 		printf("\t-NotesStripAt  Notes tag: strip parameter + rest\n");
+		printf("\t-TrimR      trim whitespace from right end of the tags\n");
 		printf("\n");
 
 		printf("*If the system's short name is given,");
@@ -824,19 +850,19 @@ static UINT8 TagVGM(const int ArgCount, char* ArgList[])
 					TempLng ? "Eng" : "Jap");
 
 			TempLng = 0x00;
-			TempLng |= RemoveEqualTag(&VGMTag.strTrackNameE,	&VGMTag.strTrackNameJ,	TempByt) << 0;
-			TempLng |= RemoveEqualTag(&VGMTag.strGameNameE,		&VGMTag.strGameNameJ,	TempByt) << 1;
-			TempLng |= RemoveEqualTag(&VGMTag.strSystemNameE,	&VGMTag.strSystemNameJ,	TempByt) << 2;
-			TempLng |= RemoveEqualTag(&VGMTag.strAuthorNameE,	&VGMTag.strAuthorNameJ,	TempByt) << 3;
+			TempLng |= RemoveEqualTag(&VGMTag.strTrackNameE,	&VGMTag.strTrackNameJ,	TempByt) << TAGID_TITLE_EN;
+			TempLng |= RemoveEqualTag(&VGMTag.strGameNameE,		&VGMTag.strGameNameJ,	TempByt) << TAGID_GAME_EN;
+			TempLng |= RemoveEqualTag(&VGMTag.strSystemNameE,	&VGMTag.strSystemNameJ,	TempByt) << TAGID_SYSTEM_EN;
+			TempLng |= RemoveEqualTag(&VGMTag.strAuthorNameE,	&VGMTag.strAuthorNameJ,	TempByt) << TAGID_AUTHOR_EN;
 			if (TempLng)
 			{
-				if (TempLng & 0x01)
+				if (TempLng & (1 << TAGID_TITLE_EN))
 					printf("Title, ");
-				if (TempLng & 0x02)
+				if (TempLng & (1 << TAGID_GAME_EN))
 					printf("Game, ");
-				if (TempLng & 0x04)
+				if (TempLng & (1 << TAGID_SYSTEM_EN))
 					printf("System, ");
-				if (TempLng & 0x08)
+				if (TempLng & (1 << TAGID_AUTHOR_EN))
 					printf("Author, ");
 				printf("\b\b ");
 				RetVal = 0x00;
@@ -849,14 +875,11 @@ static UINT8 TagVGM(const int ArgCount, char* ArgList[])
 			printf("Removing \"Unknown Author\" tag: ");
 
 			TempLng = 0x00;
-			TempLng |= RemoveUnknown(&VGMTag.strAuthorNameE) << 0;
-			TempLng |= RemoveUnknown(&VGMTag.strAuthorNameJ) << 1;
+			TempLng |= RemoveUnknown(&VGMTag.strAuthorNameE) << TAGID_AUTHOR_EN;
+			TempLng |= RemoveUnknown(&VGMTag.strAuthorNameJ) << TAGID_AUTHOR_JP;
 			if (TempLng)
 			{
-				if (TempLng & 0x01)
-					printf("AuthorE, ");
-				if (TempLng & 0x02)
-					printf("AuthorJ, ");
+				ShowTagNames(TempLng);
 				printf("\b\b ");
 				RetVal = 0x00;
 			}
@@ -927,6 +950,35 @@ static UINT8 TagVGM(const int ArgCount, char* ArgList[])
 			*TempStr = '\0';	// set '\0' to terminate the string here
 			printf("Notes Strip: \"%s\" removed.\n", CmdData);
 			RetVal = 0x00;
+			continue;
+		}
+		else if (! stricmp(CmdStr, "TrimR"))
+		{
+			UINT32 didModify = 0x00;
+
+			didModify |= TrimWhitespaceR(VGMTag.strTrackNameE) << TAGID_TITLE_EN;
+			didModify |= TrimWhitespaceR(VGMTag.strTrackNameJ) << TAGID_TITLE_JP;
+			didModify |= TrimWhitespaceR(VGMTag.strGameNameE) << TAGID_GAME_EN;
+			didModify |= TrimWhitespaceR(VGMTag.strGameNameJ) << TAGID_GAME_JP;
+			didModify |= TrimWhitespaceR(VGMTag.strSystemNameE) << TAGID_SYSTEM_EN;
+			didModify |= TrimWhitespaceR(VGMTag.strSystemNameJ) << TAGID_SYSTEM_JP;
+			didModify |= TrimWhitespaceR(VGMTag.strAuthorNameE) << TAGID_AUTHOR_EN;
+			didModify |= TrimWhitespaceR(VGMTag.strAuthorNameJ) << TAGID_AUTHOR_JP;
+			didModify |= TrimWhitespaceR(VGMTag.strReleaseDate) << TAGID_YEAR;
+			didModify |= TrimWhitespaceR(VGMTag.strCreator) << TAGID_CREATOR;
+			didModify |= TrimWhitespaceR(VGMTag.strNotes) << TAGID_NOTES;
+
+			if (didModify)
+			{
+				printf("Removed whitespace from: ");
+				ShowTagNames(didModify);
+				printf("\n");
+				RetVal = 0x00;
+			}
+			else
+			{
+				printf("No whitespace found.\n");
+			}
 			continue;
 		}
 
@@ -1183,6 +1235,38 @@ static bool RemoveUnknown(wchar_t** Tag)
 
 	Copy2TagStr(Tag, "");
 	return true;
+}
+
+static bool TrimWhitespaceR(wchar_t* Tag)
+{
+	wchar_t* endPtr;
+	wchar_t* tagPtr;
+
+	if (Tag == NULL)
+		return false;	// nothing done
+
+	endPtr = Tag + wcslen(Tag);
+	for (tagPtr = endPtr; tagPtr > Tag; tagPtr --)
+	{
+		if (! iswspace(tagPtr[-1]))
+			break;
+	}
+	if (tagPtr == endPtr)
+		return false;
+	*tagPtr = '\0';	// set '\0' to terminate the string here
+	return true;
+}
+
+static void ShowTagNames(UINT32 Mask)
+{
+	UINT8 tagID;
+	for (tagID = 0; tagID < TAG_COUNT; tagID ++)
+	{
+		if (Mask & (1 << tagID))
+			printf("%s, ", TAG_NAMES[tagID]);
+	}
+	printf("\b\b ");
+	return;
 }
 
 static void ShowTag(const UINT8 UnicodeMode)

@@ -151,10 +151,10 @@ static const char* CHIP_STRS2[CHIP_COUNT] =
 
 static UINT8 OPN_PRESCALER_REG_LIST[0x04][2] =
 {
-	0x2F, 0x00,	// precaler 0
-	0x2F, 0x2E,	// precaler 1
-	0x2F, 0x2D,	// precaler 2
-	0x2D, 0x2E,	// precaler 3
+	{0x2F, 0x00},	// precaler 0
+	{0x2F, 0x2E},	// precaler 1
+	{0x2F, 0x2D},	// precaler 2
+	{0x2D, 0x2E},	// precaler 3
 };
 
 

@@ -2483,7 +2483,7 @@ void nes_psg_write(char* TempStr, UINT8 Register, UINT8 Data)
 			CurChn = (Register & 0x04) >> 2;
 			sprintf(WriteStr, "Square %u: Duty Cycle: %.1f%%, Hold: %s, Envelope: %s, Volume %X",
 					CurChn, GB_WAVE_DUTY[(Data & 0xC0) >> 6], OnOff(Data & 0x20),
-					OnOff(Data & 0x10), Data & 0x0F);
+					OnOff(~Data & 0x10), Data & 0x0F);
 			break;
 		case APU_WRA1:
 		case APU_WRB1:
