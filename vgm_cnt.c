@@ -31,7 +31,7 @@ static void DoChipCommand(UINT8 ChipSet, UINT8 ChipID, UINT16 Reg, UINT16 Data);
 static void DoKeyOnOff(CHIP_STATE* CState, UINT8 Chn, UINT8 OnOff, UINT8 VolFlag);
 
 
-#define CHIP_COUNT	0x2A
+#define CHIP_COUNT	0x2B
 
 VGM_HEADER VGMHead;
 UINT32 VGMDataLen;
@@ -295,6 +295,7 @@ static void CountVGMData()
 		case 0x1F:
 			TempLng = VGMHead.lngHzQSound;
 			break;
+		// TODO: 0x20 SCSP .. 0x29 Mikey
 		case 0x2A:
 			TempLng = VGMHead.lngHzK007232;
 			break;
@@ -571,6 +572,7 @@ static void CountVGMData()
 					case 0x8F:	// QSound ROM Image
 						DoChipCommand(CurChip, 0x1F, 0xFFFF, TempByt);
 						break;
+					// TODO: 0x91 X1-010 .. 0x93 GA20
 					case 0x94:	// K007232 ROM Image
 						DoChipCommand(CurChip, 0x2A, 0xFFFF, TempByt);
 						break;
@@ -1160,15 +1162,16 @@ static void DoChipCommand(UINT8 ChipSet, UINT8 ChipID, UINT16 Reg, UINT16 Data)
 			}
 		}
 		break;
-		case 0x2A:	// K007232
-			if (Reg == 0x1F)
-				Reg = Data;	// chip read - data value contains register ID
-			if (Reg == 0x05 || Reg == 0x0B)
-			{
-				UINT8 ch = (Reg == 0x05) ? 0 : 1;
-				DoKeyOnOff(TempChp, ch, 1, 0x00);
-			}
-			break;
+	// TODO: 0x20 SCSP .. 0x29 Mikey
+	case 0x2A:	// K007232
+		if (Reg == 0x1F)
+			Reg = Data;	// chip read - data value contains register ID
+		if (Reg == 0x05 || Reg == 0x0B)
+		{
+			UINT8 ch = (Reg == 0x05) ? 0 : 1;
+			DoKeyOnOff(TempChp, ch, 1, 0x00);
+		}
+		break;
 	}
 
 	return;

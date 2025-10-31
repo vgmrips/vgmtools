@@ -132,7 +132,7 @@ typedef struct rewrite_chipset_new
 	CHIP_DATA K007232;
 } REWRT_CHIPSET_NEW;
 
-#define CHIP_COUNT	0x2A
+#define CHIP_COUNT	0x2B
 
 static const char* CHIP_STRS[CHIP_COUNT] =
 {	"SN76496", "YM2413", "YM2612", "YM2151", "SegaPCM", "RF5C68", "YM2203", "YM2608",
@@ -140,14 +140,14 @@ static const char* CHIP_STRS[CHIP_COUNT] =
 	"RF5C164", "PWM", "AY8910", "GameBoy", "NES APU", "MultiPCM", "uPD7759", "OKIM6258",
 	"OKIM6295", "K051649", "K054539", "HuC6280", "C140", "K053260", "Pokey", "QSound",
 	"SCSP", "WSwan", "VSU", "SAA1099", "ES5503", "ES5506", "X1-010", "C352",
-	"GA20", "K007232"};
+	"GA20", "Mikey", "K007232"};
 static const char* CHIP_STRS2[CHIP_COUNT] =
 {	"", "", "", "", "", "", "", "",
 	"", "", "", "", "", "YMF278B/PCM", "", "",
 	"", "", "", "", "", "", "", "",
 	"", "", "", "", "", "", "", "",
 	"", "", "", "", "", "", "", "",
-	""};
+	"", "", ""};
 
 static UINT8 OPN_PRESCALER_REG_LIST[0x04][2] =
 {
@@ -908,7 +908,9 @@ static void SetImportantCommands(void)
 				break;
 			case 0x28:	// GA20
 				break;
-			case 0x2A:  // K007232
+			case 0x29:	// Mikey
+				break;
+			case 0x2A:	// K007232
 				break;
 			}
 		}
@@ -1743,9 +1745,11 @@ static void InitializeVGM(UINT8** DstDataRef, UINT32* DstPosRef)
 				ChipCmd = 0xBF;
 				CmdType = 0x12;
 				break;
-			case 0x2A:  // K007232
+			//case 0x29:	// Mikey
+			//	break;
+			case 0x2A:	// K007232
 				ChipCmd = 0x41;
-				CmdType = 0x80;
+				CmdType = 0x12;
 			default:
 				CmdType = 0xFF;
 				break;
