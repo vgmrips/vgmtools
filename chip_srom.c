@@ -341,24 +341,18 @@ typedef struct x1010_data
 #define K007232_PCM_MAX   2
 
 typedef struct {
-    UINT8  vol[2];    // [0]=left, [1]=right
-    UINT32 addr;      // current PCM address (17 bits)
-    INT32  counter;
     UINT32 start;     // start address (17 bits)
     UINT16 step;      // frequency/step value (12 bits)
     UINT32 bank;      // base bank address (upper bits, shifted left by 17)
-    UINT8  play;      // playing flag
-    UINT8  mute;
-} K007232_Channel;
+} K007232_CHANNEL;
 
 typedef struct k007232_data
 {
-    K007232_Channel channel[K007232_PCM_MAX];
+    K007232_CHANNEL channel[K007232_PCM_MAX];
     UINT8 wreg[0x10];
     UINT32 ROMSize;
     UINT8* ROMData;
     UINT8* ROMUsage;
-    UINT8 loop_en;
 } K007232_DATA;
 
 enum {
@@ -1623,34 +1617,49 @@ void okim6295_write(UINT8 Offset, UINT8 Data)
 	return;
 }
 
+static void k007232_keyon(K007232_DATA* chip, K007232_CHANNEL* v)
+{
+	UINT32 start;
+	UINT32 addr;
+	UINT32 end;
+
+	if (chip->ROMData == NULL || chip->ROMUsage == NULL)
+		return;
+
+	// Mark ROM usage
+	start = v->bank + v->start;
+
+	// Find terminator (0x80)
+	for (end = start; end < chip->ROMSize; end++)
+	{
+		if(chip->ROMData[end] & 0x80)
+			break;
+	}
+	if (end < chip->ROMSize)
+		end++; // Include terminator
+	if (end > chip->ROMSize)
+		end = chip->ROMSize;
+
+	// Mark used bytes
+	for (addr = start; addr < end; addr++)
+		chip->ROMUsage[addr] |= 0x01;
+
+	return;
+}
+
 void k007232_write(UINT8 offset, UINT8 data)
 {
     K007232_DATA* chip = &ChDat->K007232;
+    int reg_base;
     int ch;
-    K007232_Channel* v;
+    K007232_CHANNEL* v;
 
     // Handle register 0x1F as a special "read" trigger
     if (offset == 0x1F) {
         // "data" is the original offset; treat as a read at that offset
         if (data == 5 || data == 11) {
             ch = (data >= 6) ? 1 : 0;
-            v = &chip->channel[ch];
-            v->play = 1;
-            v->addr = v->start;
-            v->counter = 0x1000;
-
-            // Mark ROM usage as for a key-on
-            if (chip->ROMData && chip->ROMUsage) {
-                UINT32 current = v->bank + v->addr;
-                UINT32 end = current;
-                while (end < chip->ROMSize) {
-                    if (chip->ROMData[end] & 0x80) break;
-                    end++;
-                }
-                if (end < chip->ROMSize) end++; // include terminator
-                for (UINT32 addr = current; addr < end && addr < chip->ROMSize; addr++)
-                    chip->ROMUsage[addr] |= 0x01;
-            }
+            k007232_keyon(chip, &chip->channel[ch]);
         }
         return;
     }
@@ -1671,7 +1680,7 @@ void k007232_write(UINT8 offset, UINT8 data)
     if(ch >= K007232_PCM_MAX) return;
 
     v = &chip->channel[ch];
-    const int reg_base = ch * 6;
+    reg_base = ch * 6;
 
     chip->wreg[offset] = data;
 
@@ -1680,7 +1689,7 @@ void k007232_write(UINT8 offset, UINT8 data)
         case 0x00: // Pitch LSB
         case 0x01: // Pitch MSB
             v->step = ((chip->wreg[reg_base + 1] & 0x0F) << 8) |
-                       chip->wreg[reg_base];
+                       chip->wreg[reg_base + 0];
             break;
         case 0x02: // Start LSB
         case 0x03: // Start MID
@@ -1690,29 +1699,7 @@ void k007232_write(UINT8 offset, UINT8 data)
                         chip->wreg[reg_base + 2];
             break;
         case 0x05: // Key On
-            v->play = 1;
-            v->addr = v->start;
-            v->counter = 0x1000;
-
-            // Mark ROM usage
-            if(chip->ROMData && chip->ROMUsage) {
-                UINT32 current = v->bank + (v->addr);
-                UINT32 end = current;
-
-                // Find terminator (0x80)
-                while(end < chip->ROMSize) {
-                    if(chip->ROMData[end] & 0x80) break;
-                    end++;
-                }
-                if(end < chip->ROMSize) end++; // Include terminator
-
-                // Mark used bytes
-                for(UINT32 addr = current; addr < end && addr < chip->ROMSize; addr++)
-                    chip->ROMUsage[addr] |= 0x01;
-            }
-            break;
-        case 0x0D: // Loop Enable
-            chip->loop_en = data;
+            k007232_keyon(chip, v);
             break;
     }
     return;
