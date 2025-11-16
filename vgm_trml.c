@@ -129,6 +129,7 @@ typedef struct rewrite_chipset_new
 	CHIP_DATA X1_010;
 	CHIP_DATA C352;
 	CHIP_DATA GA20;
+	CHIP_DATA Mikey;
 	CHIP_DATA K007232;
 } REWRT_CHIPSET_NEW;
 
