@@ -378,7 +378,7 @@ static bool OpenVGMFile(const char* FileName)
 		UINT32 dataEnd = VGMHead.lngEOFOffset;
 		if (VGMHead.lngGD3Offset && VGMHead.lngGD3Offset < dataEnd)
 			dataEnd = VGMHead.lngGD3Offset;
-		CurTrkEntry->dataSize = dataEnd - VGMHead.lngDataOffset;
+		CurTrkEntry->dataSize = dataEnd;
 	}
 	AllTrackSize += CurTrkEntry->dataSize;
 

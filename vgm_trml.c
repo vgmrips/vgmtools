@@ -143,8 +143,8 @@ static const char* CHIP_STRS[CHIP_COUNT] =
 	"SCSP", "WSwan", "VSU", "SAA1099", "ES5503", "ES5506", "X1-010", "C352",
 	"GA20", "Mikey", "K007232"};
 static const char* CHIP_STRS2[CHIP_COUNT] =
-{	"", "", "", "", "", "", "", "",
-	"", "", "", "", "", "YMF278B/PCM", "", "",
+{	"", "", "", "", "", "", "YM2203 SSG", "YM2608 SSG",
+	"YM2610 SSG", "", "", "", "", "YMF278B/PCM", "", "",
 	"", "", "", "", "", "", "", "",
 	"", "", "", "", "", "", "", "",
 	"", "", "", "", "", "", "", "",
@@ -168,6 +168,7 @@ static UINT32 ReadCommand(UINT8 Mask);
 static void CommandCheck(UINT8 Mode, UINT8 Command, CHIP_DATA* ChpData, UINT16 CmdReg);
 static void CmdChk_OPL(CHIP_CHNS* ChnState, UINT8 OPLMode, UINT16 CmdReg, UINT8 Data);
 static void CmdChk_OPN(CHIP_CHNS* ChnState, UINT8 OPNMode, UINT16 CmdReg, UINT8 Data);
+static void CmdChk_SSG(CHIP_STATE* ChpState, UINT16* ChnCount, UINT32* ChnMask, UINT8 CmdReg, UINT8 Data);
 void TrimVGMData(const INT32 StartSmpl, const INT32 LoopSmpl, const INT32 EndSmpl,
 				 const bool HasLoop, const bool KeepESmpl);
 static void WriteVGMHeader(UINT8* DstData, const UINT8* SrcData, const UINT32 EOFPos,
@@ -316,6 +317,7 @@ static void PrepareChipMemory(void)
 			{
 				TempRC->YM2203.Regs.RegCount = 0x100;
 				TempRC->YM2203.Chns.ChnCount = 0x03;
+				TempRC->YM2203.Chns.ChnCount2 = 0x03;
 			}
 		}
 		if (VGMHead.lngHzYM2608)
@@ -324,6 +326,7 @@ static void PrepareChipMemory(void)
 			{
 				TempRC->YM2608.Regs.RegCount = 0x200;
 				TempRC->YM2608.Chns.ChnCount = 0x06 + 0x06 + 0x01;
+				TempRC->YM2608.Chns.ChnCount2 = 0x03;
 			}
 		}
 		if (VGMHead.lngHzYM2610)
@@ -332,6 +335,7 @@ static void PrepareChipMemory(void)
 			{
 				TempRC->YM2610.Regs.RegCount = 0x200;
 				TempRC->YM2610.Chns.ChnCount = 0x06 + 0x06 + 0x01;
+				TempRC->YM2610.Chns.ChnCount2 = 0x03;
 			}
 		}
 		if (VGMHead.lngHzYM3812)
@@ -416,7 +420,7 @@ static void PrepareChipMemory(void)
 			if (! CurCSet || (VGMHead.lngHzAY8910 & 0x40000000))
 			{
 				TempRC->AY8910.Regs.RegCount = 0x10;
-				TempRC->AY8910.Chns.ChnCount = 0x03;
+				TempRC->AY8910.Chns.ChnCount = 0x06;
 			}
 		}
 		if (VGMHead.lngHzGBDMG)
@@ -2648,11 +2652,18 @@ static void CommandCheck(UINT8 Mode, UINT8 Command, CHIP_DATA* ChpData, UINT16 C
 		CmdChk_OPN(TempChn, '2', CmdReg, TempReg->RegData.R08[CmdReg]);
 		break;
 	case 0x55:	// YM2203 write
-		CmdChk_OPN(TempChn, 0, CmdReg, TempReg->RegData.R08[CmdReg]);
+		if (CmdReg < 0x10)
+			CmdChk_SSG(TempReg, &TempChn->ChnCount2, &TempChn->ChnMask2, (UINT8)CmdReg, TempReg->RegData.R08[CmdReg]);
+		else
+			CmdChk_OPN(TempChn, 0, CmdReg, TempReg->RegData.R08[CmdReg]);
 		break;
 	case 0x56:	// YM2608 write port 0
 	case 0x57:	// YM2608 write port 1
-		if ((CmdReg & 0x0F0) == 0x020)
+		if (CmdReg < 0x010)
+		{
+			CmdChk_SSG(TempReg, &TempChn->ChnCount2, &TempChn->ChnMask2, (UINT8)CmdReg, TempReg->RegData.R08[CmdReg]);
+		}
+		else if ((CmdReg & 0x0F0) == 0x020)
 		{
 			if (TempReg->RegData.R08[0x029] & 0x80)	// OPNA mode
 				CmdChk_OPN(TempChn, 'A', CmdReg, TempReg->RegData.R08[CmdReg]);
@@ -2666,7 +2677,10 @@ static void CommandCheck(UINT8 Mode, UINT8 Command, CHIP_DATA* ChpData, UINT16 C
 		break;
 	case 0x58:	// YM2610 write port 0
 	case 0x59:	// YM2610 write port 1
-		CmdChk_OPN(TempChn, 'B', CmdReg, TempReg->RegData.R08[CmdReg]);
+		if (CmdReg < 0x010)
+			CmdChk_SSG(TempReg, &TempChn->ChnCount2, &TempChn->ChnMask2, (UINT8)CmdReg, TempReg->RegData.R08[CmdReg]);
+		else
+			CmdChk_OPN(TempChn, 'B', CmdReg, TempReg->RegData.R08[CmdReg]);
 		break;
 	case 0x54:	// YM2151 write
 		if (CmdReg == 0x08)
@@ -2733,24 +2747,7 @@ static void CommandCheck(UINT8 Mode, UINT8 Command, CHIP_DATA* ChpData, UINT16 C
 		// nothing to do
 		break;
 	case 0xA0:	// AY8910 write
-		if (CmdReg == 0x07)
-		{
-			TempChn->ChnMask = ~TempReg->RegData.R08[0x07] & 0x3F;
-			for (CurChn = 0; CurChn < 3; CurChn ++)
-			{
-				if (! TempReg->RegData.R08[0x08 + CurChn])	// volume 0?
-					TempChn->ChnMask &= ~(0x09 << CurChn);	// 1<<Chn | 1<<(Chn+3)
-			}
-		}
-		else if (CmdReg >= 0x08 && CmdReg <= 0x0A)
-		{
-			TempSht = ~TempReg->RegData.R08[0x07] & 0x3F;
-			CurChn = CmdReg - 0x08;
-			KeyOnOff = TempReg->RegData.R08[CmdReg] ? 0x09 : 0;
-
-			TempChn->ChnMask &= ~(0x09 << CurChn);
-			TempChn->ChnMask |= (KeyOnOff << CurChn) & TempSht;
-		}
+		CmdChk_SSG(TempReg, &TempChn->ChnCount, &TempChn->ChnMask, (UINT8)CmdReg, TempReg->RegData.R08[CmdReg]);
 		break;
 	case 0xB3:	// GameBoy DMG write
 		if (CmdReg < 0x14)
@@ -3021,6 +3018,36 @@ static void CmdChk_OPN(CHIP_CHNS* ChnState, UINT8 OPNMode, UINT16 CmdReg, UINT8 
 	}
 
 	return;
+}
+
+static void CmdChk_SSG(CHIP_STATE* ChpState, UINT16* ChnCount, UINT32* ChnMask, UINT8 CmdReg, UINT8 Data)
+{
+	UINT8 CurChn;
+	UINT8 EnableMask;
+
+	if (CmdReg < 0x07 || CmdReg > 0x0A)
+		return;
+
+	EnableMask = ~ChpState->RegData.R08[0x07] & 0x3F;	// 6 channels: 3x square, 3x noise
+	EnableMask = ((EnableMask >> 0) & 0x07) |
+				((EnableMask >> 3) & 0x07);	// reduce to just 3 channels
+	if (CmdReg == 0x07)
+	{
+		*ChnMask = EnableMask;
+		for (CurChn = 0; CurChn < 3; CurChn ++)
+		{
+			if (! ChpState->RegData.R08[0x08 + CurChn])	// volume 0?
+				*ChnMask &= ~(1 << CurChn);	// turn channel off
+		}
+	}
+	else if (CmdReg >= 0x08 && CmdReg <= 0x0A)
+	{
+		CurChn = CmdReg - 0x08;
+		if (ChpState->RegData.R08[CmdReg])	// volume > 0?
+			*ChnMask |= (1 << CurChn) & EnableMask;
+		else
+			*ChnMask &= ~(1 << CurChn);
+	}
 }
 
 void TrimVGMData(const INT32 StartSmpl, const INT32 LoopSmpl, const INT32 EndSmpl,
