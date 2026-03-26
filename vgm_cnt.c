@@ -31,7 +31,7 @@ static void DoChipCommand(UINT8 ChipSet, UINT8 ChipID, UINT16 Reg, UINT16 Data);
 static void DoKeyOnOff(CHIP_STATE* CState, UINT8 Chn, UINT8 OnOff, UINT8 VolFlag);
 
 
-#define CHIP_COUNT	0x2B
+#define CHIP_COUNT	0x30
 
 VGM_HEADER VGMHead;
 UINT32 VGMDataLen;
@@ -170,14 +170,15 @@ static void CountVGMData()
 		"RF5C164", "PWM", "AY8910", "GameBoy", "NES APU", "MultiPCM", "uPD7759", "OKIM6258",
 		"OKIM6295", "K051649", "K054539", "HuC6280", "C140", "K053260", "Pokey", "QSound",
 		"SCSP", "WSwan", "VSU", "SAA1099", "ES5503", "ES5506", "X1-010", "C352",
-		"GA20", "Mikey", "K007232"};
+		"GA20", "Mikey", "K007232", "K005289", "OKIM5205", "OKIM5232", "BSMT2000",
+		"ICS2115"};
 	const char* SPCCHIP_STRS[CHIP_COUNT] =
 	{	"", "", "", "", "", "", "", "",
 		"", "", "", "", "", "YMF278B FM", "", "",
 		"", "", "", "", "FDS", "", "", "",
 		"", "", "", "", "", "", "", "",
 		"", "", "", "", "", "", "", "",
-		"", "", ""};
+		"", "", "", "", "", "", "", ""};
 
 	UINT8 Command;
 	UINT8 TempByt;
@@ -299,6 +300,10 @@ static void CountVGMData()
 		case 0x2A:
 			TempLng = VGMHead.lngHzK007232;
 			break;
+		case 0x2B:
+			TempLng = VGMHead.lngHzK005289;
+			break;
+		// TODO: 0x2C OKIM5205 .. 0x2F ICS2115
 		default:
 			TempLng = 0x00;
 			break;
@@ -786,6 +791,13 @@ static void CountVGMData()
 				DoChipCommand(CurChip, 0x2A, VGMPnt[0x01] & 0x7F, VGMPnt[0x02]);
 				CmdLen = 0x03;
 				break;
+			case 0x42:	// K005289 write
+				CurChip = (VGMPnt[0x01] & 0x80) >> 7;
+				DoChipCommand(CurChip, 0x2B, (VGMPnt[0x01] & 0x70) >> 4,
+											((VGMPnt[0x01] & 0x0F) << 8) |
+											VGMPnt[0x02]);
+				CmdLen = 0x03;
+				break;
 			case 0x90:	// DAC Ctrl: Setup Chip
 				CmdLen = 0x05;
 				break;
@@ -1170,6 +1182,13 @@ static void DoChipCommand(UINT8 ChipSet, UINT8 ChipID, UINT16 Reg, UINT16 Data)
 		{
 			UINT8 ch = (Reg == 0x05) ? 0 : 1;
 			DoKeyOnOff(TempChp, ch, 1, 0x00);
+		}
+		break;
+	case 0x2B:	// K005289
+		if ((Reg >> 1) == 0x02)
+		{
+			for (CurChn = 0x00; CurChn < 0x02; CurChn ++)
+				DoKeyOnOff(TempChp, CurChn, ~Data & (1 << CurChn), 0x00);
 		}
 		break;
 	}

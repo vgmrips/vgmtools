@@ -80,6 +80,9 @@ typedef struct _vgm_file_header
 	UINT32 lngHzK007232;
 	UINT32 lngHzK005289;
 	UINT32 lngHzOKIM5205;
+	UINT32 lngHzOKIM5232;
+	UINT32 lngHzBSMT2000;
+	UINT32 lngHzICS2115;
 } VGM_HEADER;
 typedef struct _vgm_header_extra
 {

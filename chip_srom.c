@@ -355,6 +355,18 @@ typedef struct k007232_data
     UINT8* ROMUsage;
 } K007232_DATA;
 
+typedef struct k005289_channel
+{
+	UINT8 index;
+} K005289_CHANNEL;
+typedef struct k005289_data
+{
+	K005289_CHANNEL channel[2];
+	UINT32 RAMSize;
+	UINT8* RAMData;
+	UINT8* RAMUsage;
+} K005289_DATA;
+
 enum {
 	C352_FLG_BUSY       = 0x8000,   // channel is busy
 	C352_FLG_KEYON      = 0x4000,   // Keyon
@@ -525,6 +537,7 @@ typedef struct all_chips
 	C352_DATA C352;
 	GA20_DATA GA20;
 	K007232_DATA K007232;
+	K005289_DATA K005289;
 } ALL_CHIPS;
 
 void InitAllChips(void);
@@ -561,6 +574,7 @@ void es5503_write(UINT8 Register, UINT8 Data);
 void ymf278b_write(UINT8 Port, UINT8 Register, UINT8 Data);
 void es550x_w(UINT8 Offset, UINT8 Data);
 void es550x_w16(UINT8 Offset, UINT16 Data);
+void k005289_write(UINT8 offset, UINT16 data);
 void write_rom_data(UINT8 ROMType, UINT32 ROMSize, UINT32 DataStart, UINT32 DataLength,
 					const UINT8* ROMData);
 UINT32 GetROMMask(UINT8 ROMType, UINT8** MaskData);
@@ -1703,6 +1717,40 @@ void k007232_write(UINT8 offset, UINT8 data)
             break;
     }
     return;
+}
+
+void k005289_write(UINT8 offset, UINT16 data)
+{
+    K005289_DATA* chip = &ChDat->K005289;
+    int ch;
+    K005289_CHANNEL* v;
+	UINT32 start;
+	UINT32 addr;
+	UINT32 end;
+
+    ch = offset & 1;
+    v = &chip->channel[ch];
+
+	switch (offset)
+	{
+		case 0:
+		case 1:
+			v->index = (data >> 5) & 7;
+			if (chip->RAMData == NULL || chip->RAMUsage == NULL)
+				return;
+
+			// Mark RAM usage
+			start = (ch << 8) + v->index;
+			end = start + 0x20;
+
+			if (end > chip->RAMSize)
+				end = chip->RAMSize;
+
+			// Mark used bytes
+			for (addr = start; addr < end; addr++)
+				chip->RAMUsage[addr] |= 0x01;
+			break;
+	}
 }
 
 static UINT32 c140_sample_addr(C140_DATA* chip, UINT8 adr_msb, UINT8 adr_lsb,
@@ -3206,6 +3254,7 @@ void write_rom_data(UINT8 ROMType, UINT32 ROMSize, UINT32 DataStart, UINT32 Data
 	C352_DATA* c352;
 	GA20_DATA* ga20;
 	K007232_DATA* k007232;
+	K005289_DATA* k005289;
 
 	switch(ROMType)
 	{
@@ -3623,6 +3672,23 @@ void write_rom_data(UINT8 ROMType, UINT32 ROMSize, UINT32 DataStart, UINT32 Data
 		memcpy(nes_apu->ROMData + DataStart, ROMData, DataLength);
 		memset(nes_apu->ROMUsage + DataStart, 0x00, DataLength);
 		break;
+	case 0xC3: // K005289 PROM
+		k005289 = &ChDat->K005289;
+
+		ROMSize = 0x200;
+		if (k005289->RAMSize != ROMSize)
+		{
+			k005289->RAMData = (UINT8*)realloc(k005289->RAMData, ROMSize);
+			k005289->RAMUsage = (UINT8*)realloc(k005289->RAMUsage, ROMSize);
+			k005289->RAMSize = ROMSize;
+			memset(k005289->RAMData, 0xFF, ROMSize);
+			memset(k005289->RAMUsage, 0x02, ROMSize);
+		}
+
+		ROM_BORDER_CHECK
+		memcpy(k005289->RAMData + DataStart, ROMData, DataLength);
+		memset(k005289->RAMUsage + DataStart, 0x00, DataLength);
+		break;
 	case 0xE1:	// ES5503 RAM
 		es5503 = &ChDat->ES5503;
 
@@ -3669,6 +3735,7 @@ UINT32 GetROMMask(UINT8 ROMType, UINT8** MaskData)
 	C352_DATA* c352;
 	GA20_DATA* ga20;
 	K007232_DATA* k007232;
+	K005289_DATA* k005289;
 
 	switch(ROMType)
 	{
@@ -3793,6 +3860,11 @@ UINT32 GetROMMask(UINT8 ROMType, UINT8** MaskData)
 
 		*MaskData = nes_apu->ROMUsage;
 		return nes_apu->ROMSize;
+	case 0xC3:	// K005289 ROM
+		k005289 = &ChDat->K005289;
+
+		*MaskData = k005289->RAMUsage;
+		return k005289->RAMSize;
 	case 0xE1:	// ES5503 RAM
 		es5503 = &ChDat->ES5503;
 
@@ -3827,6 +3899,7 @@ UINT32 GetROMData(UINT8 ROMType, UINT8** ROMData)
 	C352_DATA* c352;
 	GA20_DATA* ga20;
 	K007232_DATA* k007232;
+	K005289_DATA* k005289;
 
 	switch(ROMType)
 	{
@@ -3950,6 +4023,11 @@ UINT32 GetROMData(UINT8 ROMType, UINT8** ROMData)
 
 		*ROMData = nes_apu->ROMData;
 		return nes_apu->ROMSize;
+	case 0xC3:	// K005289 RAM
+		k005289 = &ChDat->K005289;
+
+		*ROMData = k005289->RAMData;
+		return k005289->RAMSize;
 	case 0xE1:	// ES5503 RAM
 		es5503 = &ChDat->ES5503;
 

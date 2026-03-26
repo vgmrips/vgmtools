@@ -4236,3 +4236,35 @@ void k007232_write(char* TempStr, UINT8 offset, UINT8 data)
     // Final output string
     sprintf(TempStr, "K007232: %s", WriteStr);
 }
+
+void k005289_write(char* TempStr, UINT8 offset, UINT16 data)
+{
+	WriteChipID(0x2B);
+	
+	UINT8 ch = offset & 1; // Channel 0 or 1
+	switch (offset) {
+		// Control A (Channel 1)
+		case 0x00:
+		// Control B (Channel 2)
+		case 0x01:
+			sprintf(RedirectStr, "Volume: 0x%01X, Waveform index: 0x%01X", data & 0x0F, (data >> 5) & 0x07);
+			break;
+
+		// LD1/LD2 - Latch pitch
+		case 0x02:
+		case 0x03:
+			sprintf(RedirectStr, "Pitch: 0x%03X", (data & 0x0FFF));
+			break;
+
+		// TG1/TG2 - Trigger frequency update
+		case 0x04:
+		case 0x05:
+			sprintf(RedirectStr, "Frequency update trigger set 0x%04X", data);
+			break;
+    }
+
+	sprintf(WriteStr, "Ch%u: %s", ch, RedirectStr);
+
+    // Final output string
+    sprintf(TempStr, "K005289: %s", WriteStr);
+}

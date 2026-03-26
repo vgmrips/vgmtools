@@ -106,6 +106,12 @@ typedef struct c140_data
 	UINT8 RegFirst[0x200];
 } C140_DATA;
 
+typedef struct k005289_data
+{
+	UINT16 RegData[0x8];
+	UINT8 RegFirst[0x8];
+} K005289_DATA;
+
 typedef struct all_chips
 {
 	//UINT8 GGSt;
@@ -127,6 +133,7 @@ typedef struct all_chips
 	YMZ280B_DATA YMZ280B;
 	RF5C68_DATA RF5C164;
 	C140_DATA C140;
+	K005289_DATA K005289;
 } ALL_CHIPS;
 
 
@@ -689,6 +696,18 @@ bool c140_write(UINT8 Port, UINT8 Register, UINT8 Data)
 			return false;
 	}
 
+	return true;
+}
+
+bool k005289_write(UINT8 Register, UINT16 Data)
+{
+	STRIP_PSG* strip = &StpDat->K005289;
+
+	if (strip->All)
+		return false;
+	return true;
+	ChDat->K005289.RegFirst[Register] = 0x00;
+	ChDat->K005289.RegData[Register] = Data;
 	return true;
 }
 

@@ -131,9 +131,14 @@ typedef struct rewrite_chipset_new
 	CHIP_DATA GA20;
 	CHIP_DATA Mikey;
 	CHIP_DATA K007232;
+	CHIP_DATA K005289;
+	CHIP_DATA OKIM5205;
+	CHIP_DATA OKIM5232;
+	CHIP_DATA BSMT2000;
+	CHIP_DATA ICS2115;
 } REWRT_CHIPSET_NEW;
 
-#define CHIP_COUNT	0x2B
+#define CHIP_COUNT	0x30
 
 static const char* CHIP_STRS[CHIP_COUNT] =
 {	"SN76496", "YM2413", "YM2612", "YM2151", "SegaPCM", "RF5C68", "YM2203", "YM2608",
@@ -141,14 +146,15 @@ static const char* CHIP_STRS[CHIP_COUNT] =
 	"RF5C164", "PWM", "AY8910", "GameBoy", "NES APU", "MultiPCM", "uPD7759", "OKIM6258",
 	"OKIM6295", "K051649", "K054539", "HuC6280", "C140", "K053260", "Pokey", "QSound",
 	"SCSP", "WSwan", "VSU", "SAA1099", "ES5503", "ES5506", "X1-010", "C352",
-	"GA20", "Mikey", "K007232"};
+	"GA20", "Mikey", "K007232", "K005289", "OKIM5205", "OKIM5232", "BSMT2000",
+	"ICS2115"};
 static const char* CHIP_STRS2[CHIP_COUNT] =
 {	"", "", "", "", "", "", "YM2203 SSG", "YM2608 SSG",
 	"YM2610 SSG", "", "", "", "", "YMF278B/PCM", "", "",
 	"", "", "", "", "", "", "", "",
 	"", "", "", "", "", "", "", "",
 	"", "", "", "", "", "", "", "",
-	"", "", ""};
+	"", "", "", "", "", "", "", ""};
 
 static UINT8 OPN_PRESCALER_REG_LIST[0x04][2] =
 {
@@ -621,6 +627,14 @@ static void PrepareChipMemory(void)
 				TempRC->K007232.Chns.ChnCount = 0x02;
 			}
 		}
+		if (VGMHead.lngHzK005289)
+		{
+			if (! CurCSet || (VGMHead.lngHzK005289 & 0x40000000))
+			{
+				TempRC->K005289.Regs.RegCount = 0x06;
+				TempRC->K005289.Chns.ChnCount = 0x02;
+			}
+		}
 	}
 
 	return;
@@ -916,6 +930,8 @@ static void SetImportantCommands(void)
 			case 0x29:	// Mikey
 				break;
 			case 0x2A:	// K007232
+				break;
+			case 0x2B:	// K005289
 				break;
 			}
 		}
@@ -1755,6 +1771,22 @@ static void InitializeVGM(UINT8** DstDataRef, UINT32* DstPosRef)
 			case 0x2A:	// K007232
 				ChipCmd = 0x41;
 				CmdType = 0x12;
+				break;
+			case 0x2B:	// K005289
+				ChipCmd = 0x42;
+				for (CurReg = 0x00; CurReg < TempReg->RegCount; CurReg ++)
+				{
+					if ((TempReg->RegMask[CurReg] & 0x7F) == 0x01)
+					{
+						DstData[DstPos + 0x00] = ChipCmd;
+						DstData[DstPos + 0x01] = (CurReg << 4) | (TempReg->RegData.R16[CurReg] >> 8);
+						DstData[DstPos + 0x02] = TempReg->RegData.R16[CurReg] & 0xFF;
+						DstPos += 0x03;
+					}
+				}
+
+				CmdType = 0x00;
+				break;
 			default:
 				CmdType = 0xFF;
 				break;
@@ -2071,6 +2103,23 @@ static UINT32 ReadCommand(UINT8 Mask)
 					TempReg->RegData.R08[CmdReg] = VGMData[VGMPos + 0x02];
 			}
 		}
+		CmdLen = 0x03;
+		break;
+	case 0x42:	// K007232 write
+		TempChp = &RC[ChipID].K005289;
+		TempReg = &TempChp->Regs;
+		if (TempReg->RegCount)
+		{
+			CmdReg = (VGMData[VGMPos + 0x01] & 0x70) >> 4;
+			if (CmdReg < TempReg->RegCount)
+			{
+				TempReg->RegMask[CmdReg] |= Mask;
+				if (Mask == 0x01)
+					TempReg->RegData.R16[CmdReg] =	(VGMData[VGMPos + 0x01] << 8) |
+													(VGMData[VGMPos + 0x02] << 0);
+			}
+		}
+
 		CmdLen = 0x03;
 		break;
 	case 0x50:	// SN76496 write

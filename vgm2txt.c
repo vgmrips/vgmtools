@@ -460,6 +460,21 @@ static void WriteVGM2Txt(const char* FileName)
 	WriteClockText(TempStr, VGMHead.lngHzK007232, "K007232");
 	fprintf(hFile, "K007232 Clock:\t\t%s\n", TempStr);
 	
+	WriteClockText(TempStr, VGMHead.lngHzK005289, "K005289");
+	fprintf(hFile, "K005289 Clock:\t\t%s\n", TempStr);
+	
+	WriteClockText(TempStr, VGMHead.lngHzOKIM5205, "OKIM5205");
+	fprintf(hFile, "OKIM5205 Clock:\t\t%s\n", TempStr);
+	
+	WriteClockText(TempStr, VGMHead.lngHzOKIM5232, "OKIM5232");
+	fprintf(hFile, "OKIM5232 Clock:\t\t%s\n", TempStr);
+	
+	WriteClockText(TempStr, VGMHead.lngHzBSMT2000, "BSMT2000");
+	fprintf(hFile, "BSMT2000 Clock:\t\t%s\n", TempStr);
+	
+	WriteClockText(TempStr, VGMHead.lngHzICS2115, "ICS2115");
+	fprintf(hFile, "ICS2115 Clock:\t\t%s\n", TempStr);
+	
 	fprintf(hFile, "\n");
 	fprintf(hFile, "VGMData:\n");
 	VGMPos = VGMHead.lngDataOffset;
@@ -1018,6 +1033,12 @@ static void WriteVGMData2Txt(FILE* hFile)
 						case 0x94:	// K007232 ROM Image
 							strcpy(MinSecStr, "K007232 ROM");
 							break;
+						case 0x95:	// BSMT2000 ROM Image
+							strcpy(MinSecStr, "BSMT2000 ROM");
+							break;
+						case 0x96:	// ICS2115 ROM Image
+							strcpy(MinSecStr, "ICS2115 ROM");
+							break;
 						default:
 							strcpy(MinSecStr, "Unknown ROM Type");
 							break;
@@ -1045,6 +1066,9 @@ static void WriteVGMData2Txt(FILE* hFile)
 							break;
 						case 0xC2:	// NES APU DPCM Data
 							strcpy(MinSecStr, "NES APU RAM Data");
+							break;
+						case 0xC3:	// K005289 PROM Data
+							strcpy(MinSecStr, "K005289 PROM Data");
 							break;
 						case 0xE0:	// SCSP PCM Data
 							strcpy(MinSecStr, "SCSP RAM Data");
@@ -1243,7 +1267,8 @@ static void WriteVGMData2Txt(FILE* hFile)
 			case 0xB2:	// PWM register write
 				if (WriteEvents)
 				{
-					pwm_write(TempStr, (VGMPnt[0x01] & 0xF0) >> 4,
+					SetChip((VGMPnt[0x01] & 0x80) >> 7);
+					pwm_write(TempStr, (VGMPnt[0x01] & 0x70) >> 4,
 										(VGMPnt[0x01] & 0x0F) << 8 |
 										(VGMPnt[0x02] << 0));
 				}
@@ -1460,6 +1485,16 @@ static void WriteVGMData2Txt(FILE* hFile)
 				{
 					SetChip((VGMPnt[0x01] & 0x80) >> 7);
 					k007232_write(TempStr, VGMPnt[0x01] & 0x7F, VGMPnt[0x02]);
+				}
+				CmdLen = 0x03;
+				break;
+			case 0x42:	// K005289 write
+				if (WriteEvents)
+				{
+					SetChip((VGMPnt[0x01] & 0x80) >> 7);
+					k005289_write(TempStr, (VGMPnt[0x01] & 0x70) >> 4,
+										(VGMPnt[0x01] & 0x0F) << 8 |
+										(VGMPnt[0x02] << 0));
 				}
 				CmdLen = 0x03;
 				break;

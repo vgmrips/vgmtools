@@ -97,6 +97,7 @@ typedef struct strip_data
 	STRIP_OPL4WT C140;
 	STRIP_PCM K053260;
 	STRIP_PCM K007232;
+	STRIP_PSG K005289;
 	STRIP_PSG Pokey;
 	STRIP_OPX QSound;
 	bool Unknown;
@@ -124,3 +125,4 @@ bool ymz280b_write(UINT8 Register, UINT8 Data);
 bool rf5c164_reg_write(UINT8 Register, UINT8* Data);
 bool rf5c164_mem_write(UINT16 Offset, UINT8 Data);
 bool c140_write(UINT8 Port, UINT8 Register, UINT8 Data);
+bool k005289_write(UINT8 Register, UINT16 Data);
