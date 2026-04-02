@@ -512,6 +512,44 @@ typedef struct es5506_data
 	ES5506_VOICE voice[32];
 } ES5506_DATA;
 
+
+typedef struct ics2115_voice
+{
+	struct {
+		UINT32 acc, start, end; // address counters (20.9 fixed point)
+		UINT8 ctl, saddr;
+	} osc;
+
+	union {
+		struct {
+			UINT8 ulaw       : 1;   // compressed sample format
+			UINT8 stop       : 1;   // stops wave + vol envelope
+			UINT8 eightbit   : 1;   // 8 bit sample format
+			UINT8 loop       : 1;   // loop enable
+			UINT8 loop_bidir : 1;   // bi-directional loop enable
+			UINT8 irq        : 1;   // enable IRQ generation
+			UINT8 invert     : 1;   // invert direction
+			UINT8 irq_pending: 1;   // (read only?) IRQ pending
+			// IRQ on variable?
+		} bitflags;
+		UINT8 value;
+	} osc_conf;
+	struct {
+		bool on;
+	} state;
+} ICS2115_VOICE;
+typedef struct ics2115_data
+{
+	UINT32 ROMSize;
+	UINT8* ROMData;
+	UINT8* ROMUsage;
+	UINT8 regAddr; // Register address
+	UINT8 voiceSel; // Voice select
+	UINT8 voiceCount;
+	ICS2115_VOICE voice[32];
+} ICS2115_DATA;
+
+
 typedef struct all_chips
 {
 	SEGAPCM_DATA SegaPCM;
@@ -538,6 +576,7 @@ typedef struct all_chips
 	GA20_DATA GA20;
 	K007232_DATA K007232;
 	K005289_DATA K005289;
+	ICS2115_DATA ICS2115;
 } ALL_CHIPS;
 
 void InitAllChips(void);
@@ -574,7 +613,8 @@ void es5503_write(UINT8 Register, UINT8 Data);
 void ymf278b_write(UINT8 Port, UINT8 Register, UINT8 Data);
 void es550x_w(UINT8 Offset, UINT8 Data);
 void es550x_w16(UINT8 Offset, UINT16 Data);
-void k005289_write(UINT8 offset, UINT16 data);
+void k005289_write(UINT8 Offset, UINT16 data);
+void ics2115_write(UINT8 Offset, UINT8 data);
 void write_rom_data(UINT8 ROMType, UINT32 ROMSize, UINT32 DataStart, UINT32 DataLength,
 					const UINT8* ROMData);
 UINT32 GetROMMask(UINT8 ROMType, UINT8** MaskData);
@@ -632,6 +672,7 @@ void InitAllChips(void)
 		ChDat->K054539.flags = K054539_RESET_FLAGS;
 		ChDat->C140.banking_type = 0x00;
 		ChDat->ES5506.voiceCount = 32;
+		ChDat->ICS2115.voiceCount = 31;
 
 		for (CurChn = 0; CurChn < 28; CurChn ++)
 			ChDat->MultiPCM.slot[CurChn].SmplID = 0xFFFF;
@@ -1719,7 +1760,7 @@ void k007232_write(UINT8 offset, UINT8 data)
     return;
 }
 
-void k005289_write(UINT8 offset, UINT16 data)
+void k005289_write(UINT8 Offset, UINT16 data)
 {
     K005289_DATA* chip = &ChDat->K005289;
     int ch;
@@ -1728,10 +1769,10 @@ void k005289_write(UINT8 offset, UINT16 data)
 	UINT32 addr;
 	UINT32 end;
 
-    ch = offset & 1;
+    ch = Offset & 1;
     v = &chip->channel[ch];
 
-	switch (offset)
+	switch (Offset)
 	{
 		case 0:
 		case 1:
@@ -3223,6 +3264,164 @@ void es550x_w16(UINT8 Offset, UINT16 Data)
 	return;
 }
 
+
+
+static void ics2115_do_ctrl(ICS2115_DATA* chip, ICS2115_VOICE* voice)
+{
+	UINT32 baseOfs = (voice->osc.saddr & 0x0F) << 20;
+	UINT32 AddrSt;
+	UINT32 AddrEnd;
+	UINT32 CurAddr;
+
+	if ((chip->voiceSel & 0x1F) > chip->voiceCount)
+		return;
+	if (voice->osc_conf.bitflags.stop)
+		return;
+	if (voice->osc.start > voice->osc.end)
+		return;
+
+	CurAddr = voice->osc.acc >> 12;
+	AddrSt = voice->osc.start >> 12;
+	AddrEnd = voice->osc.end >> 12;
+	if (! (voice->osc_conf.bitflags.invert))
+	{
+		// playing forwards
+		if (CurAddr < AddrSt)
+			AddrSt = CurAddr;
+	}
+	else
+	{
+		// playing backwards
+		if (CurAddr > AddrEnd)
+			AddrEnd = CurAddr;
+	}
+	AddrEnd ++;	// turn <= into <
+
+	// Offsets are indices into 8-Bit data.
+	for (CurAddr = AddrSt; CurAddr < AddrEnd; CurAddr ++)
+		chip->ROMUsage[baseOfs + CurAddr] |= 0x01;
+
+	voice->state.on = false;
+
+	return;
+}
+
+#define ACCESSING_BITS_8_15 ((Mask & 0xFF00) != 0)
+#define ACCESSING_BITS_0_7 ((Mask & 0x00FF) != 0)
+
+static void ics2115_regs_w(ICS2115_DATA* chip, UINT8 Offset, UINT16 Data, UINT16 Mask)
+{
+	ICS2115_VOICE* voice = &chip->voice[chip->voiceSel & 0x1F];
+	if (Offset == 0x4F)	// voice select
+	{
+		if (ACCESSING_BITS_0_7)
+			chip->voiceSel = (Data & 0xff) % (1 + chip->voiceCount);
+		return;
+	}
+	// per-voice register
+	switch(Offset)
+	{
+	case 0x00: // [osc] Oscillator Configuration
+		if (ACCESSING_BITS_8_15)
+		{
+			voice->osc_conf.value &= 0x80;
+			voice->osc_conf.value |= (Data >> 8) & 0x7f;
+			if (voice->state.on && (!voice->osc_conf.bitflags.stop))
+				ics2115_do_ctrl(chip, voice);
+		}
+		break;
+	case 0x02: // [osc] Wavesample loop start high
+		if (ACCESSING_BITS_8_15)
+			voice->osc.start = (voice->osc.start & 0x00ffffff) | ((Data & 0xff00) << 16);
+		if (ACCESSING_BITS_0_7)
+			voice->osc.start = (voice->osc.start & 0xff00ffff) | ((Data & 0x00ff) << 16);
+		break;
+
+	case 0x03: // [osc] Wavesample loop start low
+		if (ACCESSING_BITS_8_15)
+			voice->osc.start = (voice->osc.start & 0xffff00ff) | (Data & 0xff00);
+		// This is unused?
+		//if (ACCESSING_BITS_0_7)
+			//voice->osc.start = (voice->osc.start & 0xffffff00) | (Data & 0);
+		break;
+
+	case 0x04: // [osc] Wavesample loop end high
+		if (ACCESSING_BITS_8_15)
+			voice->osc.end = (voice->osc.end & 0x00ffffff) | ((Data & 0xff00) << 16);
+		if (ACCESSING_BITS_0_7)
+			voice->osc.end = (voice->osc.end & 0xff00ffff) | ((Data & 0x00ff) << 16);
+		break;
+
+	case 0x05: // [osc] Wavesample loop end low
+		if (ACCESSING_BITS_8_15)
+			voice->osc.end = (voice->osc.end & 0xffff00ff) | (Data & 0xff00);
+		// lsb is unused?
+		break;
+
+	case 0x0a: // [osc] Wavesample address high
+		if (ACCESSING_BITS_8_15)
+			voice->osc.acc = (voice->osc.acc & 0x00ffffff) | ((Data & 0xff00) << 16);
+		if (ACCESSING_BITS_0_7)
+			voice->osc.acc = (voice->osc.acc & 0xff00ffff) | ((Data & 0x00ff) << 16);
+		break;
+
+	case 0x0b: // [osc] Wavesample address low
+		if (ACCESSING_BITS_8_15)
+			voice->osc.acc = (voice->osc.acc & 0xffff00ff) | (Data & 0xff00);
+		if (ACCESSING_BITS_0_7)
+			voice->osc.acc = (voice->osc.acc & 0xffffff00) | (Data & 0x00f8);
+		break;
+
+	case 0x0e: // Active Voices
+		//Does this value get added to 1? Not sure. Could trace for writes of 32.
+		if (ACCESSING_BITS_8_15)
+			chip->voiceCount = (Data >> 8) & 0x1f; // & 0x1f ? (Guessing)
+		break;
+	//2X8 ?
+	case 0x10: // [osc] Oscillator Control
+		//Could this be 2X9?
+		//[7 R | 6 M2 | 5 M1 | 4-2 Reserve | 1 - Timer 2 Strt | 0 - Timer 1 Strt]
+
+		if (ACCESSING_BITS_8_15)
+		{
+			Data >>= 8;
+			voice->osc.ctl = (UINT8)Data;
+			voice->state.on = !voice->osc.ctl; // some early PGM games need this
+			if (!Data)
+				ics2115_do_ctrl(chip, voice);
+		}
+		break;
+
+	case 0x11: // [osc] Wavesample static address 27-20
+		if (ACCESSING_BITS_8_15)
+			voice->osc.saddr = (Data >> 8);
+		break;
+	default:
+		break;
+	}
+
+	return;
+}
+
+void ics2115_write(UINT8 Offset, UINT8 Data)
+{
+	ICS2115_DATA* chip = &ChDat->ICS2115;
+
+	switch (Offset & 0x03)
+	{
+	case 0x01:
+		chip->regAddr = Data;
+		break;
+	case 0x02: // Register data LSB
+		ics2115_regs_w(chip, chip->regAddr, Data, 0x00FF);
+		break;
+	case 0x03: // Register data MSB
+		ics2115_regs_w(chip, chip->regAddr, Data << 8, 0xFF00);
+		break;
+	}
+	return;
+}
+
 #define ROM_BORDER_CHECK					\
 	if (DataStart > ROMSize)				\
 		return;								\
@@ -3255,6 +3454,7 @@ void write_rom_data(UINT8 ROMType, UINT32 ROMSize, UINT32 DataStart, UINT32 Data
 	GA20_DATA* ga20;
 	K007232_DATA* k007232;
 	K005289_DATA* k005289;
+	ICS2115_DATA* ics2115;
 
 	switch(ROMType)
 	{
@@ -3636,6 +3836,22 @@ void write_rom_data(UINT8 ROMType, UINT32 ROMSize, UINT32 DataStart, UINT32 Data
 		memcpy(k007232->ROMData + DataStart, ROMData, DataLength);
 		memset(k007232->ROMUsage + DataStart, 0x00, DataLength);
 		break;
+	case 0x96:	// ICS2115 ROM
+		ics2115 = &ChDat->ICS2115;
+
+		if (ics2115->ROMSize != ROMSize)
+		{
+			ics2115->ROMData = (UINT8*)realloc(ics2115->ROMData, ROMSize);
+			ics2115->ROMUsage = (UINT8*)realloc(ics2115->ROMUsage, ROMSize);
+			ics2115->ROMSize = ROMSize;
+			memset(ics2115->ROMData, 0xFF, ROMSize);
+			memset(ics2115->ROMUsage, 0x02, ROMSize);
+		}
+
+		ROM_BORDER_CHECK
+		memcpy(ics2115->ROMData + DataStart, ROMData, DataLength);
+		memset(ics2115->ROMUsage + DataStart, 0x00, DataLength);
+		break;
 	case 0xC0:	// RF5C68 RAM
 	case 0xC1:	// RF5C164 RAM
 		rf5c = (ROMType == 0xC0) ? &ChDat->RF5C68 : &ChDat->RF5C164;
@@ -3736,6 +3952,7 @@ UINT32 GetROMMask(UINT8 ROMType, UINT8** MaskData)
 	GA20_DATA* ga20;
 	K007232_DATA* k007232;
 	K005289_DATA* k005289;
+	ICS2115_DATA* ics2115;
 
 	switch(ROMType)
 	{
@@ -3845,6 +4062,11 @@ UINT32 GetROMMask(UINT8 ROMType, UINT8** MaskData)
 
 		*MaskData = k007232->ROMUsage;
 		return k007232->ROMSize;
+	case 0x96:	// ICS2115 ROM
+		ics2115 = &ChDat->ICS2115;
+
+		*MaskData = ics2115->ROMUsage;
+		return ics2115->ROMSize;
 	case 0xC0:	// RF5C68 RAM
 		rf5c = &ChDat->RF5C68;
 
@@ -3900,6 +4122,7 @@ UINT32 GetROMData(UINT8 ROMType, UINT8** ROMData)
 	GA20_DATA* ga20;
 	K007232_DATA* k007232;
 	K005289_DATA* k005289;
+	ICS2115_DATA* ics2115;
 
 	switch(ROMType)
 	{
@@ -4003,11 +4226,16 @@ UINT32 GetROMData(UINT8 ROMType, UINT8** ROMData)
 
 		*ROMData = ga20->ROMData;
 		return ga20->ROMSize;
-	case 0x94:	// GA20 ROM
+	case 0x94:	// K007232 ROM
 		k007232 = &ChDat->K007232;
 
 		*ROMData = k007232->ROMData;
 		return k007232->ROMSize;
+	case 0x96:	// ICS2115 ROM
+		ics2115 = &ChDat->ICS2115;
+
+		*ROMData = ics2115->ROMData;
+		return ics2115->ROMSize;
 	case 0xC0:	// RF5C68 RAM
 		rf5c = &ChDat->RF5C68;
 

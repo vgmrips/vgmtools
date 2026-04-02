@@ -336,6 +336,9 @@ static void ReadVGMData(void)
 			case 0x42: // K005289 write
 				CmdLen = 0x03;
 				break;
+			case 0x44: // ICS2115 write
+				CmdLen = 0x03;
+				break;
 			default:
 				switch(Command & 0xF0)
 				{
@@ -566,6 +569,9 @@ static void ReadVGMData(void)
 				CmdLen = 0x03;
 				break;
 			case 0x42: // K005289 write
+				CmdLen = 0x03;
+				break;
+			case 0x44: // ICS2115 write
 				CmdLen = 0x03;
 				break;
 			default:

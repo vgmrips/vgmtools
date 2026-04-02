@@ -53,6 +53,8 @@ typedef struct chip_count
 	UINT32 GA20;
 	UINT32 Mikey;
 	UINT32 K007232;
+	UINT32 K005289;
+	UINT32 ICS2115;
 } CHIP_CNT;
 
 
@@ -245,6 +247,11 @@ typedef struct wswan_chip
 {
 	bool pcmEnable;
 } WSWAN_DATA;
+typedef struct ics2115_chip
+{
+	UINT8 Addr;	// Register address
+	UINT8 Ch; // Channel index
+} ICS2115_DATA;
 
 
 static void opn_write(char* TempStr, UINT8 Mode, UINT8 Port, UINT8 Register,
@@ -273,6 +280,7 @@ static MULTIPCM_DATA CacheMultiPCM[0x02];
 static UPD7759_DATA CacheUPD7759[0x02];
 static ES5506_DATA CacheES5506[0x02];
 static WSWAN_DATA CacheWSwan[0x02];
+static ICS2115_DATA CacheICS2115[0x02];
 
 void InitChips(UINT32 ChipCntSize, UINT32* ChipCounts)
 {
@@ -285,8 +293,13 @@ void InitChips(UINT32 ChipCntSize, UINT32* ChipCounts)
 	memset(CacheUPD7759, 0x00, sizeof(UPD7759_DATA) * 0x02);
 	memset(CacheES5506, 0x00, sizeof(ES5506_DATA) * 0x02);
 	memset(CacheWSwan, 0x00, sizeof(WSWAN_DATA) * 0x02);
+	memset(CacheICS2115, 0x00, sizeof(ICS2115_DATA) * 0x02);
 	CacheOKI6295[0].Command = 0xFF;
 	CacheOKI6295[1].Command = 0xFF;
+	CacheICS2115[0].Addr = 0;
+	CacheICS2115[0].Ch = 0;
+	CacheICS2115[1].Addr = 0;
+	CacheICS2115[1].Ch = 0;
 	ChpCur = 0x00;
 	ChipStr = RedirectStr + 0xF0;
 
@@ -517,6 +530,14 @@ INLINE UINT32 GetChipName(UINT8 ChipType, const char** RetName)
 	case 0x2A:
 		ChipName = "K007232";
 		ChipCnt = ChpCnt.K007232;
+		break;
+	case 0x2B:
+		ChipName = "K005289";
+		ChipCnt = ChpCnt.K005289;
+		break;
+	case 0x2F:
+		ChipName = "ICS2115";
+		ChipCnt = ChpCnt.ICS2115;
 		break;
 	default:
 		ChipName = "Unknown";
@@ -3756,7 +3777,7 @@ void x1_010_write(char* TempStr, UINT16 Offset, UINT8 val)
 			sprintf(WriteStr, "Waveform %u, position %02x: %02X", chan, pos, val);
 		}
 		else
-			sprintf(WriteStr, "Offset 0x%04X, Data 0x%2X", Offset, val);
+			sprintf(WriteStr, "Offset 0x%04X, Data 0x%02X", Offset, val);
 
 
 	}
@@ -4225,7 +4246,7 @@ void k007232_write(char* TempStr, UINT8 offset, UINT8 data)
             sprintf(WriteStr, "Bankswitch (Ch1): 0x%02X", data);
             break;
 		case 0x1F: // Special command for k007232 read
-			sprintf(WriteStr, "Read register 0x%2X", data);
+			sprintf(WriteStr, "Read register 0x%02X", data);
 			break;
         default:
             sprintf(WriteStr, "Unknown Register 0x%02X: data 0x%02X", offset, data);
@@ -4242,7 +4263,8 @@ void k005289_write(char* TempStr, UINT8 offset, UINT16 data)
 	WriteChipID(0x2B);
 	
 	UINT8 ch = offset & 1; // Channel 0 or 1
-	switch (offset) {
+	switch (offset)
+	{
 		// Control A (Channel 1)
 		case 0x00:
 		// Control B (Channel 2)
@@ -4267,4 +4289,120 @@ void k005289_write(char* TempStr, UINT8 offset, UINT16 data)
 
     // Final output string
     sprintf(TempStr, "K005289: %s", WriteStr);
+}
+
+
+INLINE const char* ics2115_reg_str(UINT32 Value)
+{
+	switch (Value)
+	{
+		case 0x00:
+			return "Oscillator config";
+		case 0x01:
+			return "Sample frequency";
+		case 0x02:
+			return "Loop start high";
+		case 0x03:
+			return "Loop start low";
+		case 0x04:
+			return "Loop end high";
+		case 0x05:
+			return "Loop end low";
+		case 0x06:
+			return "Volume increment";
+		case 0x07:
+			return "Volume start";
+		case 0x08:
+			return "Volume end";
+		case 0x09:
+			return "Volume accumulator";
+		case 0x0a:
+			return "Sample address high";
+		case 0x0b:
+			return "Sample address low";
+		case 0x0c:
+			return "Pan";
+		case 0x0d:
+			return "Volume envelope control";
+		case 0x0e:
+			return "Active voices";
+		case 0x0f:
+			return "Interrupt source/oscillator";
+		case 0x10:
+			return "Oscillator control";
+		case 0x11:
+			return "Sample bank";
+		case 0x40:
+			return "Timer 1 preset";
+		case 0x41:
+			return "Timer 2 preset";
+		case 0x42:
+			return "Timer 1 prescale";
+		case 0x43:
+			return "Timer 2 prescale/Timer status";
+		case 0x44:
+			return "DMA start address bit 4-11";
+		case 0x45:
+			return "DMA start address bit 12-19";
+		case 0x46:
+			return "DMA start address bit 20-21";
+		case 0x47:
+			return "DMA control";
+		case 0x48:
+			return "Accumulator monitor status";
+		case 0x49:
+			return "Accumulator monitor data";
+		case 0x4a:
+			return "IRQ enable/pending";
+		case 0x4b:
+			return "Address of interrupting voice";
+		case 0x4c:
+			return "Memory config/Revision";
+		case 0x4d:
+			return "System control";
+		case 0x4f:
+			return "Voice select";
+		case 0x50:
+			return "MIDI data";
+		case 0x51:
+			return "MIDI control/status";
+		case 0x52:
+			return "Host data";
+		case 0x53:
+			return "Host control/status";
+		case 0x54:
+			return "MIDI emulation interrupt control";
+		case 0x55:
+			return "Host emulation interrupt control";
+		case 0x56:
+			return "MIDI/Host emulation interrupt status";
+		case 0x57:
+			return "Emulation mode";
+		default:
+			return "Unknown";
+	}
+}
+
+void ics2115_write(char* TempStr, UINT8 offset, UINT8 data)
+{
+	ICS2115_DATA* TempICS;
+	WriteChipID(0x2F);
+
+	TempICS = &CacheICS2115[ChpCur];
+	switch (offset & 3)
+	{
+		case 0x01:
+			TempICS->Addr = data;
+			sprintf(WriteStr, "Write address 0x%02X (%s)", data, ics2115_reg_str(data));
+			break;
+		case 0x02:
+			sprintf(WriteStr, "Write register LSB 0x%02X", data);
+			break;
+		case 0x03:
+			sprintf(WriteStr, "Write register MSB 0x%02X", data);
+			break;
+    }
+
+    // Final output string
+    sprintf(TempStr, "ICS2115: %s", WriteStr);
 }

@@ -100,6 +100,7 @@ typedef struct strip_data
 	STRIP_PSG K005289;
 	STRIP_PSG Pokey;
 	STRIP_OPX QSound;
+	STRIP_PCM ICS2115;
 	bool Unknown;
 } STRIP_DATA;
 
@@ -126,3 +127,4 @@ bool rf5c164_reg_write(UINT8 Register, UINT8* Data);
 bool rf5c164_mem_write(UINT16 Offset, UINT8 Data);
 bool c140_write(UINT8 Port, UINT8 Register, UINT8 Data);
 bool k005289_write(UINT8 Register, UINT16 Data);
+bool ics2115_write(UINT8 Register, UINT8 Data);

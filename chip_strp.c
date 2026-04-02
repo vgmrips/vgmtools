@@ -112,6 +112,15 @@ typedef struct k005289_data
 	UINT8 RegFirst[0x8];
 } K005289_DATA;
 
+typedef struct ics2115_data
+{
+	UINT8 ChnSel;
+	UINT8 ChnCnt;
+	UINT8 RegSel;
+	UINT16 RegData[0x80 * 0x20];
+	UINT8 RegFirst[0x80 * 0x20];
+} ICS2115_DATA;
+
 typedef struct all_chips
 {
 	//UINT8 GGSt;
@@ -134,6 +143,7 @@ typedef struct all_chips
 	RF5C68_DATA RF5C164;
 	C140_DATA C140;
 	K005289_DATA K005289;
+	ICS2115_DATA ICS2115;
 } ALL_CHIPS;
 
 
@@ -711,3 +721,43 @@ bool k005289_write(UINT8 Register, UINT16 Data)
 	return true;
 }
 
+bool ics2115_write(UINT8 Register, UINT8 Data)
+{
+	STRIP_PCM* strip = &StpDat->ICS2115;
+	UINT16 RegVal;
+
+	if (strip->All)
+		return false;
+
+	switch (Register)
+	{
+		case 0x01:
+			ChDat->ICS2115.RegSel = Data;
+			break;
+		case 0x02:
+			switch (ChDat->ICS2115.RegSel)
+			{
+				case 0x4F:
+					ChDat->ICS2115.ChnSel = (Data & 0xFF) % (ChDat->ICS2115.ChnCnt + 1);
+					break;
+			}
+			RegVal = ChDat->ICS2115.RegSel;
+			if ((ChDat->ICS2115.RegSel <= 0x12) && (ChDat->ICS2115.RegSel != 0x0E))
+				RegVal |= (ChDat->ICS2115.ChnSel << 7);
+			ChDat->ICS2115.RegData[RegVal] = (ChDat->ICS2115.RegData[RegVal] & 0xFF00) | Data;
+			break;
+		case 0x03:
+			switch (ChDat->ICS2115.RegSel)
+			{
+				case 0x0E:
+					ChDat->ICS2115.ChnCnt = Data & 0x1F;
+					break;
+			}
+			RegVal = ChDat->ICS2115.RegSel;
+			if ((ChDat->ICS2115.RegSel <= 0x12) && (ChDat->ICS2115.RegSel != 0x0E))
+				RegVal |= (ChDat->ICS2115.ChnSel << 7);
+			ChDat->ICS2115.RegData[RegVal] = (ChDat->ICS2115.RegData[RegVal] & 0x00FF) | (((UINT16)Data) << 8);
+			break;
+	}
+	return true;
+}

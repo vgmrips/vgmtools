@@ -277,6 +277,14 @@ typedef struct k007232_data
 	UINT8 RegData[0x20];
 	UINT8 RegFirst[0x20];
 } K007232_DATA;
+typedef struct ics2115_data
+{
+	UINT8 RegAddr;
+	UINT8 RegAddrFirst;
+	UINT8 RegCh;
+	UINT16 RegData[0x80 * 0x20];
+	UINT16 RegFirst[0x80 * 0x20];
+} ICS2115_DATA;
 
 typedef struct all_chips
 {
@@ -319,6 +327,7 @@ typedef struct all_chips
 	VSU_DATA VSU;
 	K005289_DATA K005289;
 	K007232_DATA K007232;
+	ICS2115_DATA ICS2115;
 } ALL_CHIPS;
 
 
@@ -370,6 +379,7 @@ bool vsu_write(UINT16 Register, UINT8 Data);
 bool wswan_write(UINT8 Register, UINT8 Data);
 bool k005289_write(UINT8 Register, UINT16 Data);
 bool k007232_write(UINT8 Register, UINT8 Data);
+bool ics2115_write(UINT8 Register, UINT8 Data);
 
 // Function Prototypes from vgm_cmp.c
 bool GetNextChipCommand(void);
@@ -2865,6 +2875,132 @@ bool k007232_write(UINT8 Register, UINT8 Data)
 
 	chip->RegFirst[Register] = JustTimerCmds;
 	chip->RegData[Register] = Data;
+
+	return true;
+}
+
+bool ics2115_write(UINT8 Register, UINT8 Data)
+{
+	ICS2115_DATA* chip = &ChDat->ICS2115;
+	UINT8 RegShift, RegBits;
+	UINT16 RegInd;
+
+	if (Register >= 0x04 || Register == 0x00)
+		return false;
+
+	// Register index
+	if (Register == 0x01)
+	{
+		if (Data == 0x0F)
+			return false;
+
+		if (Data >= 0x13 && Data <= 0x4E)
+			return false;
+
+		if (Data >= 0x50)
+			return false;
+
+		if (! chip->RegAddrFirst && Data == chip->RegAddr)
+			return false;
+
+		chip->RegAddrFirst = JustTimerCmds;
+		chip->RegAddr = Data;
+
+		return true;
+	}
+	RegBits = Register & 1;
+	switch (chip->RegAddr)
+	{
+		case 0x00: // [osc] Oscillator Configuration
+			if (!RegBits) // ignore LSB
+				return false;
+			return true; // written dynamically by chip
+
+		case 0x01: // [osc] Wavesample frequency
+			// freq = fc*33075/1024 in 32 voices mode, fc*44100/1024 in 24 voices mode
+			if (!RegBits) // ignore lowest bit
+				Data &= 0xFE;
+			break;
+
+		case 0x02: // [osc] Wavesample loop start high
+		case 0x03: // [osc] Wavesample loop start low
+			break;
+
+		case 0x04: // [osc] Wavesample loop end high
+		case 0x05: // [osc] Wavesample loop end low
+			break;
+
+		case 0x06: // [osc] Volume Increment
+			if (!RegBits) // ignore LSB
+				return false;
+			break;
+		case 0x07: // [osc] Volume Start
+		case 0x08: // [osc] Volume End
+			if (RegBits) // ignore MSB
+				return false;
+			break;
+
+		case 0x09: // [osc] Volume accumulator
+			return true; // written dynamically by chip
+
+		case 0x0a: // [osc] Wavesample address high
+		case 0x0b: // [osc] Wavesample address low
+			return true; // written dynamically by chip
+
+		case 0x0c: // [osc] Pan
+			if (!RegBits) // ignore LSB
+				return false;
+			break;
+
+		case 0x0d: // [osc] Volume Envelope Control
+			if (!RegBits) // ignore LSB
+				return false;
+			return true; // written dynamically by chip
+
+		case 0x0e: // Active Voices
+			if (!RegBits) // ignore LSB
+				return false;
+			Data &= 0x1F;
+			break;
+		//2X8 ?
+		case 0x10: // [osc] Oscillator Control
+			if (!RegBits) // ignore LSB
+				return false;
+			break;
+
+		case 0x11: // [osc] Wavesample static address 27-20
+			if (!RegBits) // ignore LSB
+				return false;
+			break;
+		case 0x12:
+			//Could be per voice! -- investigate.
+			if (!RegBits) // ignore LSB
+				return false;
+			break;
+
+		case 0x4f: // Oscillator Address being Programmed
+			if (RegBits) // ignore MSB
+				return false;
+			chip->RegCh = Data & 0x1f;
+			break;
+
+		default:
+			return false;
+	}
+
+	RegShift = RegBits << 3;
+	RegInd = chip->RegAddr;
+	// per-channel register
+	if ((chip->RegAddr <= 0x12) && (chip->RegAddr != 0x0E))
+		RegInd |= (((UINT16)chip->RegCh) << 7);
+	if (! chip->RegFirst[RegInd] &&
+		Data == ((chip->RegData[RegInd] >> RegShift) & 0xff))
+		return false;
+
+	chip->RegFirst[RegInd] = JustTimerCmds;
+	chip->RegData[RegInd] =
+			(chip->RegData[RegInd] & ~(0xff << RegShift)) |
+			(((UINT16)Data) << RegShift);
 
 	return true;
 }

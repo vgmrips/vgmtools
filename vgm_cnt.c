@@ -17,6 +17,8 @@ typedef struct chip_count_state
 {
 	bool Used;
 	UINT8 ChnReg;
+	UINT8 ChnCnt;
+	UINT8 RegSel;
 	UINT32 CmdCount;
 	INT32 KeyOnCnt;
 	UINT32 KeyState;
@@ -196,6 +198,12 @@ static void CountVGMData()
 	memset(ChipState, 0x00, sizeof(ChipState));
 	ChipState[0x00][0][0x18].ChnReg = 0xFF;
 	ChipState[0x01][0][0x18].ChnReg = 0xFF;
+	ChipState[0x00][0][0x2F].RegSel = 0;
+	ChipState[0x00][0][0x2F].ChnReg = 0;
+	ChipState[0x00][0][0x2F].ChnCnt = 0x1F;
+	ChipState[0x01][0][0x2F].RegSel = 0;
+	ChipState[0x01][0][0x2F].ChnReg = 0;
+	ChipState[0x01][0][0x2F].ChnCnt = 0x1F;
 	for (CurChip = 0x00; CurChip < CHIP_COUNT; CurChip ++)
 	{
 		switch(CurChip)
@@ -303,7 +311,10 @@ static void CountVGMData()
 		case 0x2B:
 			TempLng = VGMHead.lngHzK005289;
 			break;
-		// TODO: 0x2C OKIM5205 .. 0x2F ICS2115
+		// TODO: 0x2C OKIM5205 .. 0x2E BSMT2000
+		case 0x2F:
+			TempLng = VGMHead.lngHzICS2115;
+			break;
 		default:
 			TempLng = 0x00;
 			break;
@@ -581,6 +592,9 @@ static void CountVGMData()
 					case 0x94:	// K007232 ROM Image
 						DoChipCommand(CurChip, 0x2A, 0xFFFF, TempByt);
 						break;
+					case 0x96:	// ICS2115 ROM Image
+						DoChipCommand(CurChip, 0x2F, 0xFFFF, TempByt);
+						break;
 					default:
 						break;
 					}
@@ -796,6 +810,11 @@ static void CountVGMData()
 				DoChipCommand(CurChip, 0x2B, (VGMPnt[0x01] & 0x70) >> 4,
 											((VGMPnt[0x01] & 0x0F) << 8) |
 											VGMPnt[0x02]);
+				CmdLen = 0x03;
+				break;
+			case 0x44:	// ICS2115 write
+				CurChip = (VGMPnt[0x01] & 0x80) >> 7;
+				DoChipCommand(CurChip, 0x2F, VGMPnt[0x01] & 0x7F, VGMPnt[0x02]);
 				CmdLen = 0x03;
 				break;
 			case 0x90:	// DAC Ctrl: Setup Chip
@@ -1185,10 +1204,39 @@ static void DoChipCommand(UINT8 ChipSet, UINT8 ChipID, UINT16 Reg, UINT16 Data)
 		}
 		break;
 	case 0x2B:	// K005289
-		if ((Reg >> 1) == 0x02)
+		if ((Reg & 0x06) == 0x04)
 		{
-			for (CurChn = 0x00; CurChn < 0x02; CurChn ++)
-				DoKeyOnOff(TempChp, CurChn, ~Data & (1 << CurChn), 0x00);
+			UINT8 ch = Reg & 0x01;
+			DoKeyOnOff(TempChp, ch, 1, 0x00);
+		}
+		break;
+	// TODO: 0x2C OKIM5205 .. 0x2E BSMT2000
+	case 0x2F:	// ICS2115
+		switch (Reg & 0x03)
+		{
+		case 0x01:
+			TempChp->RegSel = Data;
+		case 0x02:
+			switch (TempChp->RegSel)
+			{
+			case 0x4F:
+				TempChp->ChnReg = (Data & 0xFF) % (TempChp->ChnCnt + 1);
+				break;
+			}
+		case 0x03:
+			switch (TempChp->RegSel)
+			{
+			case 0x0E:
+				TempChp->ChnCnt = Data & 0x1F;
+				break;
+			case 0x10:
+				if (TempChp->ChnReg <= TempChp->ChnCnt)
+				{
+					if (!Data)
+						DoKeyOnOff(TempChp, TempChp->ChnReg, 1, 0x00);
+				}
+				break;
+			}
 		}
 		break;
 	}

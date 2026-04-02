@@ -63,6 +63,7 @@ bool vsu_write(UINT16 Register, UINT8 Data);
 bool wswan_write(UINT8 Register, UINT8 Data);
 bool k005289_write(UINT8 Register, UINT16 Data);
 bool k007232_write(UINT8 Register, UINT8 Data);
+bool ics2115_write(UINT8 Register, UINT8 Data);
 
 VGM_HEADER VGMHead;
 UINT32 VGMDataLen;
@@ -589,6 +590,11 @@ static void CompressVGMData(void)
 				WriteEvent = k005289_write((VGMPnt[0x01] & 0x70) >> 4,
 										(VGMPnt[0x01] & 0x0F) << 8 |
 										(VGMPnt[0x02] << 0));
+				CmdLen = 0x03;
+				break;
+			case 0x44:	// ICS2115 write
+				SetChipSet((VGMPnt[0x01] & 0x80) >> 7);
+				WriteEvent = ics2115_write(VGMPnt[0x01] & 0x7F, VGMPnt[0x02]);
 				CmdLen = 0x03;
 				break;
 			case 0x4F:	// GG Stereo

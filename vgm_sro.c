@@ -49,6 +49,7 @@ void es550x_w(UINT8 Offset, UINT8 Data);
 void es550x_w16(UINT8 Offset, UINT16 Data);
 void k007232_write(UINT8 offset, UINT8 data);
 void k005289_write(UINT8 offset, UINT16 data);
+void ics2115_write(UINT8 offset, UINT8 data);
 void write_rom_data(UINT8 ROMType, UINT32 ROMSize, UINT32 DataStart, UINT32 DataLength,
 					const UINT8* ROMData);
 UINT32 GetROMMask(UINT8 ROMType, UINT8** MaskData);
@@ -68,11 +69,11 @@ typedef struct rom_region_list
 } ROM_RGN_LIST;
 
 
-#define ROM_TYPES	0x1A
+#define ROM_TYPES	0x1B
 const UINT8 ROM_LIST[ROM_TYPES] =
 {	0x80, 0x81, 0x82, 0x83, 0x84, 0x85, 0x86, 0x87,
 	0x88, 0x89, 0x8A, 0x8B, 0x8C, 0x8D, 0x8E, 0x8F,
-	0x90, 0x91, 0x92, 0x93, 0x94, 
+	0x90, 0x91, 0x92, 0x93, 0x94, 0x96, 
 	0xC0, 0xC1, 0xC2, 0xC3, 0xE1};
 
 
@@ -151,7 +152,8 @@ int main(int argc, char* argv[])
 		! VGMHead.lngHzQSound && ! VGMHead.lngHzUPD7759 && ! VGMHead.lngHzMultiPCM &&
 		! VGMHead.lngHzNESAPU && ! VGMHead.lngHzES5503 && ! VGMHead.lngHzES5506 &&
 		! VGMHead.lngHzGA20 && ! VGMHead.lngHzX1_010 && ! VGMHead.lngHzC352 &&
-		! VGMHead.lngHzYMF278B && ! VGMHead.lngHzK007232 && ! VGMHead.lngHzK005289)
+		! VGMHead.lngHzYMF278B && ! VGMHead.lngHzK007232 && ! VGMHead.lngHzK005289 &&
+		! VGMHead.lngHzICS2115)
 	{
 		printf("No chips with Sample-ROM used!\n");
 		ErrVal = 2;
@@ -494,6 +496,10 @@ static void FindUsedROMData(void)
 								((VGMPnt[0x01] & 0x0F) << 8) |
 								VGMPnt[0x02]);
 				CmdLen = 0x03;
+			case 0x44:	// ICS2115 write
+				SetChipSet((VGMPnt[0x01] & 0x80) >> 7);
+				ics2115_write(VGMPnt[0x01] & 0x7F, VGMPnt[0x02]);
+				CmdLen = 0x03;
 				break;
 			case 0x4F:	// GG Stereo
 				CmdLen = 0x02;
@@ -772,6 +778,9 @@ char* GetROMRegionText(UINT8 ROM_ID)
 		break;
 	case 0x94:	// K007232
 		RetStr = "K007232";
+		break;
+	case 0x96:	// ICS2115
+		RetStr = "ICS2115";
 		break;
 	case 0xC0:	// RF5C68 RAM
 		RetStr = "RF5C68";

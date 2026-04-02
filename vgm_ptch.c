@@ -169,6 +169,7 @@ int main(int argc, char* argv[])
 		printf("    -SetHzQSound   Sets the QSound chip clock\n");
 		printf("    -SetHzK007232  Sets the K007232 chip clock\n");
 		printf("    -SetHzK005289  Sets the K005289 chip clock\n");
+		printf("    -SetHzICS2115  Sets the ICS2115 chip clock\n");
 		printf("\n");
 		printf("Setting a clock rate to 0 disables the chip.\n");
 		goto EndProgram;
@@ -214,6 +215,7 @@ int main(int argc, char* argv[])
 		printf("    QSound        *0..15\n");
 		printf("    K007232       *0..1\n");
 		printf("    K005289       *0..1\n");
+		printf("    ICS2115       *0..31\n");
 		printf("    DacCtrl        0..255\n");
 		printf("* strip whole chip only, no channel stripping\n");
 		printf("\n");
@@ -856,6 +858,11 @@ static UINT8 ParseStripCommand(const char* StripCmd)
 			CurChip = 0x2B;
 			TempChip = (STRIP_GENERIC*)&StripVGM[0].K005289;
 		}
+		else if (! stricmp(ChipPos, "ICS2115"))
+		{
+			CurChip = 0x2F;
+			TempChip = (STRIP_GENERIC*)&StripVGM[0].ICS2115;
+		}
 		else if (! stricmp(ChipPos, "DacCtrl"))
 		{
 			CurChip = 0x7F;
@@ -1387,6 +1394,11 @@ static UINT8 PatchVGM(int ArgCount, char* ArgList[])
 			else if (! stricmp(CmdStr, "K005289"))
 			{
 				ChipHzPnt = &VGMHead.lngHzK005289;
+				OldVal = 0x172;
+			}
+			else if (! stricmp(CmdStr, "ICS2115"))
+			{
+				ChipHzPnt = &VGMHead.lngHzICS2115;
 				OldVal = 0x172;
 			}
 			else
@@ -2887,6 +2899,8 @@ static bool ChipCommandIsValid(UINT8 Command)
 		return true;
 	if (Command == 0x42 && VGMHead.lngHzK005289)
 		return true;
+	if (Command == 0x44 && VGMHead.lngHzICS2115)
+		return true;
 
 	return false;
 }
@@ -3105,6 +3119,29 @@ static void StripVGMData(void)
 		{
 			SetChipSet(0x01);
 			c140_write(0xFF, 0x00, VGMHead.bytC140Type);
+		}
+	}
+	if (VGMHead.lngHzICS2115)
+	{
+		// initialize ICS2115
+		SetChipSet(0x00);
+		ics2115_write(0x01, 0x0E);
+		ics2115_write(0x02, 0x00);
+		ics2115_write(0x03, 0x1F);
+		ics2115_write(0x01, 0x4F);
+		ics2115_write(0x02, 0x00);
+		ics2115_write(0x03, 0x00);
+		ics2115_write(0x01, 0x00);
+		if (VGMHead.lngHzICS2115 & 0x40000000)
+		{
+			SetChipSet(0x01);
+			ics2115_write(0x01, 0x0E);
+			ics2115_write(0x02, 0x00);
+			ics2115_write(0x03, 0x1F);
+			ics2115_write(0x01, 0x4F);
+			ics2115_write(0x02, 0x00);
+			ics2115_write(0x03, 0x00);
+			ics2115_write(0x01, 0x00);
 		}
 	}
 
@@ -3453,6 +3490,12 @@ static void StripVGMData(void)
 						if (WriteEvent && ChipID && StripVGM[0].K007232.All)
 							VGMPnt[0x06] &= ~0x80;
 						break;
+					case 0x96:	// ICS2115 ROM Image
+						if (StripVGM[ChipID].ICS2115.All)
+							WriteEvent = false;
+						if (WriteEvent && ChipID && StripVGM[0].ICS2115.All)
+							VGMPnt[0x06] &= ~0x80;
+						break;
 					}
 					break;
 				case 0xC0:	// RAM Write
@@ -3798,6 +3841,14 @@ static void StripVGMData(void)
 					VGMPnt[0x01] &= ~0x80;
 				CmdLen = 0x03;
 				break;
+			case 0x44:	// ICS2115 write
+				ChipID = (VGMPnt[0x01] & 0x80) >> 7;
+				if (StripVGM[ChipID].ICS2115.All)
+					WriteEvent = false;
+				if (WriteEvent && ChipID && StripVGM[0].ICS2115.All)
+					VGMPnt[0x01] &= ~0x80;
+				CmdLen = 0x03;
+				break;
 			case 0x90:	// DAC Ctrl: Setup Chip
 				if (StripVGM[0].DacCtrl.All ||
 					GetFromMask(StripVGM[0].DacCtrl.StrMsk, VGMPnt[0x01]))
@@ -4067,6 +4118,7 @@ static void StripVGMData(void)
 	StripClock(&StripVGM[0].QSound.All, &VGMHead.lngHzQSound);
 	StripClock(&StripVGM[0].K007232.All, &VGMHead.lngHzK007232);
 	StripClock(&StripVGM[0].K005289.All, &VGMHead.lngHzK005289);
+	StripClock(&StripVGM[0].ICS2115.All, &VGMHead.lngHzICS2115);
 	//StripClock(&StripVGM[0].SCSP.All, &VGMHead.lngHzSCSP);
 
 	// PatchVGM will rewrite the header later
