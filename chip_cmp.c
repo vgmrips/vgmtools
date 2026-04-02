@@ -271,7 +271,6 @@ typedef struct k005289_data
 {
 	UINT16 RegData[0x8];
 	UINT8 RegFirst[0x8];
-	UINT8 KeyOn[0x02];
 } K005289_DATA;
 
 typedef struct all_chips
@@ -2798,16 +2797,25 @@ bool wswan_write(UINT8 Register, UINT8 Data)
 bool k005289_write(UINT8 Register, UINT16 Data)
 {
 	K005289_DATA* chip = &ChDat->K005289;
+	UINT8 ChnBase;
 
-	/* Don't strip trigger command*/
-	if ((Register & 0x6) == 0x4)
+	if (Register < 0x06)
+	{
+		ChnBase = Register & 0x01;
+
+		if ((Register & 0x06) == 0x02) // Frequency write
+		{
+			if (chip->RegData[Register] != Data)
+				chip->RegFirst[0x04 | ChnBase] = 0x01;
+		}
+
+		if (! chip->RegFirst[Register] && Data == chip->RegData[Register])
+			return false;
+
+		chip->RegFirst[Register] = JustTimerCmds;
+		chip->RegData[Register] = Data;
+
 		return true;
-
-	if (! chip->RegFirst[Register] && Data == chip->RegData[Register])
-		return false;
-
-	chip->RegFirst[Register] = JustTimerCmds;
-	chip->RegData[Register] = Data;
-
-	return true;
+	}
+	return false;
 }
