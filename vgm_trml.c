@@ -2105,7 +2105,7 @@ static UINT32 ReadCommand(UINT8 Mask)
 		}
 		CmdLen = 0x03;
 		break;
-	case 0x42:	// K007232 write
+	case 0x42:	// K005289 write
 		TempChp = &RC[ChipID].K005289;
 		TempReg = &TempChp->Regs;
 		if (TempReg->RegCount)

@@ -2799,6 +2799,10 @@ bool k005289_write(UINT8 Register, UINT16 Data)
 {
 	K005289_DATA* chip = &ChDat->K005289;
 
+	/* Don't strip trigger command*/
+	if ((Register & 0x6) == 0x4)
+		return true;
+
 	if (! chip->RegFirst[Register] && Data == chip->RegData[Register])
 		return false;
 
