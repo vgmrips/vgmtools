@@ -2799,23 +2799,22 @@ bool k005289_write(UINT8 Register, UINT16 Data)
 	K005289_DATA* chip = &ChDat->K005289;
 	UINT8 ChnBase;
 
-	if (Register < 0x06)
+	if (Register >= 0x06)
+		return false;
+
+	ChnBase = Register & 0x01;
+
+	if ((Register & 0x06) == 0x02) // Frequency write
 	{
-		ChnBase = Register & 0x01;
-
-		if ((Register & 0x06) == 0x02) // Frequency write
-		{
-			if (chip->RegData[Register] != Data)
-				chip->RegFirst[0x04 | ChnBase] = 0x01;
-		}
-
-		if (! chip->RegFirst[Register] && Data == chip->RegData[Register])
-			return false;
-
-		chip->RegFirst[Register] = JustTimerCmds;
-		chip->RegData[Register] = Data;
-
-		return true;
+		if (chip->RegData[Register] != Data)
+			chip->RegFirst[0x04 | ChnBase] = 0x01;
 	}
-	return false;
+
+	if (! chip->RegFirst[Register] && Data == chip->RegData[Register])
+		return false;
+
+	chip->RegFirst[Register] = JustTimerCmds;
+	chip->RegData[Register] = Data;
+
+	return true;
 }
