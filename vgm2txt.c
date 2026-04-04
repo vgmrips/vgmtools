@@ -1480,6 +1480,14 @@ static void WriteVGMData2Txt(FILE* hFile)
 				}
 				CmdLen = 0x04;
 				break;
+			case 0x40:	// Mikey write
+				if (WriteEvents)
+				{
+					SetChip((VGMPnt[0x01] & 0x80) >> 7);
+					mikey_write(TempStr, VGMPnt[0x01] & 0x7F, VGMPnt[0x02]);
+				}
+				CmdLen = 0x03;
+				break;
 			case 0x41:	// K007232 write
 				if (WriteEvents)
 				{

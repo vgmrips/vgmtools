@@ -121,6 +121,12 @@ typedef struct ics2115_data
 	UINT8 RegFirst[0x80 * 0x20];
 } ICS2115_DATA;
 
+typedef struct mikey_data
+{
+	UINT16 RegData[0x51];
+	UINT8 RegFirst[0x51];
+} MIKEY_DATA;
+
 typedef struct all_chips
 {
 	//UINT8 GGSt;
@@ -144,6 +150,7 @@ typedef struct all_chips
 	C140_DATA C140;
 	K005289_DATA K005289;
 	ICS2115_DATA ICS2115;
+	MIKEY_DATA Mikey;
 } ALL_CHIPS;
 
 
@@ -759,5 +766,58 @@ bool ics2115_write(UINT8 Register, UINT8 Data)
 			ChDat->ICS2115.RegData[RegVal] = (ChDat->ICS2115.RegData[RegVal] & 0x00FF) | (((UINT16)Data) << 8);
 			break;
 	}
+	return true;
+}
+
+bool mikey_write(UINT8 Register, UINT8 Data)
+{
+	MIKEY_DATA* chip = &ChDat->Mikey;
+	STRIP_PSG* strip = &StpDat->Mikey;
+	UINT8 Channel;
+	UINT8 ChnMask;
+
+	if (strip->All)
+		return false;
+
+	if (Register < 0x20)
+		return false;
+	else if (Register < 0x40)
+	{
+		Channel = (Register >> 3) & 3;
+		if (strip->ChnMask & (0x01 << Channel))
+			return false;
+		if ((Register & 0x07) == 0x02)
+			return true;
+	}
+	else
+	{
+		switch (Register)
+		{
+		case 0x40:
+		case 0x41:
+		case 0x42:
+		case 0x43:
+			Channel = Register & 3;
+			if (strip->ChnMask & (0x01 << Channel))
+				return false;
+			break;
+		case 0x44:
+		case 0x50:
+			ChnMask = 0x11;
+			for (Channel = 0; Channel < 4; Channel ++, ChnMask <<= 1)
+			{
+				// 0 - enable, 1 - disable
+				//      Channel Enable &&    Strip Channel
+				if (((Data & ChnMask) != ChnMask) && (strip->ChnMask & (0x01 << Channel)))
+					Data |= ChnMask;	// disable channel
+			}
+			break;
+		}
+	}
+	if (! chip->RegFirst[Register] && Data == chip->RegData[Register])
+		return false;
+
+	chip->RegFirst[Register] = 0x00;
+	chip->RegData[Register] = Data;
 	return true;
 }

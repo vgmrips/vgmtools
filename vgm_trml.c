@@ -619,6 +619,14 @@ static void PrepareChipMemory(void)
 				TempRC->GA20.Chns.ChnCount = 0x04;
 			}
 		}
+		if (VGMHead.lngHzMikey)
+		{
+			if (! CurCSet || (VGMHead.lngHzMikey & 0x40000000))
+			{
+				TempRC->Mikey.Regs.RegCount = 0x51;
+				TempRC->Mikey.Chns.ChnCount = 0x04;
+			}
+		}
 		if (VGMHead.lngHzK007232)
 		{
 			if (! CurCSet || (VGMHead.lngHzK007232 & 0x40000000))
@@ -928,6 +936,18 @@ static void SetImportantCommands(void)
 			case 0x28:	// GA20
 				break;
 			case 0x29:	// Mikey
+				for (CurReg = 0x20; CurReg < 0x40; CurReg += 0x8)
+				{
+					TempReg->RegMask[CurReg + 0x00] |= 0x80; // Volume
+					TempReg->RegMask[CurReg + 0x04] |= 0x80; // Backup
+					TempReg->RegMask[CurReg + 0x05] |= 0x80; // Control
+					TempReg->RegMask[CurReg + 0x07] |= 0x80; // Other
+				}
+				for (CurReg = 0x40; CurReg <= 0x44; CurReg++)
+				{
+					TempReg->RegMask[CurReg] |= 0x80; // Volume
+				}
+				TempReg->RegMask[0x50] |= 0x80; // Master enable
 				break;
 			case 0x2A:	// K007232
 				break;
@@ -1766,8 +1786,10 @@ static void InitializeVGM(UINT8** DstDataRef, UINT32* DstPosRef)
 				ChipCmd = 0xBF;
 				CmdType = 0x12;
 				break;
-			//case 0x29:	// Mikey
-			//	break;
+			case 0x29:	// Mikey
+				ChipCmd = 0x40;
+				CmdType = 0x12;
+				break;
 			case 0x2A:	// K007232
 				ChipCmd = 0x41;
 				CmdType = 0x12;
@@ -2090,6 +2112,21 @@ static UINT32 ReadCommand(UINT8 Mask)
 	TempChp = NULL;
 	switch(Command)
 	{
+	case 0x40:	// Mikey write
+		TempChp = &RC[ChipID].Mikey;
+		TempReg = &TempChp->Regs;
+		if (TempReg->RegCount)
+		{
+			CmdReg = VGMData[VGMPos + 0x01] & 0x7F;
+			if (CmdReg < TempReg->RegCount)
+			{
+				TempReg->RegMask[CmdReg] |= Mask;
+				if (Mask == 0x01)
+					TempReg->RegData.R08[CmdReg] = VGMData[VGMPos + 0x02];
+			}
+		}
+		CmdLen = 0x03;
+		break;
 	case 0x41:	// K007232 write
 		TempChp = &RC[ChipID].K007232;
 		TempReg = &TempChp->Regs;
@@ -2934,6 +2971,18 @@ static void CommandCheck(UINT8 Mode, UINT8 Command, CHIP_DATA* ChpData, UINT16 C
 	case 0xE1:	// C352 write
 		break;
 	case 0xBF:	// GA20 write
+		break;
+	case 0x40:	// Mikey write
+		if ((CmdReg >= 0x20) && (CmdReg < 0x40))
+		{
+			CurChn = (CmdReg >> 3) & 3;
+			if ((CmdReg & 0x07) == 0x05)
+			{
+				KeyOnOff = (TempReg->RegData.R08[CmdReg] & 0x08) >> 3;
+				TempChn->ChnMask &= ~(1 << CurChn);
+				TempChn->ChnMask |= (KeyOnOff << CurChn);
+			}
+		}
 		break;
 	case 0x41:	// K007232 write
 		if (CmdReg == 0x1F)

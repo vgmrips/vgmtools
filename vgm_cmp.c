@@ -64,6 +64,7 @@ bool wswan_write(UINT8 Register, UINT8 Data);
 bool k005289_write(UINT8 Register, UINT16 Data);
 bool k007232_write(UINT8 Register, UINT8 Data);
 bool ics2115_write(UINT8 Register, UINT8 Data);
+bool mikey_write(UINT8 Register, UINT8 Data);
 
 VGM_HEADER VGMHead;
 UINT32 VGMDataLen;
@@ -579,6 +580,11 @@ static void CompressVGMData(void)
 			case 0xE0:	// Seek to PCM Data Bank Pos
 				memcpy(&TempLng, &VGMPnt[0x01], 0x04);
 				CmdLen = 0x05;
+				break;
+			case 0x40:	// Mikey write
+				SetChipSet((VGMPnt[0x01] & 0x80) >> 7);
+				WriteEvent = mikey_write(VGMPnt[0x01] & 0x7F, VGMPnt[0x02]);
+				CmdLen = 0x03;
 				break;
 			case 0x41:	// K007232 write
 				SetChipSet((VGMPnt[0x01] & 0x80) >> 7);

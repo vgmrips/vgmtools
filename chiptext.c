@@ -4406,3 +4406,112 @@ void ics2115_write(char* TempStr, UINT8 offset, UINT8 data)
     // Final output string
     sprintf(TempStr, "ICS2115: %s", WriteStr);
 }
+
+void mikey_write(char* TempStr, UINT8 offset, UINT8 data)
+{
+	UINT8 ch, reg;
+	UINT32 StrPos;
+	UINT8 ChnEn;
+	WriteChipID(0x29);
+
+	if ((offset >= 0x20) && (offset < 0x40))
+	{
+		ch = (offset >> 3) & 3; // Channel 0 to 3
+		reg = offset & 7; // offset within the channel
+
+		switch (reg)
+		{
+		case 0: // Volume
+			sprintf(RedirectStr, "Volume: 0x%02X", data);
+			break;
+		case 1: // Feedback
+			sprintf(RedirectStr, "Feedback: 0x%02X (0x%03X)", data, (data & 0x3F) | ((data & 0xC0) << 4));
+			break;
+		case 2: // Direct output
+			sprintf(RedirectStr, "Direct output: 0x%02X", data);
+			break;
+		case 3: // Shifter LSB
+			sprintf(RedirectStr, "Shifter LSB: 0x%02X", data);
+			break;
+		case 4: // Backup
+			sprintf(RedirectStr, "Timer backup: 0x%02X", data);
+			break;
+		case 5: // Control
+			sprintf(RedirectStr, "Control: 0x%02X (Feedback bit 7: %u, Reset done flag: %u, Inegrate: %u, Reload: %u, Count: %u, Timer clock shift: %u)",
+					data,
+					(data >> 7) & 1,
+					(data >> 6) & 1,
+					(data >> 5) & 1,
+					(data >> 4) & 1,
+					(data >> 3) & 1,
+					data & 7);
+			break;
+		case 6: // Counter
+			sprintf(RedirectStr, "Timer counter: 0x%02X", data);
+			break;
+		case 7: // Shifter MSB, Timer done
+			sprintf(RedirectStr, "Other: 0x%02X (Shifter MSB: 0x%01X, Timer done: %u, Last clock: %u, Borrow in: %u, Borrow out: %u)",
+					data,
+					(data >> 4) & 0x0F,
+					(data >> 3) & 0x1,
+					(data >> 2) & 0x1,
+					(data >> 1) & 0x1,
+					data & 0x1);
+			break;
+		}
+		sprintf(WriteStr, "Ch%u: %s", ch, RedirectStr);
+	}
+	else
+	{
+		switch (offset)
+		{
+		case 0x40: // Attenuation
+		case 0x41:
+		case 0x42:
+		case 0x43:
+			ch = offset & 3; // Channel 0 to 3
+			sprintf(RedirectStr, "Attenuation: 0x%02X (Left: 0x%01X, Right: 0x%01X)",
+					data,
+					(data >> 4) & 0x0F,
+					data & 0x0F);
+			sprintf(WriteStr, "Ch%u: %s", ch, RedirectStr);
+			break;
+		case 0x44:
+			// Format:
+			//	Bit	76543210
+			//	L/R	LLLLRRRR (laoo core is treated to only used low nibble for both pan)
+			//	Ch	32103210
+			WriteChipID(0x00);
+			sprintf(WriteStr, "Attenuation enable: ");
+			StrPos = strlen(WriteStr);
+			for (ch = 0x00; ch < 0x04; ch ++)
+			{
+				ChnEn = data & (0x01 << (ch ^ 0x04));
+				WriteStr[StrPos] = ChnEn ? ('0' + (ch & 0x03)) : '-';
+				StrPos ++;
+			}
+			WriteStr[StrPos] = 0x00;
+		case 0x50:
+			// Format:
+			//	Bit	76543210
+			//	L/R	LLLLRRRR
+			//	Ch	32103210
+			WriteChipID(0x00);
+			sprintf(WriteStr, "Stereo: ");
+			StrPos = strlen(WriteStr);
+			for (ch = 0x00; ch < 0x08; ch ++)
+			{
+				ChnEn = data & (0x01 << (ch ^ 0x04));
+				WriteStr[StrPos] = ChnEn ? '-' : ('0' + (ch & 0x03));
+				StrPos ++;
+			}
+			WriteStr[StrPos] = 0x00;
+		default:
+			sprintf(WriteStr, "Unknown Register 0x%02X: data 0x%02X", offset, data);
+			break;
+		}
+	}
+
+	// Final output string
+	sprintf(TempStr, "Mikey: %s", WriteStr);
+}

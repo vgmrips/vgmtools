@@ -330,6 +330,9 @@ static void ReadVGMData(void)
 			case 0x95:	// DAC Ctrl: Play Block (small)
 				CmdLen = 0x05;
 				break;
+			case 0x40: // Mikey write
+				CmdLen = 0x03;
+				break;
 			case 0x41: // K007232 write
 				CmdLen = 0x03;
 				break;
@@ -564,6 +567,9 @@ static void ReadVGMData(void)
 				break;
 			case 0x95:	// DAC Ctrl: Play Block (small)
 				CmdLen = 0x05;
+				break;
+			case 0x40: // Mikey write
+				CmdLen = 0x03;
 				break;
 			case 0x41: // K007232 write
 				CmdLen = 0x03;

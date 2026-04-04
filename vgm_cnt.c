@@ -305,6 +305,9 @@ static void CountVGMData()
 			TempLng = VGMHead.lngHzQSound;
 			break;
 		// TODO: 0x20 SCSP .. 0x29 Mikey
+		case 0x29:
+			TempLng = VGMHead.lngHzMikey;
+			break;
 		case 0x2A:
 			TempLng = VGMHead.lngHzK007232;
 			break;
@@ -800,6 +803,11 @@ static void CountVGMData()
 				DoChipCommand(0x00, 0x1F, VGMPnt[0x03], (VGMPnt[0x01] << 8) | (VGMPnt[0x02] << 0));
 				CmdLen = 0x04;
 				break;
+			case 0x40:	// Mikey write
+				CurChip = (VGMPnt[0x01] & 0x80) >> 7;
+				DoChipCommand(CurChip, 0x29, VGMPnt[0x01] & 0x7F, VGMPnt[0x02]);
+				CmdLen = 0x03;
+				break;
 			case 0x41:	// K007232 write
 				CurChip = (VGMPnt[0x01] & 0x80) >> 7;
 				DoChipCommand(CurChip, 0x2A, VGMPnt[0x01] & 0x7F, VGMPnt[0x02]);
@@ -1194,6 +1202,13 @@ static void DoChipCommand(UINT8 ChipSet, UINT8 ChipID, UINT16 Reg, UINT16 Data)
 		}
 		break;
 	// TODO: 0x20 SCSP .. 0x29 Mikey
+	case 0x29:	// Mikey
+		if ((Reg >= 0x20) && (Reg < 0x40))
+		{
+			UINT8 ch = (Reg >> 3) & 0x03;
+			DoKeyOnOff(TempChp, ch, Data & 0x08, 0x00);
+		}
+		break;
 	case 0x2A:	// K007232
 		if (Reg == 0x1F)
 			Reg = Data;	// chip read - data value contains register ID

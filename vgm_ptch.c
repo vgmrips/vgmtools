@@ -167,6 +167,7 @@ int main(int argc, char* argv[])
 		printf("    -SetHzK053260  Sets the K053260 chip clock\n");
 		printf("    -SetHzPokey    Sets the Pokey chip clock\n");
 		printf("    -SetHzQSound   Sets the QSound chip clock\n");
+		printf("    -SetHzMikey    Sets the Mikey chip clock\n");
 		printf("    -SetHzK007232  Sets the K007232 chip clock\n");
 		printf("    -SetHzK005289  Sets the K005289 chip clock\n");
 		printf("    -SetHzICS2115  Sets the ICS2115 chip clock\n");
@@ -213,6 +214,7 @@ int main(int argc, char* argv[])
 		printf("    K053260       *\n");
 		printf("    Pokey         *\n");
 		printf("    QSound        *0..15\n");
+		printf("    Mikey         *0..3\n");
 		printf("    K007232       *0..1\n");
 		printf("    K005289       *0..1\n");
 		printf("    ICS2115       *0..31\n");
@@ -848,6 +850,11 @@ static UINT8 ParseStripCommand(const char* StripCmd)
 			CurChip = 0x1F;
 			TempChip = (STRIP_GENERIC*)&StripVGM[0].QSound;
 		}
+		else if (! stricmp(ChipPos, "Mikey"))
+		{
+			CurChip = 0x29;
+			TempChip = (STRIP_GENERIC*)&StripVGM[0].Mikey;
+		}
 		else if (! stricmp(ChipPos, "K007232"))
 		{
 			CurChip = 0x2A;
@@ -1385,6 +1392,11 @@ static UINT8 PatchVGM(int ArgCount, char* ArgList[])
 			{
 				ChipHzPnt = &VGMHead.lngHzQSound;
 				OldVal = 0x161;
+			}
+			else if (! stricmp(CmdStr, "Mikey"))
+			{
+				ChipHzPnt = &VGMHead.lngHzMikey;
+				OldVal = 0x172;
 			}
 			else if (! stricmp(CmdStr, "K007232"))
 			{
@@ -2895,6 +2907,8 @@ static bool ChipCommandIsValid(UINT8 Command)
 	if (Command == 0xBF && VGMHead.lngHzGA20)
 		return true;
 	// VGM v1.72
+	if (Command == 0x40 && VGMHead.lngHzMikey)
+		return true;
 	if (Command == 0x41 && VGMHead.lngHzK007232)
 		return true;
 	if (Command == 0x42 && VGMHead.lngHzK005289)
@@ -3825,6 +3839,14 @@ static void StripVGMData(void)
 					WriteEvent = false;
 				CmdLen = 0x04;
 				break;
+			case 0x40:	// Mikey write
+				ChipID = (VGMPnt[0x01] & 0x80) >> 7;
+				SetChipSet(ChipID);
+				WriteEvent = mikey_write(VGMPnt[0x01] & 0x7F, VGMPnt[0x02]);
+				if (WriteEvent && ChipID && StripVGM[0].Mikey.All)
+					VGMPnt[0x01] &= ~0x80;
+				CmdLen = 0x03;
+				break;
 			case 0x41:	// K007232 write
 				ChipID = (VGMPnt[0x01] & 0x80) >> 7;
 				if (StripVGM[ChipID].K007232.All)
@@ -4116,6 +4138,7 @@ static void StripVGMData(void)
 	StripClock(&StripVGM[0].K053260.All, &VGMHead.lngHzK053260);
 	StripClock(&StripVGM[0].Pokey.All, &VGMHead.lngHzPokey);
 	StripClock(&StripVGM[0].QSound.All, &VGMHead.lngHzQSound);
+	StripClock(&StripVGM[0].Mikey.All, &VGMHead.lngHzMikey);
 	StripClock(&StripVGM[0].K007232.All, &VGMHead.lngHzK007232);
 	StripClock(&StripVGM[0].K005289.All, &VGMHead.lngHzK005289);
 	StripClock(&StripVGM[0].ICS2115.All, &VGMHead.lngHzICS2115);

@@ -285,6 +285,11 @@ typedef struct ics2115_data
 	UINT16 RegData[0x80 * 0x20];
 	UINT16 RegFirst[0x80 * 0x20];
 } ICS2115_DATA;
+typedef struct mikey_data
+{
+	UINT16 RegData[0x51];
+	UINT8 RegFirst[0x51];
+} MIKEY_DATA;
 
 typedef struct all_chips
 {
@@ -328,6 +333,7 @@ typedef struct all_chips
 	K005289_DATA K005289;
 	K007232_DATA K007232;
 	ICS2115_DATA ICS2115;
+	MIKEY_DATA Mikey;
 } ALL_CHIPS;
 
 
@@ -380,6 +386,7 @@ bool wswan_write(UINT8 Register, UINT8 Data);
 bool k005289_write(UINT8 Register, UINT16 Data);
 bool k007232_write(UINT8 Register, UINT8 Data);
 bool ics2115_write(UINT8 Register, UINT8 Data);
+bool mikey_write(UINT8 Register, UINT8 Data);
 
 // Function Prototypes from vgm_cmp.c
 bool GetNextChipCommand(void);
@@ -3001,6 +3008,53 @@ bool ics2115_write(UINT8 Register, UINT8 Data)
 	chip->RegData[RegInd] =
 			(chip->RegData[RegInd] & ~(0xff << RegShift)) |
 			(((UINT16)Data) << RegShift);
+
+	return true;
+}
+
+bool mikey_write(UINT8 Register, UINT8 Data)
+{
+	MIKEY_DATA* chip = &ChDat->Mikey;
+	UINT8 FreqMode, ch;
+
+	if (Register < 0x20)
+		return false;
+	else if (Register < 0x40)
+	{
+		// don't strip counter, direct output and shifter write
+		switch (Register & 0x07)
+		{
+			case 0x01:
+			case 0x02:
+			case 0x03:
+			case 0x04:
+			case 0x05:
+			case 0x06:
+			case 0x07:
+				return true;
+		}
+	}
+	else
+	{
+		switch (Register)
+		{
+		case 0x40:
+		case 0x41:
+		case 0x42:
+		case 0x43:
+		case 0x44:
+		case 0x50:
+			break;
+		default:
+			return false;
+		}
+	}
+
+	if (! chip->RegFirst[Register] && Data == chip->RegData[Register])
+		return false;
+
+	chip->RegFirst[Register] = JustTimerCmds;
+	chip->RegData[Register] = Data;
 
 	return true;
 }
