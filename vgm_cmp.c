@@ -67,6 +67,7 @@ bool ics2115_write(UINT8 Register, UINT8 Data);
 bool mikey_write(UINT8 Register, UINT8 Data);
 bool okim5205_write(UINT8 Port, UINT8 Data);
 bool okim5232_write(UINT8 Register, UINT8 Data);
+bool bsmt2000_write(UINT8 Offset, UINT16 Value);
 
 VGM_HEADER VGMHead;
 UINT32 VGMDataLen;
@@ -837,6 +838,11 @@ static void CompressVGMData(void)
 				SetChipSet((VGMPnt[0x01] & 0x80) >> 7);
 				TempSht = ((VGMPnt[0x01] & 0x7F) << 8) | (VGMPnt[0x02] << 0);
 				WriteEvent = x1_010_write(TempSht, VGMPnt[0x03]);
+				CmdLen = 0x04;
+				break;
+			case 0xC9:	// BSMT2000 write
+				SetChipSet((VGMPnt[0x01] & 0x80) >> 7);
+				WriteEvent = bsmt2000_write(VGMPnt[0x01] & 0x7F, (VGMPnt[0x02] << 8) | (VGMPnt[0x03] << 0));
 				CmdLen = 0x04;
 				break;
 			case 0xE1:	// C352 write

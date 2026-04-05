@@ -537,7 +537,7 @@ static void PrepareChipMemory(void)
 			{
 				TempRC->QSound.Regs.Mode = 0x01;
 				TempRC->QSound.Regs.RegCount = 0x100;
-				TempRC->QSound.Chns.ChnCount = 0x10;
+				TempRC->QSound.Chns.ChnCount = 0x13;
 			}
 		}
 		if (VGMHead.lngHzSCSP)
@@ -658,6 +658,15 @@ static void PrepareChipMemory(void)
 			{
 				TempRC->OKIM5232.Regs.RegCount = 0x24;
 				TempRC->OKIM5232.Chns.ChnCount = 0x8;
+			}
+		}
+		if (VGMHead.lngHzBSMT2000)
+		{
+			if (! CurCSet || (VGMHead.lngHzBSMT2000 & 0x40000000))
+			{
+				TempRC->BSMT2000.Regs.Mode = 0x01;
+				TempRC->BSMT2000.Regs.RegCount = 0x80;
+				TempRC->BSMT2000.Chns.ChnCount = 0x0D;
 			}
 		}
 	}
@@ -985,6 +994,9 @@ static void SetImportantCommands(void)
 				// control registers
 				for (CurReg = 0xC; CurReg < 0xD; CurReg ++)
 					TempReg->RegMask[CurReg] |= 0x80;
+				break;
+			case 0x2E:	// BSMT2000
+				TempReg->RegMask[0x7F] |= 0x80;
 				break;
 			}
 		}
@@ -1888,6 +1900,24 @@ static void InitializeVGM(UINT8** DstDataRef, UINT32* DstPosRef)
 						TempReg->RegMask[CurReg] = TempReg->RegMask[0x23];
 				}
 				break;
+			case 0x2E:	// BSMT2000
+				ChipCmd = 0xC9;
+
+				for (CurReg = 0x00; CurReg < TempReg->RegCount; CurReg ++)
+				{
+					if ((TempReg->RegMask[CurReg] & 0x7F) == 0x01)
+					{
+						TempSht = TempReg->RegData.R16[CurReg];
+						DstData[DstPos + 0x00] = ChipCmd;
+						DstData[DstPos + 0x01] = (UINT8)CurReg;
+						DstData[DstPos + 0x02] = (TempSht & 0xFF00) >> 8;
+						DstData[DstPos + 0x03] = (TempSht & 0x00FF) >> 0;
+						DstPos += 0x04;
+					}
+				}
+
+				CmdType = 0xFF;
+				break;
 			default:
 				CmdType = 0xFF;
 				break;
@@ -2741,6 +2771,25 @@ static UINT32 ReadCommand(UINT8 Mask)
 				if (Mask == 0x01)
 					TempReg->RegData.R16[CmdReg] = (VGMData[VGMPos + 0x01] << 8) |
 													(VGMData[VGMPos + 0x02] << 0);
+			}
+		}
+
+		CmdLen = 0x04;
+		break;
+	case 0xC9:	// BSMT2000 write
+		ChipID = VGMData[VGMPos + 0x01] >> 7;
+		TempChp = &RC[ChipID].BSMT2000;
+		TempReg = &TempChp->Regs;
+
+		if (TempReg->RegCount)
+		{
+			CmdReg = VGMData[VGMPos + 0x01] & 0x7F;
+			if (CmdReg < TempReg->RegCount)
+			{
+				TempReg->RegMask[CmdReg] |= Mask;
+				if (Mask == 0x01)
+					TempReg->RegData.R16[CmdReg] = (VGMData[VGMPos + 0x02] << 8) |
+													(VGMData[VGMPos + 0x03] << 0);
 			}
 		}
 

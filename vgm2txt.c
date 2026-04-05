@@ -1405,6 +1405,14 @@ static void WriteVGMData2Txt(FILE* hFile)
 				}
 				CmdLen = 0x04;
 				break;
+			case 0xC9:	// BSMT2000 write
+				if (WriteEvents)
+				{
+					SetChip((VGMPnt[0x01] & 0x80) >> 7);
+					bsmt2000_write(TempStr, VGMPnt[0x01] & 0x7F, (VGMPnt[0x02] << 8) | (VGMPnt[0x03] << 0));
+				}
+				CmdLen = 0x04;
+				break;
 			case 0xBC:	// WonderSwan write
 				if (WriteEvents)
 				{

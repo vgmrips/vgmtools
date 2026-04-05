@@ -57,6 +57,7 @@ typedef struct chip_count
 	UINT32 ICS2115;
 	UINT32 OKIM5205;
 	UINT32 OKIM5232;
+	UINT32 BSMT2000;
 } CHIP_CNT;
 
 
@@ -221,6 +222,29 @@ static const char* ES5503_MODES[0x04] = {"Free-Run", "One-Shot", "Sync", "Swap"}
 
 static const char* K054539_SAMPLE_MODES[0x04] = {"8-bit PCM", "16-bit PCM", "4-bit DPCM", "unknown"};
 
+#define BSMT2000_CHANNELS     12          /* up to 12 PCM voices, plus ADPCM */
+#define BSMT2000_ADPCM_INDEX  12          /* 0..11 = PCM, 12 = ADPCM/compressed */
+#define BSMT2000_REG_CURRPOS  0
+#define BSMT2000_REG_RATE 1
+#define BSMT2000_REG_LOOPEND     2
+#define BSMT2000_REG_LOOPSTART  3
+#define BSMT2000_REG_BANK 4
+#define BSMT2000_REG_RIGHTVOL     5
+#define BSMT2000_REG_LEFTVOL 6
+#define BSMT2000_REG_TOTAL    7
+
+#define BSMT2000_MAX_VOICES   (BSMT2000_CHANNELS + 1)  /* 12 PCM + 1 ADPCM/compressed */
+
+static const UINT8 bsmt2000_regmap[8][7] = {
+    { 0x00, 0x18, 0x24, 0x30, 0x3c, 0x48, 0xff }, // last one (stereo/leftvol) unused, set to max for mapping
+    { 0x00, 0x16, 0x21, 0x2c, 0x37, 0x42, 0x4d },
+    { 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 }, // mode 2 only a testmode left channel
+    { 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 }, // mode 3 only a testmode right channel
+    { 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 }, // mode 4 only a testmode left channel
+    { 0x00, 0x18, 0x24, 0x30, 0x3c, 0x54, 0x60 },
+    { 0x00, 0x10, 0x18, 0x20, 0x28, 0x38, 0x40 },
+    { 0x00, 0x12, 0x1b, 0x24, 0x2d, 0x3f, 0x48 } };
+
 typedef struct ymf278b_chip
 {
 	UINT8 smplH[24];	// high bit of the sample ID
@@ -260,6 +284,12 @@ typedef struct ics2115_chip
 	UINT8 Addr;	// Register address
 	UINT8 Ch; // Channel index
 } ICS2115_DATA;
+typedef struct bsmt2000_chip
+{
+	UINT8 Mode;
+	UINT8 ADPCM;
+	UINT8 Voices;
+} BSMT2000_DATA;
 
 
 static void opn_write(char* TempStr, UINT8 Mode, UINT8 Port, UINT8 Register,
@@ -289,6 +319,7 @@ static UPD7759_DATA CacheUPD7759[0x02];
 static ES5506_DATA CacheES5506[0x02];
 static WSWAN_DATA CacheWSwan[0x02];
 static ICS2115_DATA CacheICS2115[0x02];
+static BSMT2000_DATA CacheBSMT2000[0x02];
 
 void InitChips(UINT32 ChipCntSize, UINT32* ChipCounts)
 {
@@ -302,12 +333,19 @@ void InitChips(UINT32 ChipCntSize, UINT32* ChipCounts)
 	memset(CacheES5506, 0x00, sizeof(ES5506_DATA) * 0x02);
 	memset(CacheWSwan, 0x00, sizeof(WSWAN_DATA) * 0x02);
 	memset(CacheICS2115, 0x00, sizeof(ICS2115_DATA) * 0x02);
+	memset(CacheBSMT2000, 0x00, sizeof(BSMT2000_DATA) * 0x02);
 	CacheOKI6295[0].Command = 0xFF;
 	CacheOKI6295[1].Command = 0xFF;
 	CacheICS2115[0].Addr = 0;
 	CacheICS2115[0].Ch = 0;
 	CacheICS2115[1].Addr = 0;
 	CacheICS2115[1].Ch = 0;
+	CacheBSMT2000[0].ADPCM = 1;
+	CacheBSMT2000[0].Voices = 12;
+	CacheBSMT2000[0].Mode = 1;
+	CacheBSMT2000[1].ADPCM = 1;
+	CacheBSMT2000[1].Voices = 12;
+	CacheBSMT2000[1].Mode = 1;
 	ChpCur = 0x00;
 	ChipStr = RedirectStr + 0xF0;
 
@@ -550,6 +588,10 @@ INLINE UINT32 GetChipName(UINT8 ChipType, const char** RetName)
 	case 0x2D:
 		ChipName = "OKIM5232";
 		ChipCnt = ChpCnt.OKIM5232;
+		break;
+	case 0x2E:
+		ChipName = "BSMT2000";
+		ChipCnt = ChpCnt.BSMT2000;
 		break;
 	case 0x2F:
 		ChipName = "ICS2115";
@@ -4654,6 +4696,145 @@ void okim5232_write(char* TempStr, UINT8 Register, UINT8 Data)
 	}
 
 	sprintf(TempStr, "%s%s", ChipStr, WriteStr);
+
+	return;
+}
+
+void bsmt2000_write(char* TempStr, UINT8 Offset, UINT16 Value)
+{
+	UINT8 ch;
+	UINT8 reg;
+	INT8 TempByt;
+	BSMT2000_DATA* TempBSMT;
+
+	WriteChipID(0x2E);
+
+	TempBSMT = &CacheBSMT2000[ChpCur];
+
+	if (Offset == 0x7F)
+	{
+		switch (Value & 0xFF)
+		{
+        /* mode 0: 24kHz, 12 channel PCM, 1 channel ADPCM, mono; from PinMAME */
+        case 0:
+            TempBSMT->Voices = 12;
+            TempBSMT->ADPCM = 1;
+            TempBSMT->Mode = 0;
+            break;
+        /* mode 1: 24kHz, 11 channel PCM, 1 channel ADPCM, stereo */
+        case 1:
+            TempBSMT->Voices = 11;
+            TempBSMT->ADPCM = 1;
+            TempBSMT->Mode = 1;
+            break;
+        /* mode 5: 24kHz, 12 channel PCM, stereo */
+        case 5:
+            TempBSMT->Voices = 12;
+            TempBSMT->ADPCM = 0;
+            TempBSMT->Mode = 5;
+            break;
+        /* mode 6: 34kHz, 8 channel PCM, stereo */
+        case 6:
+            TempBSMT->Voices = 8;
+            TempBSMT->ADPCM = 0;
+            TempBSMT->Mode = 6;
+            break;
+        /* mode 7: 32kHz, 9 channel PCM, stereo */
+        case 7:
+            TempBSMT->Voices = 9;
+            TempBSMT->ADPCM = 0;
+            TempBSMT->Mode = 7;
+            break;
+		default:
+			sprintf(WriteStr, "Unknown Chip Mode: 0x%04X", Value);
+			sprintf(TempStr, "%s%s", ChipStr, WriteStr);
+			return;
+		}
+		sprintf(WriteStr, "Set Chip Mode: 0x%04X (%u = ADPCM: %s, Voices: %u)", Value,
+				TempBSMT->Mode,
+				Enable(TempBSMT->ADPCM),
+				TempBSMT->Voices);
+		sprintf(TempStr, "%s%s", ChipStr, WriteStr);
+		return;
+	}
+
+    // Standard voices (interleaved register layout)
+    if (Offset < 0x6d)
+	{
+        int voice_index;
+        int regindex = BSMT2000_REG_TOTAL - 1;
+        while (Offset < bsmt2000_regmap[TempBSMT->Mode][regindex])
+            --regindex;
+
+        voice_index = Offset - bsmt2000_regmap[TempBSMT->Mode][regindex];
+        if (voice_index >= TempBSMT->Voices)
+            return;
+
+        ch = voice_index;
+		reg = regindex;
+    }
+    // Compressed/ADPCM channel (11-voice model only)
+    else if (TempBSMT->ADPCM != 0 && Offset >= 0x6d)
+	{
+        ch = BSMT2000_ADPCM_INDEX;
+        switch (Offset) {
+        case 0x6d:
+            reg = BSMT2000_REG_LOOPEND;
+            break;
+        case 0x6f:
+            reg = BSMT2000_REG_BANK;
+            break;
+        case 0x6e: // main right channel volume control, used when ADPCM is alreay playing
+        case 0x74:
+            reg = BSMT2000_REG_RIGHTVOL;
+            break;
+        case 0x75:
+            reg = BSMT2000_REG_CURRPOS;
+            break;
+        case 0x70: // main left channel volume control, used when ADPCM is alreay playing
+        case 0x78:
+            reg = BSMT2000_REG_LEFTVOL;
+            break;
+		default:
+			sprintf(TempStr, "%sUnknown register write 0x%02X: 0x%04X", ChipStr, Offset, Value);
+			return;
+        }
+    }
+
+	switch (reg)
+	{
+	case BSMT2000_REG_CURRPOS: // current address
+		sprintf(WriteStr, "Set Current Address: 0x%04X", Value);
+		break;
+	case BSMT2000_REG_RATE: // pitch
+		sprintf(WriteStr, "Set Pitch: 0x%04X", Value);
+		if (! Value)
+			sprintf(WriteStr, "%s (Key Off)", WriteStr);
+		break;
+	case BSMT2000_REG_LOOPEND: // loop end address
+		sprintf(WriteStr, "Set Loop End Address: 0x%04X", Value);
+		break;
+	case BSMT2000_REG_LOOPSTART: // loop start address
+		sprintf(WriteStr, "Set Loop Start Address: 0x%04X", Value);
+		break;
+	case BSMT2000_REG_BANK: // Bank
+		sprintf(WriteStr, "Set Bank: %04X (base 0x%08X)", Value,
+				Value << 16);
+		break;
+	case BSMT2000_REG_RIGHTVOL: // right volume
+		sprintf(WriteStr, "Set Right Volume: 0x%04X", Value);
+		break;
+	case BSMT2000_REG_LEFTVOL: // left volume
+		sprintf(WriteStr, "Set Left Volume: 0x%04X", Value);
+		break;
+	default:
+		sprintf(WriteStr, "Register %u: 0x%04X", reg, Value);
+		break;
+	}
+	if (ch < BSMT2000_ADPCM_INDEX)
+		sprintf(TempStr, "%sCh %u: %s", ChipStr, ch, WriteStr);
+	else if (ch == BSMT2000_ADPCM_INDEX)
+		sprintf(TempStr, "%sADPCM: %s", ChipStr, WriteStr);
 
 	return;
 }

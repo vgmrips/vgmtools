@@ -320,7 +320,9 @@ static void CountVGMData()
 		case 0x2D:
 			TempLng = VGMHead.lngHzOKIM5232;
 			break;
-		// TODO: 0x2E BSMT2000
+		case 0x2E:
+			TempLng = VGMHead.lngHzBSMT2000;
+			break;
 		case 0x2F:
 			TempLng = VGMHead.lngHzICS2115;
 			break;
@@ -601,6 +603,9 @@ static void CountVGMData()
 					case 0x94:	// K007232 ROM Image
 						DoChipCommand(CurChip, 0x2A, 0xFFFF, TempByt);
 						break;
+					case 0x95:	// BSMT2000 ROM Image
+						DoChipCommand(CurChip, 0x2E, 0xFFFF, TempByt);
+						break;
 					case 0x96:	// ICS2115 ROM Image
 						DoChipCommand(CurChip, 0x2F, 0xFFFF, TempByt);
 						break;
@@ -835,6 +840,11 @@ static void CountVGMData()
 				CurChip = (VGMPnt[0x01] & 0x80) >> 7;
 				DoChipCommand(CurChip, 0x2D, VGMPnt[0x01] & 0x7F, VGMPnt[0x02]);
 				CmdLen = 0x03;
+				break;
+			case 0xC9:	// BSMT2000 write
+				CurChip = (VGMPnt[0x01] & 0x80) >> 7;
+				DoChipCommand(CurChip, 0x2E, VGMPnt[0x01] & 0x7F, (VGMPnt[0x02] << 8) | VGMPnt[0x03]);
+				CmdLen = 0x04;
 				break;
 			case 0x44:	// ICS2115 write
 				CurChip = (VGMPnt[0x01] & 0x80) >> 7;
@@ -1251,7 +1261,9 @@ static void DoChipCommand(UINT8 ChipSet, UINT8 ChipID, UINT16 Reg, UINT16 Data)
 			DoKeyOnOff(TempChp, ch, (Data >> 7) & 1, 0x00);
 		}
 		break;
-	// TODO: 0x2E BSMT2000
+	case 0x2E:	// BSMT2000
+		TempChp->KeyOnCnt = -1;
+		break;
 	case 0x2F:	// ICS2115
 		switch (Reg & 0x03)
 		{

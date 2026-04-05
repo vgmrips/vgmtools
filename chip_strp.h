@@ -104,6 +104,7 @@ typedef struct strip_data
 	STRIP_PSG Mikey;
 	STRIP_PCM OKIM5205;
 	STRIP_PSG OKIM5232;
+	STRIP_PCM BSMT2000;
 	bool Unknown;
 } STRIP_DATA;
 
