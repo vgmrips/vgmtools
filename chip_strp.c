@@ -176,6 +176,9 @@ void InitAllChips(void)
 	for (CurChip = 0x00; CurChip < ChipCount; CurChip ++)
 	{
 		memset(ChipData, 0xFF, ChipCount * sizeof(ALL_CHIPS));
+		ChipData->ICS2115.ChnCnt = 31;
+		ChipData->ICS2115.ChnSel = 0;
+		ChipData->ICS2115.RegSel = 0;
 	}
 
 	SetChipSet(0x00);
@@ -750,6 +753,7 @@ bool k005289_write(UINT8 Register, UINT16 Data)
 bool ics2115_write(UINT8 Register, UINT8 Data)
 {
 	STRIP_PCM* strip = &StpDat->ICS2115;
+	ICS2115_DATA* chip = &ChDat->ICS2115;
 	UINT16 RegVal;
 
 	if (strip->All)
@@ -758,31 +762,64 @@ bool ics2115_write(UINT8 Register, UINT8 Data)
 	switch (Register)
 	{
 		case 0x01:
-			ChDat->ICS2115.RegSel = Data;
+			chip->RegSel = Data;
+			return true;
 			break;
 		case 0x02:
-			switch (ChDat->ICS2115.RegSel)
+			RegVal = chip->RegSel;
+			if ((chip->RegSel <= 0x12) && (chip->RegSel != 0x0E))
 			{
+				if (strip->ChnMask & (0x01 << chip->ChnSel))
+					return false;
+
+				RegVal |= (chip->ChnSel << 7);
+			}
+			switch (chip->RegSel)
+			{
+				case 0x01:
+					Data &= 0xFE; // ignore lowest bit
+					break;
+				case 0x09:
+				case 0x0A:
+				case 0x0B:
+					return true;
 				case 0x4F:
-					ChDat->ICS2115.ChnSel = (Data & 0xFF) % (ChDat->ICS2115.ChnCnt + 1);
+					chip->ChnSel = (Data & 0xFF) % (chip->ChnCnt + 1);
 					break;
 			}
-			RegVal = ChDat->ICS2115.RegSel;
-			if ((ChDat->ICS2115.RegSel <= 0x12) && (ChDat->ICS2115.RegSel != 0x0E))
-				RegVal |= (ChDat->ICS2115.ChnSel << 7);
-			ChDat->ICS2115.RegData[RegVal] = (ChDat->ICS2115.RegData[RegVal] & 0xFF00) | Data;
+			if (! chip->RegFirst[RegVal] && Data == (chip->RegData[RegVal] & 0xFF))
+				return false;
+
+			chip->RegFirst[RegVal] = 0x00;
+			chip->RegData[RegVal] = (chip->RegData[RegVal] & 0xFF00) | Data;
 			break;
 		case 0x03:
-			switch (ChDat->ICS2115.RegSel)
+			RegVal = chip->RegSel;
+			if ((chip->RegSel <= 0x12) && (chip->RegSel != 0x0E))
 			{
+				if (strip->ChnMask & (0x01 << chip->ChnSel))
+					return false;
+
+				RegVal |= (chip->ChnSel << 7);
+			}
+			switch (chip->RegSel)
+			{
+				case 0x00:
+				case 0x09:
+				case 0x0A:
+				case 0x0B:
+				case 0x0D:
+					return true;
 				case 0x0E:
-					ChDat->ICS2115.ChnCnt = Data & 0x1F;
+					Data &= 0x1F;
+					chip->ChnCnt = Data;
 					break;
 			}
-			RegVal = ChDat->ICS2115.RegSel;
-			if ((ChDat->ICS2115.RegSel <= 0x12) && (ChDat->ICS2115.RegSel != 0x0E))
-				RegVal |= (ChDat->ICS2115.ChnSel << 7);
-			ChDat->ICS2115.RegData[RegVal] = (ChDat->ICS2115.RegData[RegVal] & 0x00FF) | (((UINT16)Data) << 8);
+			if (! chip->RegFirst[RegVal] && Data == ((chip->RegData[RegVal] >> 8) & 0xFF))
+				return false;
+
+			chip->RegFirst[RegVal] = 0x00;
+			chip->RegData[RegVal] = (chip->RegData[RegVal] & 0x00FF) | (((UINT16)Data) << 8);
 			break;
 	}
 	return true;

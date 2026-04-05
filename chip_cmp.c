@@ -3053,12 +3053,12 @@ bool ics2115_write(UINT8 Register, UINT8 Data)
 	if ((chip->RegAddr <= 0x12) && (chip->RegAddr != 0x0E))
 		RegInd |= (((UINT16)chip->RegCh) << 7);
 	if (! chip->RegFirst[RegInd] &&
-		Data == ((chip->RegData[RegInd] >> RegShift) & 0xff))
+		Data == ((chip->RegData[RegInd] >> RegShift) & 0xFF))
 		return false;
 
 	chip->RegFirst[RegInd] = JustTimerCmds;
 	chip->RegData[RegInd] =
-			(chip->RegData[RegInd] & ~(0xff << RegShift)) |
+			(chip->RegData[RegInd] & ~(0xFF << RegShift)) |
 			(((UINT16)Data) << RegShift);
 
 	return true;

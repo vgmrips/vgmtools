@@ -669,6 +669,16 @@ static void PrepareChipMemory(void)
 				TempRC->BSMT2000.Chns.ChnCount = 0x0D;
 			}
 		}
+		if (VGMHead.lngHzICS2115)
+		{
+			if (! CurCSet || (VGMHead.lngHzICS2115 & 0x40000000))
+			{
+				// 0x20 pages with 0x80 registers with 2 bytes + register index
+				TempRC->ICS2115.Regs.Mode = 0x01;
+				TempRC->ICS2115.Regs.RegCount = (0x80 * 0x20) + 1;
+				TempRC->ICS2115.Chns.ChnCount = 0x20;
+			}
+		}
 	}
 
 	return;
@@ -997,6 +1007,8 @@ static void SetImportantCommands(void)
 				break;
 			case 0x2E:	// BSMT2000
 				TempReg->RegMask[0x7F] |= 0x80;
+				break;
+			case 0x2F:	// ICS2115
 				break;
 			}
 		}
@@ -1918,6 +1930,10 @@ static void InitializeVGM(UINT8** DstDataRef, UINT32* DstPosRef)
 
 				CmdType = 0xFF;
 				break;
+			case 0x2F:	// ICS2115
+				ChipCmd = 0x44;
+				CmdType = 0xFF;
+				break;
 			default:
 				CmdType = 0xFF;
 				break;
@@ -2819,6 +2835,9 @@ static UINT32 ReadCommand(UINT8 Mask)
 
 		CmdLen = 0x02;
 		break;
+	case 0x44:	// ICS2115 write (16-bit data)
+		CmdLen = 0x03;
+		break;
 	}
 	CommandCheck(0x00, Command, TempChp, CmdReg);
 
@@ -3191,6 +3210,8 @@ static void CommandCheck(UINT8 Mode, UINT8 Command, CHIP_DATA* ChpData, UINT16 C
 			TempChn->ChnMask &= ~(1 << CurChn);
 			TempChn->ChnMask |= (KeyOnOff << CurChn);
 		}
+		break;
+	case 0x44:	// ICS2115 write (16-bit data)
 		break;
 	}
 
