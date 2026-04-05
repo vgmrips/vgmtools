@@ -1915,13 +1915,23 @@ static void InitializeVGM(UINT8** DstDataRef, UINT32* DstPosRef)
 			case 0x2E:	// BSMT2000
 				ChipCmd = 0xC9;
 
-				for (CurReg = 0x00; CurReg < TempReg->RegCount; CurReg ++)
+				CurReg = 0x7F;
+				if ((TempReg->RegMask[CurReg] & 0x7F) == 0x01)
+				{
+					TempSht = TempReg->RegData.R16[CurReg];
+					DstData[DstPos + 0x00] = ChipCmd;
+					DstData[DstPos + 0x01] = (CurCSet << 7) | CurReg;
+					DstData[DstPos + 0x02] = (TempSht & 0xFF00) >> 8;
+					DstData[DstPos + 0x03] = (TempSht & 0x00FF) >> 0;
+					DstPos += 0x04;
+				}
+				for (CurReg = 0x00; CurReg < 0x7F; CurReg ++)
 				{
 					if ((TempReg->RegMask[CurReg] & 0x7F) == 0x01)
 					{
 						TempSht = TempReg->RegData.R16[CurReg];
 						DstData[DstPos + 0x00] = ChipCmd;
-						DstData[DstPos + 0x01] = (UINT8)CurReg;
+						DstData[DstPos + 0x01] = (CurCSet << 7) | CurReg;
 						DstData[DstPos + 0x02] = (TempSht & 0xFF00) >> 8;
 						DstData[DstPos + 0x03] = (TempSht & 0x00FF) >> 0;
 						DstPos += 0x04;
