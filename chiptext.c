@@ -56,6 +56,7 @@ typedef struct chip_count
 	UINT32 K005289;
 	UINT32 ICS2115;
 	UINT32 OKIM5205;
+	UINT32 OKIM5232;
 } CHIP_CNT;
 
 
@@ -545,6 +546,10 @@ INLINE UINT32 GetChipName(UINT8 ChipType, const char** RetName)
 	case 0x2C:
 		ChipName = (ChpCnt.OKIM5205 & 0x80000000) ? "OKIM6585" : "OKIM5205";
 		ChipCnt = ChpCnt.OKIM5205;
+		break;
+	case 0x2D:
+		ChipName = "OKIM5232";
+		ChipCnt = ChpCnt.OKIM5232;
 		break;
 	case 0x2F:
 		ChipName = "ICS2115";
@@ -4557,4 +4562,98 @@ void mikey_write(char* TempStr, UINT8 offset, UINT8 data)
 
 	// Final output string
 	sprintf(TempStr, "Mikey: %s", WriteStr);
+}
+
+void okim5232_write(char* TempStr, UINT8 Register, UINT8 Data)
+{
+	UINT8 CurChn;
+
+	WriteChipID(0x2D);
+
+	if (Register < 0x08)
+	{
+		CurChn = Register & 0x7;
+		sprintf(RedirectStr, "Pitch: 0x%02X, GF: %u", Data & 0x7F, (Data >> 7) & 0x01);
+		sprintf(WriteStr, "Ch %u %s", CurChn, RedirectStr);
+	}
+	else
+	{
+		switch(Register)
+		{
+		case 0x08:
+		case 0x09:
+			CurChn = Register & 0x1;
+			sprintf(WriteStr, "Group %u: Attack rate 0x%01X", CurChn, Data & 0x07);
+			break;
+		case 0x0A:
+		case 0x0B:
+			CurChn = Register & 0x1;
+			sprintf(WriteStr, "Group %u: Decay rate 0x%01X", CurChn, Data & 0x0F);
+			break;
+		case 0x0C:
+		case 0x0D:
+			CurChn = Register & 0x1;
+			sprintf(WriteStr, "Group %u: EG Arm=%s, Output: 16=%s, 8=%s, 4=%s, 2=%s",
+				CurChn,
+				OnOff((Data >> 4) & 0x01),
+				OnOff((Data >> 0) & 0x01),
+				OnOff((Data >> 1) & 0x01),
+				OnOff((Data >> 2) & 0x01),
+				OnOff((Data >> 3) & 0x01));
+			break;
+		case 0x10:
+		case 0x14:
+			CurChn = (Register >> 2) & 0x1;
+			sprintf(WriteStr, "Group %u: Output volume 2 0x%02X", CurChn, Data);
+			break;
+		case 0x11:
+		case 0x15:
+			CurChn = (Register >> 2) & 0x1;
+			sprintf(WriteStr, "Group %u: Output volume 4 0x%02X", CurChn, Data);
+			break;
+		case 0x12:
+		case 0x16:
+			CurChn = (Register >> 2) & 0x1;
+			sprintf(WriteStr, "Group %u: Output volume 8 0x%02X", CurChn, Data);
+			break;
+		case 0x13:
+		case 0x17:
+			CurChn = (Register >> 2) & 0x1;
+			sprintf(WriteStr, "Group %u: Output volume 16 0x%02X", CurChn, Data);
+			break;
+		case 0x18:
+			sprintf(WriteStr, "Group 1: Solo output volume 8 0x%02X", Data);
+			break;
+		case 0x19:
+			sprintf(WriteStr, "Group 1: Solo output volume 16 0x%02X", Data);
+			break;
+		case 0x1A:
+			sprintf(WriteStr, "Noise output volume 0x%02X", Data);
+			break;
+		case 0x1E:
+		case 0x1F:
+			CurChn = Register & 0x1;
+			sprintf(WriteStr, "Group %u: External volume 0x%02X", CurChn, Data);
+			break;
+		case 0x20:
+			sprintf(WriteStr, "Set Master Clock: xxxxxx%02X", Data);
+			break;
+		case 0x21:
+			sprintf(WriteStr, "Set Master Clock: xxxx%02Xxx", Data);
+			break;
+		case 0x22:
+			sprintf(WriteStr, "Set Master Clock: xx%02Xxxxx", Data);
+			break;
+		case 0x23:
+			sprintf(WriteStr, "Set Master Clock: %02Xxxxxxx", Data);
+			break;
+		default:
+			sprintf(WriteStr, "Unknown Register 0x%02X: data 0x%02X", Register, Data);
+			break;
+		}
+	}
+
+	sprintf(TempStr, "%s%s", ChipStr, WriteStr);
+
+	return;
 }

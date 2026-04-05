@@ -58,5 +58,6 @@ void k005289_write(char* TempStr, UINT8 offset, UINT16 data);
 void ics2115_write(char* TempStr, UINT8 offset, UINT8 data);
 void mikey_write(char* TempStr, UINT8 offset, UINT8 data);
 void okim5205_write(char* TempStr, UINT8 Port, UINT8 Data);
+void okim5232_write(char* TempStr, UINT8 Register, UINT8 Data);
 
 #endif	// __CHIPTEXT_H__

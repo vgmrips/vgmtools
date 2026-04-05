@@ -652,6 +652,14 @@ static void PrepareChipMemory(void)
 				TempRC->OKIM5205.Chns.ChnCount = 0x01;
 			}
 		}
+		if (VGMHead.lngHzOKIM5232)
+		{
+			if (! CurCSet || (VGMHead.lngHzOKIM5232 & 0x40000000))
+			{
+				TempRC->OKIM5232.Regs.RegCount = 0x24;
+				TempRC->OKIM5232.Chns.ChnCount = 0x8;
+			}
+		}
 	}
 
 	return;
@@ -966,6 +974,16 @@ static void SetImportantCommands(void)
 				TempReg->RegData.R08[0x04] = (VGMHead.bytOKI5205Flags >>  0) & 0x3;
 				TempReg->RegData.R08[0x05] = (VGMHead.bytOKI5205Flags >>  2) & 0x1;
 				for (CurReg = 0x04; CurReg <= 0x05; CurReg ++)
+					TempReg->RegMask[CurReg] |= 0x80;
+				break;
+			case 0x2D:	// OKIM5232
+				// clock
+				TempReg->RegData.R08[0x20] = (VGMHead.lngHzOKIM5232 >>  0) & 0xFF;
+				TempReg->RegData.R08[0x21] = (VGMHead.lngHzOKIM5232 >>  8) & 0xFF;
+				TempReg->RegData.R08[0x22] = (VGMHead.lngHzOKIM5232 >> 16) & 0xFF;
+				TempReg->RegData.R08[0x23] = (VGMHead.lngHzOKIM5232 >> 24) & 0x3F;
+				// control registers
+				for (CurReg = 0xC; CurReg < 0xD; CurReg ++)
 					TempReg->RegMask[CurReg] |= 0x80;
 				break;
 			}
@@ -1849,6 +1867,27 @@ static void InitializeVGM(UINT8** DstDataRef, UINT32* DstPosRef)
 					}
 				}
 				break;
+			case 0x2D:	// OKIM5232
+				ChipCmd = 0x43;
+				CmdType = 0x12;
+				if (! CurCSet &&	// only chip 1 can change the master clock
+					((TempReg->RegMask[0x23] & 0x7F) == 0x01))
+				{
+					TempLng = VGMHead.lngHzOKIM5232 & 0x40000000;
+					VGMHead.lngHzOKIM5232 =	(TempReg->RegData.R08[0x20] <<  0) |
+											(TempReg->RegData.R08[0x21] <<  8) |
+											(TempReg->RegData.R08[0x22] << 16) |
+											(TempReg->RegData.R08[0x23] << 24) |
+											TempLng;
+					for (CurReg = 0x20; CurReg <= 0x23; CurReg ++)
+						TempReg->RegMask[CurReg] = 0x00;
+				}
+				else if ((TempReg->RegMask[0x23] & 0x7F) == 0x01)
+				{
+					for (CurReg = 0x20; CurReg <= 0x23; CurReg ++)
+						TempReg->RegMask[CurReg] = TempReg->RegMask[0x23];
+				}
+				break;
 			default:
 				CmdType = 0xFF;
 				break;
@@ -2197,6 +2236,21 @@ static UINT32 ReadCommand(UINT8 Mask)
 			}
 		}
 
+		CmdLen = 0x03;
+		break;
+	case 0x43:	// OKIM5232 write
+		TempChp = &RC[ChipID].OKIM5232;
+		TempReg = &TempChp->Regs;
+		if (TempReg->RegCount)
+		{
+			CmdReg = VGMData[VGMPos + 0x01] & 0x7F;
+			if (CmdReg < TempReg->RegCount)
+			{
+				TempReg->RegMask[CmdReg] |= Mask;
+				if (Mask == 0x01)
+					TempReg->RegData.R08[CmdReg] = VGMData[VGMPos + 0x02];
+			}
+		}
 		CmdLen = 0x03;
 		break;
 	case 0x50:	// SN76496 write
@@ -3057,6 +3111,34 @@ static void CommandCheck(UINT8 Mode, UINT8 Command, CHIP_DATA* ChpData, UINT16 C
 		{
 			CurChn = 1;
 			KeyOnOff = 1;
+			TempChn->ChnMask &= ~(1 << CurChn);
+			TempChn->ChnMask |= (KeyOnOff << CurChn);
+		}
+		break;
+	case 0x42:	// K005289 write
+		CurChn = CmdReg & 0x01;
+		KeyOnOff = 0x00;
+
+		// test Frequency
+		if ((CmdReg & 0x06) == 0x04)
+		{
+			TempSht = TempReg->RegData.R16[CmdReg | 0x02];
+			if (TempSht >= 0xFFF)
+				KeyOnOff |= 0x01;	// inaudible frequency - key off
+		}
+		// test volume
+		if ((TempReg->RegData.R16[CmdReg | 0x00] & 0x00) == 0x00)
+			KeyOnOff |= 0x01;	// volume 0 - key off
+
+		KeyOnOff = ! KeyOnOff;
+		TempChn->ChnMask &= ~(1 << CurChn);
+		TempChn->ChnMask |= (KeyOnOff << CurChn);
+		break;
+	case 0x43:	// OKIM5232 write
+		if (CmdReg < 0x8)
+		{
+			CurChn = CmdReg & 0x7;
+			KeyOnOff = (TempReg->RegData.R08[CmdReg] & 0x80) >> 7;
 			TempChn->ChnMask &= ~(1 << CurChn);
 			TempChn->ChnMask |= (KeyOnOff << CurChn);
 		}

@@ -304,7 +304,7 @@ static void CountVGMData()
 		case 0x1F:
 			TempLng = VGMHead.lngHzQSound;
 			break;
-		// TODO: 0x20 SCSP .. 0x29 Mikey
+		// TODO: 0x20 SCSP .. 0x28 GA20
 		case 0x29:
 			TempLng = VGMHead.lngHzMikey;
 			break;
@@ -317,7 +317,10 @@ static void CountVGMData()
 		case 0x2C:
 			TempLng = VGMHead.lngHzOKIM5205;
 			break;
-		// TODO: 0x2C OKIM5205 .. 0x2E BSMT2000
+		case 0x2D:
+			TempLng = VGMHead.lngHzOKIM5232;
+			break;
+		// TODO: 0x2E BSMT2000
 		case 0x2F:
 			TempLng = VGMHead.lngHzICS2115;
 			break;
@@ -828,6 +831,11 @@ static void CountVGMData()
 				DoChipCommand(CurChip, 0x2C, (VGMPnt[0x01] >> 4) & 0x7, VGMPnt[0x01] & 0xF);
 				CmdLen = 0x02;
 				break;
+			case 0x43:	// OKIM5232 write
+				CurChip = (VGMPnt[0x01] & 0x80) >> 7;
+				DoChipCommand(CurChip, 0x2D, VGMPnt[0x01] & 0x7F, VGMPnt[0x02]);
+				CmdLen = 0x03;
+				break;
 			case 0x44:	// ICS2115 write
 				CurChip = (VGMPnt[0x01] & 0x80) >> 7;
 				DoChipCommand(CurChip, 0x2F, VGMPnt[0x01] & 0x7F, VGMPnt[0x02]);
@@ -1209,7 +1217,7 @@ static void DoChipCommand(UINT8 ChipSet, UINT8 ChipID, UINT16 Reg, UINT16 Data)
 			}
 		}
 		break;
-	// TODO: 0x20 SCSP .. 0x29 Mikey
+	// TODO: 0x20 SCSP .. 0x28 GA20
 	case 0x29:	// Mikey
 		if ((Reg >= 0x20) && (Reg < 0x40))
 		{
@@ -1236,7 +1244,14 @@ static void DoChipCommand(UINT8 ChipSet, UINT8 ChipID, UINT16 Reg, UINT16 Data)
 	case 0x2C:	// OKIM5205
 		TempChp->KeyOnCnt = -1;
 		break;
-	// TODO: 0x2C OKIM5205 .. 0x2E BSMT2000
+	case 0x2D:	// OKIM5232
+		if (Reg < 0x08)
+		{
+			UINT8 ch = Reg & 0x07;
+			DoKeyOnOff(TempChp, ch, (Data >> 7) & 1, 0x00);
+		}
+		break;
+	// TODO: 0x2E BSMT2000
 	case 0x2F:	// ICS2115
 		switch (Reg & 0x03)
 		{

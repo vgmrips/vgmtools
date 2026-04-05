@@ -291,6 +291,11 @@ typedef struct mikey_data
 	UINT16 RegData[0x51];
 	UINT8 RegFirst[0x51];
 } MIKEY_DATA;
+typedef struct okim5232_data
+{
+	UINT16 RegData[0x24];
+	UINT8 RegFirst[0x24];
+} OKIM5232_DATA;
 
 typedef struct all_chips
 {
@@ -336,6 +341,7 @@ typedef struct all_chips
 	ICS2115_DATA ICS2115;
 	MIKEY_DATA Mikey;
 	OKIM5205_DATA OKIM5205;
+	OKIM5232_DATA OKIM5232;
 } ALL_CHIPS;
 
 
@@ -390,6 +396,7 @@ bool k007232_write(UINT8 Register, UINT8 Data);
 bool ics2115_write(UINT8 Register, UINT8 Data);
 bool mikey_write(UINT8 Register, UINT8 Data);
 bool okim5205_write(UINT8 Port, UINT8 Data);
+bool okim5232_write(UINT8 Register, UINT8 Data);
 
 // Function Prototypes from vgm_cmp.c
 bool GetNextChipCommand(void);
@@ -3082,5 +3089,72 @@ bool okim5205_write(UINT8 Port, UINT8 Data)
 	chip->RegFirst[Port] = JustTimerCmds;
 	chip->RegData[Port] = Data;
 
+	return true;
+}
+
+bool okim5232_write(UINT8 Register, UINT8 Data)
+{
+	OKIM5232_DATA* chip = &ChDat->OKIM5232;
+
+	if (Register >= 0x24)
+		return false;
+
+	switch (Register)
+	{
+	case 0x00: // pitch/keyon
+	case 0x01:
+	case 0x02:
+	case 0x03:
+	case 0x04:
+	case 0x05:
+	case 0x06:
+	case 0x07:
+	case 0x0C: // per group control
+	case 0x0D:
+		return true;
+	case 0x08: // per group attack/decay
+	case 0x09:
+	case 0x0A:
+	case 0x0B:
+	case 0x10: // per output volume
+	case 0x11:
+	case 0x12:
+	case 0x13:
+	case 0x14:
+	case 0x15:
+	case 0x16:
+	case 0x17:
+	case 0x18:
+	case 0x19:
+	case 0x1A:
+	case 0x1E:
+	case 0x1F:
+		break;
+	case 0x20:	// Master Clock 000000dd
+	case 0x21:	// Master Clock 0000dd00
+	case 0x22:	// Master Clock 00dd0000
+		if (/*! chip->RegFirst[Register] &&*/ Data == chip->RegData[Register])
+			return false;
+
+		chip->RegData[Register] = Data;
+		chip->RegFirst[Register] = 0x00;
+		chip->RegFirst[0x23] = 0x01;	// force Clock rewrite
+		break;
+	case 0x23:	// Master Clock dd000000
+		if (! chip->RegFirst[Register] && Data == chip->RegData[Register])
+			return false;
+
+		chip->RegData[Register] = Data;
+		chip->RegFirst[Register] = 0x00;
+		break;
+	default:
+		return false;
+	}
+
+	if (! chip->RegFirst[Register] && Data == chip->RegData[Register])
+		return false;
+
+	chip->RegFirst[Register] = JustTimerCmds;
+	chip->RegData[Register] = Data;
 	return true;
 }

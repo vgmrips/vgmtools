@@ -103,6 +103,7 @@ typedef struct strip_data
 	STRIP_PCM ICS2115;
 	STRIP_PSG Mikey;
 	STRIP_PCM OKIM5205;
+	STRIP_PSG OKIM5232;
 	bool Unknown;
 } STRIP_DATA;
 
@@ -131,3 +132,4 @@ bool c140_write(UINT8 Port, UINT8 Register, UINT8 Data);
 bool k005289_write(UINT8 Register, UINT16 Data);
 bool ics2115_write(UINT8 Register, UINT8 Data);
 bool mikey_write(UINT8 Register, UINT8 Data);
+bool okim5232_write(UINT8 Register, UINT8 Data);

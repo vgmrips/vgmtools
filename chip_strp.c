@@ -127,6 +127,12 @@ typedef struct mikey_data
 	UINT8 RegFirst[0x51];
 } MIKEY_DATA;
 
+typedef struct okim5232_data
+{
+	UINT16 RegData[0x24];
+	UINT8 RegFirst[0x24];
+} OKIM5232_DATA;
+
 typedef struct all_chips
 {
 	//UINT8 GGSt;
@@ -151,6 +157,7 @@ typedef struct all_chips
 	K005289_DATA K005289;
 	ICS2115_DATA ICS2115;
 	MIKEY_DATA Mikey;
+	OKIM5232_DATA OKIM5232;
 } ALL_CHIPS;
 
 
@@ -719,12 +726,24 @@ bool c140_write(UINT8 Port, UINT8 Register, UINT8 Data)
 bool k005289_write(UINT8 Register, UINT16 Data)
 {
 	STRIP_PSG* strip = &StpDat->K005289;
+	K005289_DATA* chip = &ChDat->K005289;
+	UINT8 Channel;
 
 	if (strip->All)
 		return false;
-	return true;
-	ChDat->K005289.RegFirst[Register] = 0x00;
-	ChDat->K005289.RegData[Register] = Data;
+
+	Channel = Register & 1;
+	if (strip->ChnMask & (0x01 << Channel))
+		return false;
+
+	if ((Register & 0x06) == 0x04)
+		return true;
+
+	if (! chip->RegFirst[Register] && Data == chip->RegData[Register])
+		return false;
+
+	chip->RegFirst[Register] = 0x00;
+	chip->RegData[Register] = Data;
 	return true;
 }
 
@@ -819,5 +838,30 @@ bool mikey_write(UINT8 Register, UINT8 Data)
 
 	chip->RegFirst[Register] = 0x00;
 	chip->RegData[Register] = Data;
+	return true;
+}
+
+bool okim5232_write(UINT8 Register, UINT8 Data)
+{
+	STRIP_PSG* strip = &StpDat->OKIM5232;
+	OKIM5232_DATA* chip = &ChDat->OKIM5232;
+	UINT16 RegVal;
+	UINT8 Channel;
+
+	if (strip->All)
+		return false;
+
+	if (Register < 0x08)
+	{
+		Channel = Register & 0x07;
+		if (strip->ChnMask & (0x01 << Channel))
+			return false;
+	}
+	if (! chip->RegFirst[Register] && Data == chip->RegData[Register])
+		return false;
+
+	chip->RegFirst[Register] = 0x00;
+	chip->RegData[Register] = Data;
+
 	return true;
 }
