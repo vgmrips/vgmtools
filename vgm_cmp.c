@@ -65,6 +65,7 @@ bool k005289_write(UINT8 Register, UINT16 Data);
 bool k007232_write(UINT8 Register, UINT8 Data);
 bool ics2115_write(UINT8 Register, UINT8 Data);
 bool mikey_write(UINT8 Register, UINT8 Data);
+bool okim5205_write(UINT8 Port, UINT8 Data);
 
 VGM_HEADER VGMHead;
 UINT32 VGMDataLen;
@@ -292,6 +293,7 @@ static void CompressVGMData(void)
 	UINT8 TempByt;
 	UINT16 TempSht;
 	UINT32 TempLng;
+	UINT32 TempFlag;
 	//UINT32 DataStart;
 	//UINT32 DataLen;
 #ifdef WIN32
@@ -346,6 +348,20 @@ static void CompressVGMData(void)
 			okim6295_write(0x8A, (TempLng >> 16) & 0xFF);
 			okim6295_write(0x8B, (TempLng >> 24) & 0xFF);
 			okim6295_write(0x8C, VGMHead.lngHzOKIM6295 >> 31);
+		}
+	}
+	if (VGMHead.lngHzOKIM5205)
+	{
+		TempFlag = VGMHead.bytOKI5205Flags & 0x07;
+
+		SetChipSet(0x00);
+		okim5205_write(0x04, (TempFlag) & 0x03);
+		okim5205_write(0x05, (TempFlag >> 2) & 0x01);
+		if (VGMHead.lngHzOKIM5205 & 0x40000000)
+		{
+			SetChipSet(0x01);
+			okim6295_write(0x04, (TempFlag) & 0x03);
+			okim6295_write(0x05, (TempFlag >> 2) & 0x01);
 		}
 	}
 	/*if (VGMHead.lngHzK054539)
@@ -605,6 +621,11 @@ static void CompressVGMData(void)
 				break;
 			case 0x4F:	// GG Stereo
 				WriteEvent = GGStereo(VGMPnt[0x01]);
+				CmdLen = 0x02;
+				break;
+			case 0x32:	// OKIM5205 write
+				SetChipSet((VGMPnt[0x01] & 0x80) >> 7);
+				WriteEvent = okim5205_write((VGMPnt[0x01] >> 4) & 0x7, VGMPnt[0x01] & 0xF);
 				CmdLen = 0x02;
 				break;
 			case 0x54:	// YM2151 write

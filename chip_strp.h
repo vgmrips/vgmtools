@@ -102,6 +102,7 @@ typedef struct strip_data
 	STRIP_OPX QSound;
 	STRIP_PCM ICS2115;
 	STRIP_PSG Mikey;
+	STRIP_PCM OKIM5205;
 	bool Unknown;
 } STRIP_DATA;
 

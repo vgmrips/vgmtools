@@ -268,6 +268,9 @@ static void CopyHeader(VGM_HEADER* SrcHead, VGM_HEADER* DstHead, bool IsChip2)
 			case 0x1C:
 				DstHead->bytC140Type = 0x00;
 				break;
+			case 0x27:
+				DstHead->bytOKI5205Flags = 0x00;
+				break;
 			}
 		}
 

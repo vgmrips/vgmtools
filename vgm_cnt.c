@@ -314,6 +314,9 @@ static void CountVGMData()
 		case 0x2B:
 			TempLng = VGMHead.lngHzK005289;
 			break;
+		case 0x2C:
+			TempLng = VGMHead.lngHzOKIM5205;
+			break;
 		// TODO: 0x2C OKIM5205 .. 0x2E BSMT2000
 		case 0x2F:
 			TempLng = VGMHead.lngHzICS2115;
@@ -820,6 +823,11 @@ static void CountVGMData()
 											VGMPnt[0x02]);
 				CmdLen = 0x03;
 				break;
+			case 0x32:	// OKIM5205 write
+				CurChip = (VGMPnt[0x01] & 0x80) >> 7;
+				DoChipCommand(CurChip, 0x2C, (VGMPnt[0x01] >> 4) & 0x7, VGMPnt[0x01] & 0xF);
+				CmdLen = 0x02;
+				break;
 			case 0x44:	// ICS2115 write
 				CurChip = (VGMPnt[0x01] & 0x80) >> 7;
 				DoChipCommand(CurChip, 0x2F, VGMPnt[0x01] & 0x7F, VGMPnt[0x02]);
@@ -1224,6 +1232,9 @@ static void DoChipCommand(UINT8 ChipSet, UINT8 ChipID, UINT16 Reg, UINT16 Data)
 			UINT8 ch = Reg & 0x01;
 			DoKeyOnOff(TempChp, ch, 1, 0x00);
 		}
+		break;
+	case 0x2C:	// OKIM5205
+		TempChp->KeyOnCnt = -1;
 		break;
 	// TODO: 0x2C OKIM5205 .. 0x2E BSMT2000
 	case 0x2F:	// ICS2115

@@ -643,6 +643,15 @@ static void PrepareChipMemory(void)
 				TempRC->K005289.Chns.ChnCount = 0x02;
 			}
 		}
+		if (VGMHead.lngHzOKIM5205)
+		{
+			if (! CurCSet || (VGMHead.lngHzOKIM5205 & 0x40000000))
+			{
+				// One reg for every port (Ctrl, Data, Pan) Clock-stuff
+				TempRC->OKIM5205.Regs.RegCount = 0x06;
+				TempRC->OKIM5205.Chns.ChnCount = 0x01;
+			}
+		}
 	}
 
 	return;
@@ -952,6 +961,12 @@ static void SetImportantCommands(void)
 			case 0x2A:	// K007232
 				break;
 			case 0x2B:	// K005289
+				break;
+			case 0x2C:	// OKIM5205
+				TempReg->RegData.R08[0x04] = (VGMHead.bytOKI5205Flags >>  0) & 0x3;
+				TempReg->RegData.R08[0x05] = (VGMHead.bytOKI5205Flags >>  2) & 0x1;
+				for (CurReg = 0x04; CurReg <= 0x05; CurReg ++)
+					TempReg->RegMask[CurReg] |= 0x80;
 				break;
 			}
 		}
@@ -1809,6 +1824,31 @@ static void InitializeVGM(UINT8** DstDataRef, UINT32* DstPosRef)
 
 				CmdType = 0x00;
 				break;
+			case 0x2C:	// OKIM5205
+				ChipCmd = 0x32;
+				CmdType = 0xFF;
+				if ((TempReg->RegMask[0x04] & 0x7F) == 0x01)
+				{
+					VGMHead.bytOKI5205Flags &= ~0x03;
+					VGMHead.bytOKI5205Flags |= TempReg->RegData.R08[0x04] & 0x03;
+				}
+				if ((TempReg->RegMask[0x05] & 0x7F) == 0x01)
+				{
+					VGMHead.bytOKI5205Flags &= ~0x04;
+					VGMHead.bytOKI5205Flags |= (TempReg->RegData.R08[0x05] & 0x01) << 2;
+				}
+
+				for (CurReg = 0x00; CurReg < 0x03; CurReg ++)
+				{
+					WrtReg = (0x02 + CurReg) % 0x03;	// write in order 02, 00, 01
+					if ((TempReg->RegMask[WrtReg] & 0x7F) == 0x01)
+					{
+						DstData[DstPos + 0x00] = ChipCmd;
+						DstData[DstPos + 0x01] = (CurCSet << 7) | ((WrtReg & 7) << 4) | (TempReg->RegData.R08[WrtReg] & 0x0F);
+						DstPos += 0x02;
+					}
+				}
+				break;
 			default:
 				CmdType = 0xFF;
 				break;
@@ -2657,6 +2697,24 @@ static UINT32 ReadCommand(UINT8 Mask)
 		break;
 	case 0xD6:	// ES5506 write (16-bit data)
 		CmdLen = 0x04;
+		break;
+	case 0x32:	// OKIM5205 write
+		ChipID = VGMData[VGMPos + 0x01] >> 7;
+		TempChp = &RC[ChipID].OKIM5205;
+		TempReg = &TempChp->Regs;
+
+		if (TempReg->RegCount)
+		{
+			CmdReg = (VGMData[VGMPos + 0x01] >> 4) & 0x7;
+			if (CmdReg < TempReg->RegCount)
+			{
+				TempReg->RegMask[CmdReg] |= Mask;
+				if (Mask == 0x01)
+					TempReg->RegData.R08[CmdReg] = VGMData[VGMPos + 0x01] & 0xF;
+			}
+		}
+
+		CmdLen = 0x02;
 		break;
 	}
 	CommandCheck(0x00, Command, TempChp, CmdReg);

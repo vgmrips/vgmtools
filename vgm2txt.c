@@ -465,6 +465,7 @@ static void WriteVGM2Txt(const char* FileName)
 	
 	WriteClockText(TempStr, VGMHead.lngHzOKIM5205, "OKIM5205");
 	fprintf(hFile, "OKIM5205 Clock:\t\t%s\n", TempStr);
+	fprintf(hFile, "OKIM5205 Flags:\t\t0x%02X\n", VGMHead.bytOKI5205Flags);
 	
 	WriteClockText(TempStr, VGMHead.lngHzOKIM5232, "OKIM5232");
 	fprintf(hFile, "OKIM5232 Clock:\t\t%s\n", TempStr);
@@ -1505,6 +1506,14 @@ static void WriteVGMData2Txt(FILE* hFile)
 										(VGMPnt[0x02] << 0));
 				}
 				CmdLen = 0x03;
+				break;
+			case 0x32:	// OKIM5205 write
+				if (WriteEvents)
+				{
+					SetChip((VGMPnt[0x01] & 0x80) >> 7);
+					okim5205_write(TempStr, (VGMPnt[0x01] >> 4) & 0x7, VGMPnt[0x01] & 0xF);
+				}
+				CmdLen = 0x02;
 				break;
 			case 0x44:	// ICS2115 write
 				if (WriteEvents)

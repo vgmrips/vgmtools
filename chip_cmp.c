@@ -236,6 +236,7 @@ typedef struct okim6295_data
 	UINT8 RegFirst[0x14];
 } OKIM6295_DATA;
 typedef struct okim6295_data OKIM6258_DATA;
+typedef struct okim6295_data OKIM5205_DATA;
 typedef struct upd7759_data
 {
 	UINT8 RegData[0x04];
@@ -334,6 +335,7 @@ typedef struct all_chips
 	K007232_DATA K007232;
 	ICS2115_DATA ICS2115;
 	MIKEY_DATA Mikey;
+	OKIM5205_DATA OKIM5205;
 } ALL_CHIPS;
 
 
@@ -387,6 +389,7 @@ bool k005289_write(UINT8 Register, UINT16 Data);
 bool k007232_write(UINT8 Register, UINT8 Data);
 bool ics2115_write(UINT8 Register, UINT8 Data);
 bool mikey_write(UINT8 Register, UINT8 Data);
+bool okim5205_write(UINT8 Port, UINT8 Data);
 
 // Function Prototypes from vgm_cmp.c
 bool GetNextChipCommand(void);
@@ -3024,14 +3027,14 @@ bool mikey_write(UINT8 Register, UINT8 Data)
 		// don't strip counter, direct output and shifter write
 		switch (Register & 0x07)
 		{
-			case 0x01:
-			case 0x02:
-			case 0x03:
-			case 0x04:
-			case 0x05:
-			case 0x06:
-			case 0x07:
-				return true;
+		case 0x01:
+		case 0x02:
+		case 0x03:
+		case 0x04:
+		case 0x05:
+		case 0x06:
+		case 0x07:
+			return true;
 		}
 	}
 	else
@@ -3055,6 +3058,29 @@ bool mikey_write(UINT8 Register, UINT8 Data)
 
 	chip->RegFirst[Register] = JustTimerCmds;
 	chip->RegData[Register] = Data;
+
+	return true;
+}
+
+bool okim5205_write(UINT8 Port, UINT8 Data)
+{
+	OKIM5205_DATA* chip = &ChDat->OKIM5205;
+	Data &= 0x0F;
+	switch (Port & 0x07)
+	{
+	case 0x01: // doesn't strip data write
+		return true;
+	case 0x03:
+	case 0x06:
+	case 0x07:
+		return false;
+	}
+
+	if (! chip->RegFirst[Port] && Data == chip->RegData[Port])
+		return false;
+
+	chip->RegFirst[Port] = JustTimerCmds;
+	chip->RegData[Port] = Data;
 
 	return true;
 }

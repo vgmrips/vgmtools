@@ -897,6 +897,8 @@ INLINE bool IgnoredCmd(const UINT8* VGMPnt)
 		return true;	// OKIM6258 ADPCM Data
 	if (Command == 0xB5 && RegData >= 0x01)
 		return true;	// MultiPCM "Set Slot"
+	if (Command == 0x32 && (((RegData >> 4) & 7) == 0x01))
+		return true;	// OKIM5205 ADPCM Data
 
 	/*if (Command == 0xBA)
 	{

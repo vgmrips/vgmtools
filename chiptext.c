@@ -55,6 +55,7 @@ typedef struct chip_count
 	UINT32 K007232;
 	UINT32 K005289;
 	UINT32 ICS2115;
+	UINT32 OKIM5205;
 } CHIP_CNT;
 
 
@@ -191,6 +192,12 @@ static const int dpcm_clocks[16] = {428, 380, 340, 320, 286, 254, 226, 214,
 #define SKCTL_C		0x0F
 
 static const int okim6258_dividers[4] = {1024, 768, 512, 512};
+
+static const int okim5205_dividers[2][4] = 
+{
+	{96, 64, 48, 1}, // MSM5205
+	{160, 80, 40, 20} // MSM6585
+};
 
 static const UINT8 okim6295_voltbl[0x10] =
 {	0x20, 0x16, 0x10, 0x0B, 0x08, 0x06, 0x04, 0x03,
@@ -534,6 +541,10 @@ INLINE UINT32 GetChipName(UINT8 ChipType, const char** RetName)
 	case 0x2B:
 		ChipName = "K005289";
 		ChipCnt = ChpCnt.K005289;
+		break;
+	case 0x2C:
+		ChipName = (ChpCnt.OKIM5205 & 0x80000000) ? "OKIM6585" : "OKIM5205";
+		ChipCnt = ChpCnt.OKIM5205;
 		break;
 	case 0x2F:
 		ChipName = "ICS2115";
@@ -3297,6 +3308,38 @@ void okim6258_write(char* TempStr, UINT8 Port, UINT8 Data)
 		break;
 	default:
 		sprintf(WriteStr, "Port %02X: 0x%02X", Port, Data);
+		break;
+	}
+
+	sprintf(TempStr, "%s%s", ChipStr, WriteStr);
+
+	return;
+}
+
+void okim5205_write(char* TempStr, UINT8 Port, UINT8 Data)
+{
+	WriteChipID(0x2C);
+
+	Data &= 0x0F;
+	switch(Port & 0x07)
+	{
+	case 0x00:
+		sprintf(WriteStr, "Reset write: %s", OnOff(Data & 0x01));
+		break;
+	case 0x01:
+		sprintf(WriteStr, "Data Write: 0x%01X", Data);
+		break;
+	case 0x02:
+		sprintf(WriteStr, "VCLK write: %s", OnOff(Data & 0x01));
+		break;
+	case 0x04:
+		sprintf(WriteStr, "Set prescaler to %u", okim5205_dividers[(ChpCnt.OKIM5205 & 0x80000000) >> 31][Data & 0x03]);
+		break;
+	case 0x05:
+		sprintf(WriteStr, "Set ADPCM bit width: %u", Data ? 4 : 3);
+		break;
+	default:
+		sprintf(WriteStr, "Unknown write %01X: 0x%01X", Port & 7, Data);
 		break;
 	}
 

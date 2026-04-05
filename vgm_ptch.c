@@ -170,6 +170,8 @@ int main(int argc, char* argv[])
 		printf("    -SetHzMikey    Sets the Mikey chip clock\n");
 		printf("    -SetHzK007232  Sets the K007232 chip clock\n");
 		printf("    -SetHzK005289  Sets the K005289 chip clock\n");
+		printf("    -SetHzOKIM5205 Sets the OKIM5205 chip clock\n");
+		printf("    -SetOKIM5205Flags  Sets the OKIM5205 Flags\n");
 		printf("    -SetHzICS2115  Sets the ICS2115 chip clock\n");
 		printf("\n");
 		printf("Setting a clock rate to 0 disables the chip.\n");
@@ -217,6 +219,7 @@ int main(int argc, char* argv[])
 		printf("    Mikey         *0..3\n");
 		printf("    K007232       *0..1\n");
 		printf("    K005289       *0..1\n");
+		printf("    OKIM5205       -\n");
 		printf("    ICS2115       *0..31\n");
 		printf("    DacCtrl        0..255\n");
 		printf("* strip whole chip only, no channel stripping\n");
@@ -865,6 +868,11 @@ static UINT8 ParseStripCommand(const char* StripCmd)
 			CurChip = 0x2B;
 			TempChip = (STRIP_GENERIC*)&StripVGM[0].K005289;
 		}
+		else if (! stricmp(ChipPos, "OKIM5205"))
+		{
+			CurChip = 0x2C;
+			TempChip = (STRIP_GENERIC*)&StripVGM[0].OKIM5205;
+		}
 		else if (! stricmp(ChipPos, "ICS2115"))
 		{
 			CurChip = 0x2F;
@@ -1408,6 +1416,11 @@ static UINT8 PatchVGM(int ArgCount, char* ArgList[])
 				ChipHzPnt = &VGMHead.lngHzK005289;
 				OldVal = 0x172;
 			}
+			else if (! stricmp(CmdStr, "OKIM5205"))
+			{
+				ChipHzPnt = &VGMHead.lngHzOKIM5205;
+				OldVal = 0x172;
+			}
 			else if (! stricmp(CmdStr, "ICS2115"))
 			{
 				ChipHzPnt = &VGMHead.lngHzICS2115;
@@ -1695,6 +1708,25 @@ static UINT8 PatchVGM(int ArgCount, char* ArgList[])
 				if (TempByt != VGMHead.bytC140Type)
 				{
 					VGMHead.bytC140Type = TempByt;
+					RetVal |= 0x10;
+				}
+			}
+			else
+			{
+				printf("Warning! Command ignored - VGM version too low!\n");
+			}
+		}
+		else if (! stricmp(CmdStr, "SetOKIM5205Flags"))
+		{
+			if (CmdData == NULL)
+				goto IncompleteArg;
+
+			if (VGMHead.lngVersion >= 0x172)
+			{
+				TempByt = (UINT8)strtoul(CmdData, NULL, 0);
+				if (TempByt != VGMHead.bytOKI5205Flags)
+				{
+					VGMHead.bytOKI5205Flags = TempByt;
 					RetVal |= 0x10;
 				}
 			}
@@ -2913,6 +2945,8 @@ static bool ChipCommandIsValid(UINT8 Command)
 		return true;
 	if (Command == 0x42 && VGMHead.lngHzK005289)
 		return true;
+	if (Command == 0x32 && VGMHead.lngHzOKIM5205)
+		return true;
 	if (Command == 0x44 && VGMHead.lngHzICS2115)
 		return true;
 
@@ -3863,6 +3897,14 @@ static void StripVGMData(void)
 					VGMPnt[0x01] &= ~0x80;
 				CmdLen = 0x03;
 				break;
+			case 0x32:	// OKIM5205 write
+				ChipID = (VGMPnt[0x01] & 0x80) >> 7;
+				if (StripVGM[ChipID].OKIM5205.All)
+					WriteEvent = false;
+				if (WriteEvent && ChipID && StripVGM[0].OKIM5205.All)
+					VGMPnt[0x01] &= ~0x80;
+				CmdLen = 0x02;
+				break;
 			case 0x44:	// ICS2115 write
 				ChipID = (VGMPnt[0x01] & 0x80) >> 7;
 				if (StripVGM[ChipID].ICS2115.All)
@@ -4141,6 +4183,8 @@ static void StripVGMData(void)
 	StripClock(&StripVGM[0].Mikey.All, &VGMHead.lngHzMikey);
 	StripClock(&StripVGM[0].K007232.All, &VGMHead.lngHzK007232);
 	StripClock(&StripVGM[0].K005289.All, &VGMHead.lngHzK005289);
+	if (StripClock(&StripVGM[0].OKIM5205.All, &VGMHead.lngHzOKIM5205))
+		VGMHead.bytOKI5205Flags = 0x00;
 	StripClock(&StripVGM[0].ICS2115.All, &VGMHead.lngHzICS2115);
 	//StripClock(&StripVGM[0].SCSP.All, &VGMHead.lngHzSCSP);
 
