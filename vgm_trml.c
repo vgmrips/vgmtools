@@ -674,8 +674,8 @@ static void PrepareChipMemory(void)
 			if (! CurCSet || (VGMHead.lngHzICS2115 & 0x40000000))
 			{
 				// 0x20 pages with 0x80 registers with 2 bytes + register index
-				TempRC->ICS2115.Regs.Mode = 0x01;
-				TempRC->ICS2115.Regs.RegCount = (0x80 * 0x20) + 1;
+				TempRC->ICS2115.Regs.Mode = 0x00;
+				TempRC->ICS2115.Regs.RegCount = ((0x80 * 0x20) * 2) + 1;
 				TempRC->ICS2115.Chns.ChnCount = 0x20;
 			}
 		}
@@ -1009,6 +1009,22 @@ static void SetImportantCommands(void)
 				TempReg->RegMask[0x7F] |= 0x80;
 				break;
 			case 0x2F:	// ICS2115
+				for (CurReg = 0x00; CurReg < 0x20; CurReg++)
+				{
+					TempReg->RegMask[(((CurReg << 7) | 0x00) << 1) | 1] |= 0x80; // Oscillator Configuration
+					TempReg->RegMask[(((CurReg << 7) | 0x06) << 1) | 1] |= 0x80; // Volume Increment
+					TempReg->RegMask[(((CurReg << 7) | 0x07) << 1) | 0] |= 0x80; // Volume Start
+					TempReg->RegMask[(((CurReg << 7) | 0x08) << 1) | 0] |= 0x80; // Volume End
+					TempReg->RegMask[(((CurReg << 7) | 0x09) << 1) | 0] |= 0x80; // Volume accumulator
+					TempReg->RegMask[(((CurReg << 7) | 0x09) << 1) | 1] |= 0x80; // Volume accumulator
+					TempReg->RegMask[(((CurReg << 7) | 0x0C) << 1) | 1] |= 0x80; // Pan
+					TempReg->RegMask[(((CurReg << 7) | 0x0D) << 1) | 1] |= 0x80; // Volume Envelope Control
+					TempReg->RegMask[(((CurReg << 7) | 0x11) << 1) | 1] |= 0x80; // Wavesample static address 27-20
+					TempReg->RegMask[(((CurReg << 7) | 0x12) << 1) | 1] |= 0x80; // vmode
+				}
+				TempReg->RegMask[(0x4F << 1) | 0] |= 0x80; // Voice select
+				TempReg->RegMask[(0x0E << 1) | 1] |= 0x80; // Number of voices
+				TempReg->RegMask[(0x80 | (0x20 << 7)) << 1] |= 0x80; // Register select
 				break;
 			}
 		}
@@ -1942,7 +1958,107 @@ static void InitializeVGM(UINT8** DstDataRef, UINT32* DstPosRef)
 				break;
 			case 0x2F:	// ICS2115
 				ChipCmd = 0x44;
-				CmdType = 0xFF;
+
+				TempSht = (TempReg->RegData.R08[(0x0E << 1) | 1] >> 8) & 0xFF;
+				if ((TempReg->RegMask[0x0E] & 0x7F) == 0x01)
+				{
+					DstData[DstPos + 0x00] = ChipCmd;
+					DstData[DstPos + 0x01] = (CurCSet << 7) | 0x01;
+					DstData[DstPos + 0x02] = 0x0E;
+					DstPos += 0x03;
+					DstData[DstPos + 0x00] = ChipCmd;
+					DstData[DstPos + 0x01] = (CurCSet << 7) | 0x03;
+					DstData[DstPos + 0x02] = TempSht;
+					DstPos += 0x03;
+				}
+
+				for (TempByt = 0x00; TempByt <= TempSht; TempByt ++)
+				{
+					CmdType = 0x00;
+					WrtReg = TempByt * 0x80;
+					for (CurReg = 0x00; CurReg < 0x12; CurReg ++)
+					{
+						if ((CurReg == 0x0E) || (CurReg == 0x0F))
+							continue;
+
+						// Register LSB
+						if ((TempReg->RegMask[((WrtReg + CurReg) << 1) | 0] & 0x7F) == 0x01)
+						{
+							if (! CmdType)
+							{
+								// write Channel Select
+								DstData[DstPos + 0x00] = ChipCmd;
+								DstData[DstPos + 0x01] = (CurCSet << 7) | 0x01;
+								DstData[DstPos + 0x02] = 0x4F;
+								DstPos += 0x03;
+								DstData[DstPos + 0x00] = ChipCmd;
+								DstData[DstPos + 0x01] = (CurCSet << 7) | 0x02;
+								DstData[DstPos + 0x02] = TempByt;
+								DstPos += 0x03;
+								CmdType = 0x01;
+							}
+
+							DstData[DstPos + 0x00] = ChipCmd;
+							DstData[DstPos + 0x01] = (CurCSet << 7) | 0x01;
+							DstData[DstPos + 0x02] = CurReg;
+							DstPos += 0x03;
+							DstData[DstPos + 0x00] = ChipCmd;
+							DstData[DstPos + 0x01] = (CurCSet << 7) | 0x02;
+							DstData[DstPos + 0x02] = TempReg->RegData.R08[((WrtReg + CurReg) << 1) | 0] & 0xFF;
+							DstPos += 0x03;
+						}
+						// Register MSB
+						if ((TempReg->RegMask[((WrtReg + CurReg) << 1) | 1] & 0x7F) == 0x01)
+						{
+							if (! CmdType)
+							{
+								// write Channel Select
+								DstData[DstPos + 0x00] = ChipCmd;
+								DstData[DstPos + 0x01] = (CurCSet << 7) | 0x01;
+								DstData[DstPos + 0x02] = 0x4F;
+								DstPos += 0x03;
+								DstData[DstPos + 0x00] = ChipCmd;
+								DstData[DstPos + 0x01] = (CurCSet << 7) | 0x02;
+								DstData[DstPos + 0x02] = TempByt;
+								DstPos += 0x03;
+								CmdType = 0x01;
+							}
+
+							DstData[DstPos + 0x00] = ChipCmd;
+							DstData[DstPos + 0x01] = (CurCSet << 7) | 0x01;
+							DstData[DstPos + 0x02] = CurReg;
+							DstPos += 0x03;
+							DstData[DstPos + 0x00] = ChipCmd;
+							DstData[DstPos + 0x01] = (CurCSet << 7) | 0x03;
+							DstData[DstPos + 0x02] = TempReg->RegData.R08[((WrtReg + CurReg) << 1) | 1] & 0xFF;
+							DstPos += 0x03;
+						}
+					}
+				}
+
+				CurReg = (0x4F << 1) | 0;
+				if ((TempReg->RegMask[CurReg] & 0x7F) == 0x01)
+				{
+					DstData[DstPos + 0x00] = ChipCmd;
+					DstData[DstPos + 0x01] = (CurCSet << 7) | 0x01;
+					DstData[DstPos + 0x02] = CurReg;
+					DstPos += 0x03;
+					DstData[DstPos + 0x00] = ChipCmd;
+					DstData[DstPos + 0x01] = (CurCSet << 7) | 0x02;
+					DstData[DstPos + 0x02] = TempReg->RegData.R08[CurReg] & 0xFF;
+					DstPos += 0x03;
+				}
+
+				CurReg = (0x80 | (0x20 << 7)) << 1;
+				if ((TempReg->RegMask[CurReg] & 0x7F) == 0x01)
+				{
+					DstData[DstPos + 0x00] = ChipCmd;
+					DstData[DstPos + 0x01] = (CurCSet << 7) | 0x01;
+					DstData[DstPos + 0x02] = TempReg->RegData.R08[CurReg] & 0xFF;
+					DstPos += 0x03;
+				}
+
+				CmdType = 0x00;
 				break;
 			default:
 				CmdType = 0xFF;
@@ -2227,7 +2343,7 @@ static UINT32 ReadCommand(UINT8 Mask)
 	UINT8 ChipID;
 	UINT8 Command;
 	//UINT8 TempByt;
-	//UINT16 TempSht;
+	UINT16 TempSht;
 	//UINT32 TempLng;
 	UINT16 CmdReg;
 	UINT16 ChnReg;
@@ -2845,7 +2961,42 @@ static UINT32 ReadCommand(UINT8 Mask)
 
 		CmdLen = 0x02;
 		break;
-	case 0x44:	// ICS2115 write (16-bit data)
+	case 0x44:	// ICS2115 write (8-bit data)
+		ChipID = VGMData[VGMPos + 0x01] >> 7;
+		TempChp = &RC[ChipID].ICS2115;
+		TempReg = &TempChp->Regs;
+		if (TempReg->RegCount)
+		{
+			// Bit 0 - Byte select (0 = LSB, 1 = MSB)
+			// Bit 1 to 7 - Register index
+			// Bit 8 to 12 - Channel index
+			// 0x2000 - Register select
+			CmdReg = VGMData[VGMPos + 0x01];
+			switch (CmdReg)
+			{
+			case 0x01:
+				CmdReg = (0x80 | (0x20 << 7)) << 1;
+				TempReg->RegMask[CmdReg] |= Mask;
+				if (Mask == 0x01)
+					TempReg->RegData.R08[CmdReg] = VGMData[VGMPos + 0x02];
+				break;
+			case 0x02:
+			case 0x03:
+				TempSht = CmdReg & 0x01;
+				CmdReg = TempReg->RegData.R08[(0x80 | (0x20 << 7)) << 1];
+				if ((CmdReg <= 0x12) && (CmdReg != 0x0E) && (CmdReg != 0x0F))
+				{
+					ChnReg = TempReg->RegData.R08[(0x4F << 1) | 0];
+					CmdReg |= ChnReg << 7;
+				}
+				CmdReg = (CmdReg << 1) | TempSht;
+				TempReg->RegMask[CmdReg] |= Mask;
+				if (Mask == 0x01)
+					TempReg->RegData.R08[CmdReg] = VGMData[VGMPos + 0x02];
+				break;
+			}
+		}
+
 		CmdLen = 0x03;
 		break;
 	}
@@ -2863,6 +3014,7 @@ static void CommandCheck(UINT8 Mode, UINT8 Command, CHIP_DATA* ChpData, UINT16 C
 	UINT8 CurChn;
 	UINT8 KeyOnOff;
 	UINT16 TempSht;
+	UINT16 TempVal;
 
 	if (ChpData == NULL)
 		return;
@@ -3089,6 +3241,8 @@ static void CommandCheck(UINT8 Mode, UINT8 Command, CHIP_DATA* ChpData, UINT16 C
 		break;
 	case 0xC5:	// SCSP write
 		break;
+	case 0xC9:	// BSMT2000 write
+		break;
 	case 0xBC:	// WonderSwan write
 		if (CmdReg == 0x10)
 		{
@@ -3221,7 +3375,29 @@ static void CommandCheck(UINT8 Mode, UINT8 Command, CHIP_DATA* ChpData, UINT16 C
 			TempChn->ChnMask |= (KeyOnOff << CurChn);
 		}
 		break;
-	case 0x44:	// ICS2115 write (16-bit data)
+	case 0x44:	// ICS2115 write (8-bit data)
+		switch (CmdReg)
+		{
+		case 0x02:
+		case 0x03:
+			TempSht = CmdReg & 0x01;
+			CurChn = TempReg->RegData.R08[(0x4F << 1) | 0];
+			CmdReg = TempReg->RegData.R08[(0x80 | (0x20 << 7)) << 1];
+			TempVal = CmdReg;
+			if ((CmdReg <= 0x12) && (CmdReg != 0x0E) && (CmdReg != 0x0F))
+			{
+				TempVal |= CurChn << 7;
+			}
+			TempVal = (TempVal << 1) | TempSht;
+			if ((CmdReg == 0x10) && (TempSht == 1))
+			{
+				KeyOnOff = TempReg->RegData.R08[TempVal] == 0;
+
+				TempChn->ChnMask &= ~(1 << CurChn);
+				TempChn->ChnMask |= (KeyOnOff << CurChn);
+			}
+			break;
+		}
 		break;
 	}
 
