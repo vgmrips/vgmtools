@@ -341,18 +341,18 @@ typedef struct x1010_data
 #define K007232_PCM_MAX   2
 
 typedef struct {
-    UINT32 start;     // start address (17 bits)
-    UINT16 step;      // frequency/step value (12 bits)
-    UINT32 bank;      // base bank address (upper bits, shifted left by 17)
+	UINT32 start;     // start address (17 bits)
+	UINT16 step;      // frequency/step value (12 bits)
+	UINT32 bank;      // base bank address (upper bits, shifted left by 17)
 } K007232_CHANNEL;
 
 typedef struct k007232_data
 {
-    K007232_CHANNEL channel[K007232_PCM_MAX];
-    UINT8 wreg[0x10];
-    UINT32 ROMSize;
-    UINT8* ROMData;
-    UINT8* ROMUsage;
+	K007232_CHANNEL channel[K007232_PCM_MAX];
+	UINT8 wreg[0x10];
+	UINT32 ROMSize;
+	UINT8* ROMData;
+	UINT8* ROMUsage;
 } K007232_DATA;
 
 typedef struct k005289_channel
@@ -563,14 +563,14 @@ typedef struct ics2115_data
 #define BSMT2000_MAX_VOICES   (BSMT2000_CHANNELS + 1)  /* 12 PCM + 1 ADPCM/compressed */
 
 static const UINT8 bsmt2000_regmap[8][7] = {
-    { 0x00, 0x18, 0x24, 0x30, 0x3c, 0x48, 0xff }, // last one (stereo/leftvol) unused, set to max for mapping
-    { 0x00, 0x16, 0x21, 0x2c, 0x37, 0x42, 0x4d },
-    { 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 }, // mode 2 only a testmode left channel
-    { 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 }, // mode 3 only a testmode right channel
-    { 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 }, // mode 4 only a testmode left channel
-    { 0x00, 0x18, 0x24, 0x30, 0x3c, 0x54, 0x60 },
-    { 0x00, 0x10, 0x18, 0x20, 0x28, 0x38, 0x40 },
-    { 0x00, 0x12, 0x1b, 0x24, 0x2d, 0x3f, 0x48 } };
+	{ 0x00, 0x18, 0x24, 0x30, 0x3c, 0x48, 0xff }, // last one (stereo/leftvol) unused, set to max for mapping
+	{ 0x00, 0x16, 0x21, 0x2c, 0x37, 0x42, 0x4d },
+	{ 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 }, // mode 2 only a testmode left channel
+	{ 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 }, // mode 3 only a testmode right channel
+	{ 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 }, // mode 4 only a testmode left channel
+	{ 0x00, 0x18, 0x24, 0x30, 0x3c, 0x54, 0x60 },
+	{ 0x00, 0x10, 0x18, 0x20, 0x28, 0x38, 0x40 },
+	{ 0x00, 0x12, 0x1b, 0x24, 0x2d, 0x3f, 0x48 } };
 
 typedef struct _bsmt2000_channel
 {
@@ -1751,73 +1751,73 @@ static void k007232_keyon(K007232_DATA* chip, K007232_CHANNEL* v)
 
 void k007232_write(UINT8 offset, UINT8 data)
 {
-    K007232_DATA* chip = &ChDat->K007232;
-    int reg_base;
-    int ch;
-    K007232_CHANNEL* v;
+	K007232_DATA* chip = &ChDat->K007232;
+	int reg_base;
+	int ch;
+	K007232_CHANNEL* v;
 
-    // Handle register 0x1F as a special "read" trigger
-    if (offset == 0x1F) {
-        // "data" is the original offset; treat as a read at that offset
-        if (data == 5 || data == 11) {
-            ch = (data >= 6) ? 1 : 0;
-            k007232_keyon(chip, &chip->channel[ch]);
-        }
-        return;
-    }
+	// Handle register 0x1F as a special "read" trigger
+	if (offset == 0x1F) {
+		// "data" is the original offset; treat as a read at that offset
+		if (data == 5 || data == 11) {
+			ch = (data >= 6) ? 1 : 0;
+			k007232_keyon(chip, &chip->channel[ch]);
+		}
+		return;
+	}
 
-    if(offset >= 0x14 && offset <= 0x15) {
-        switch(offset) {
-            case 0x14:
-                chip->channel[0].bank = data << 17;
-                break;
-            case 0x15:
-                chip->channel[1].bank = data << 17;
-                break;
-        }
-        return;
-    }
+	if(offset >= 0x14 && offset <= 0x15) {
+		switch(offset) {
+			case 0x14:
+				chip->channel[0].bank = data << 17;
+				break;
+			case 0x15:
+				chip->channel[1].bank = data << 17;
+				break;
+		}
+		return;
+	}
 
-    ch = offset / 6;
-    if(ch >= K007232_PCM_MAX) return;
+	ch = offset / 6;
+	if(ch >= K007232_PCM_MAX) return;
 
-    v = &chip->channel[ch];
-    reg_base = ch * 6;
+	v = &chip->channel[ch];
+	reg_base = ch * 6;
 
-    chip->wreg[offset] = data;
+	chip->wreg[offset] = data;
 
-    switch(offset - reg_base)
-    {
-        case 0x00: // Pitch LSB
-        case 0x01: // Pitch MSB
-            v->step = ((chip->wreg[reg_base + 1] & 0x0F) << 8) |
-                       chip->wreg[reg_base + 0];
-            break;
-        case 0x02: // Start LSB
-        case 0x03: // Start MID
-        case 0x04: // Start MSB
-            v->start = ((chip->wreg[reg_base + 4] & 0x01) << 16) |
-                       (chip->wreg[reg_base + 3] << 8) |
-                        chip->wreg[reg_base + 2];
-            break;
-        case 0x05: // Key On
-            k007232_keyon(chip, v);
-            break;
-    }
-    return;
+	switch(offset - reg_base)
+	{
+		case 0x00: // Pitch LSB
+		case 0x01: // Pitch MSB
+			v->step = ((chip->wreg[reg_base + 1] & 0x0F) << 8) |
+					   chip->wreg[reg_base + 0];
+			break;
+		case 0x02: // Start LSB
+		case 0x03: // Start MID
+		case 0x04: // Start MSB
+			v->start = ((chip->wreg[reg_base + 4] & 0x01) << 16) |
+					   (chip->wreg[reg_base + 3] << 8) |
+						chip->wreg[reg_base + 2];
+			break;
+		case 0x05: // Key On
+			k007232_keyon(chip, v);
+			break;
+	}
+	return;
 }
 
 void k005289_write(UINT8 Offset, UINT16 data)
 {
-    K005289_DATA* chip = &ChDat->K005289;
-    int ch;
-    K005289_CHANNEL* v;
+	K005289_DATA* chip = &ChDat->K005289;
+	int ch;
+	K005289_CHANNEL* v;
 	UINT32 start;
 	UINT32 addr;
 	UINT32 end;
 
-    ch = Offset & 1;
-    v = &chip->channel[ch];
+	ch = Offset & 1;
+	v = &chip->channel[ch];
 
 	switch (Offset)
 	{
@@ -3489,36 +3489,36 @@ void bsmt2000_write(UINT8 Offset, UINT16 Value)
 	{
 		switch (Value & 0xFF)
 		{
-        /* mode 0: 24kHz, 12 channel PCM, 1 channel ADPCM, mono; from PinMAME */
-        case 0:
-            chip->Voices = 12;
-            chip->ADPCM = 1;
-            chip->Mode = 0;
-            break;
-        /* mode 1: 24kHz, 11 channel PCM, 1 channel ADPCM, stereo */
-        case 1:
-            chip->Voices = 11;
-            chip->ADPCM = 1;
-            chip->Mode = 1;
-            break;
-        /* mode 5: 24kHz, 12 channel PCM, stereo */
-        case 5:
-            chip->Voices = 12;
-            chip->ADPCM = 0;
-            chip->Mode = 5;
-            break;
-        /* mode 6: 34kHz, 8 channel PCM, stereo */
-        case 6:
-            chip->Voices = 8;
-            chip->ADPCM = 0;
-            chip->Mode = 6;
-            break;
-        /* mode 7: 32kHz, 9 channel PCM, stereo */
-        case 7:
-            chip->Voices = 9;
-            chip->ADPCM = 0;
-            chip->Mode = 7;
-            break;
+		/* mode 0: 24kHz, 12 channel PCM, 1 channel ADPCM, mono; from PinMAME */
+		case 0:
+			chip->Voices = 12;
+			chip->ADPCM = 1;
+			chip->Mode = 0;
+			break;
+		/* mode 1: 24kHz, 11 channel PCM, 1 channel ADPCM, stereo */
+		case 1:
+			chip->Voices = 11;
+			chip->ADPCM = 1;
+			chip->Mode = 1;
+			break;
+		/* mode 5: 24kHz, 12 channel PCM, stereo */
+		case 5:
+			chip->Voices = 12;
+			chip->ADPCM = 0;
+			chip->Mode = 5;
+			break;
+		/* mode 6: 34kHz, 8 channel PCM, stereo */
+		case 6:
+			chip->Voices = 8;
+			chip->ADPCM = 0;
+			chip->Mode = 6;
+			break;
+		/* mode 7: 32kHz, 9 channel PCM, stereo */
+		case 7:
+			chip->Voices = 9;
+			chip->ADPCM = 0;
+			chip->Mode = 7;
+			break;
 		}
 		for (ch = 0; ch < BSMT2000_MAX_VOICES; ch++)
 		{
@@ -3542,25 +3542,25 @@ void bsmt2000_write(UINT8 Offset, UINT16 Value)
 		if (voice_index >= chip->Voices)
 			return;
 
-        TempChn = &chip->channel[voice_index];
+		TempChn = &chip->channel[voice_index];
 		reg = regindex;
-    }
-    // Compressed/ADPCM channel (11-voice model only)
-    else if (chip->ADPCM != 0 && Offset >= 0x6d)
+	}
+	// Compressed/ADPCM channel (11-voice model only)
+	else if (chip->ADPCM != 0 && Offset >= 0x6d)
 	{
 		TempChn = &chip->channel[BSMT2000_ADPCM_INDEX];
 		switch (Offset) {
 		case 0x6d:
 			reg = BSMT2000_REG_LOOPEND;
 			break;
-        case 0x6f:
+		case 0x6f:
 			reg = BSMT2000_REG_BANK;
-            break;
-        case 0x75:
+			break;
+		case 0x75:
 			reg = BSMT2000_REG_CURRPOS;
-            break;
-        }
-    }
+			break;
+		}
+	}
 
 	switch (reg)
 	{

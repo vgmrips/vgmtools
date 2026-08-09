@@ -236,14 +236,14 @@ static const char* K054539_SAMPLE_MODES[0x04] = {"8-bit PCM", "16-bit PCM", "4-b
 #define BSMT2000_MAX_VOICES   (BSMT2000_CHANNELS + 1)  /* 12 PCM + 1 ADPCM/compressed */
 
 static const UINT8 bsmt2000_regmap[8][7] = {
-    { 0x00, 0x18, 0x24, 0x30, 0x3c, 0x48, 0xff }, // last one (stereo/leftvol) unused, set to max for mapping
-    { 0x00, 0x16, 0x21, 0x2c, 0x37, 0x42, 0x4d },
-    { 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 }, // mode 2 only a testmode left channel
-    { 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 }, // mode 3 only a testmode right channel
-    { 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 }, // mode 4 only a testmode left channel
-    { 0x00, 0x18, 0x24, 0x30, 0x3c, 0x54, 0x60 },
-    { 0x00, 0x10, 0x18, 0x20, 0x28, 0x38, 0x40 },
-    { 0x00, 0x12, 0x1b, 0x24, 0x2d, 0x3f, 0x48 } };
+	{ 0x00, 0x18, 0x24, 0x30, 0x3c, 0x48, 0xff }, // last one (stereo/leftvol) unused, set to max for mapping
+	{ 0x00, 0x16, 0x21, 0x2c, 0x37, 0x42, 0x4d },
+	{ 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 }, // mode 2 only a testmode left channel
+	{ 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 }, // mode 3 only a testmode right channel
+	{ 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 }, // mode 4 only a testmode left channel
+	{ 0x00, 0x18, 0x24, 0x30, 0x3c, 0x54, 0x60 },
+	{ 0x00, 0x10, 0x18, 0x20, 0x28, 0x38, 0x40 },
+	{ 0x00, 0x12, 0x1b, 0x24, 0x2d, 0x3f, 0x48 } };
 
 typedef struct ymf278b_chip
 {
@@ -4270,82 +4270,82 @@ void k007232_write(char* TempStr, UINT8 offset, UINT8 data)
 {
 	WriteChipID(0x2A);
 	
-    if (offset < 0x0C)
-    {
+	if (offset < 0x0C)
+	{
 		UINT8 ch = (offset >= 6 && offset < 0x0C) ? 1 : 0; // Channel 0 or 1
 		UINT8 reg = offset % 6; // offset offset within the channel
 
-        // offsets for pitch, start address, and key on/off
-        switch (reg)
-        {
-        case 0: // Pitch LSB
-            sprintf(RedirectStr, "Pitch LSB: 0x%02X", data);
-            break;
-        case 1: // Pitch MSB + frequency mode
-        {
-            static const char* freq_modes[4] = { "12-bit", "8-bit", "4-bit", "reserved" };
-            int freq_mode = (data >> 4) & 3;
-            sprintf(RedirectStr, "Pitch MSB: 0x%01X, Freq Mode: %s",
-                data & 0x0F, freq_modes[freq_mode]);
-            break;
-        }
-        case 2: // Start address LSB
-            sprintf(RedirectStr, "Start Address LSB: 0x%02X", data);
-            break;
-        case 3: // Start address MID
-            sprintf(RedirectStr, "Start Address MID: 0x%02X", data);
-            break;
-        case 4: // Start address MSB (bit 0 only)
-            sprintf(RedirectStr, "Start Address MSB (bit 0): %u", data & 0x01);
-            break;
-        case 5: // Key on/off trigger
-            sprintf(RedirectStr, "Key On/Off Trigger: %s", (data & 1) ? "Start" : "Stop");
-            break;
-        }
-        sprintf(WriteStr, "Ch%u: %s", ch, RedirectStr);
-    }
-    else
-    {
-        // offsets for external control, loop enable, and bankswitching
-        switch (offset)
-        {
-        case 0x0C: // External port write (volume/pan control, typically)
-            sprintf(WriteStr, "External Port Write: 0x%02X", data);
-            break;
-        case 0x0D: // Loop enable for channels
-            sprintf(WriteStr, "Loop Enable: Ch0: %s, Ch1: %s",
-                (data & 0x01) ? "On" : "Off",
-                (data & 0x02) ? "On" : "Off");
-            break;
-        case 0x10: // Left volume for Channel 0
-            sprintf(WriteStr, "Left Volume (Ch0): 0x%02X", data);
-            break;
-        case 0x11: // Right volume for Channel 0
-            sprintf(WriteStr, "Right Volume (Ch0): 0x%02X", data);
-            break;
-        case 0x12: // Left volume for Channel 1
-            sprintf(WriteStr, "Left Volume (Ch1): 0x%02X", data);
-            break;
-        case 0x13: // Right volume for Channel 1
-            sprintf(WriteStr, "Right Volume (Ch1): 0x%02X", data);
-            break;
-        case 0x14: // Bankswitch for Channel 0
-            sprintf(WriteStr, "Bankswitch (Ch0): 0x%02X", data);
-            break;
-        case 0x15: // Bankswitch for Channel 1
-            sprintf(WriteStr, "Bankswitch (Ch1): 0x%02X", data);
-            break;
+		// offsets for pitch, start address, and key on/off
+		switch (reg)
+		{
+		case 0: // Pitch LSB
+			sprintf(RedirectStr, "Pitch LSB: 0x%02X", data);
+			break;
+		case 1: // Pitch MSB + frequency mode
+		{
+			static const char* freq_modes[4] = { "12-bit", "8-bit", "4-bit", "reserved" };
+			int freq_mode = (data >> 4) & 3;
+			sprintf(RedirectStr, "Pitch MSB: 0x%01X, Freq Mode: %s",
+				data & 0x0F, freq_modes[freq_mode]);
+			break;
+		}
+		case 2: // Start address LSB
+			sprintf(RedirectStr, "Start Address LSB: 0x%02X", data);
+			break;
+		case 3: // Start address MID
+			sprintf(RedirectStr, "Start Address MID: 0x%02X", data);
+			break;
+		case 4: // Start address MSB (bit 0 only)
+			sprintf(RedirectStr, "Start Address MSB (bit 0): %u", data & 0x01);
+			break;
+		case 5: // Key on/off trigger
+			sprintf(RedirectStr, "Key On/Off Trigger: %s", (data & 1) ? "Start" : "Stop");
+			break;
+		}
+		sprintf(WriteStr, "Ch%u: %s", ch, RedirectStr);
+	}
+	else
+	{
+		// offsets for external control, loop enable, and bankswitching
+		switch (offset)
+		{
+		case 0x0C: // External port write (volume/pan control, typically)
+			sprintf(WriteStr, "External Port Write: 0x%02X", data);
+			break;
+		case 0x0D: // Loop enable for channels
+			sprintf(WriteStr, "Loop Enable: Ch0: %s, Ch1: %s",
+				(data & 0x01) ? "On" : "Off",
+				(data & 0x02) ? "On" : "Off");
+			break;
+		case 0x10: // Left volume for Channel 0
+			sprintf(WriteStr, "Left Volume (Ch0): 0x%02X", data);
+			break;
+		case 0x11: // Right volume for Channel 0
+			sprintf(WriteStr, "Right Volume (Ch0): 0x%02X", data);
+			break;
+		case 0x12: // Left volume for Channel 1
+			sprintf(WriteStr, "Left Volume (Ch1): 0x%02X", data);
+			break;
+		case 0x13: // Right volume for Channel 1
+			sprintf(WriteStr, "Right Volume (Ch1): 0x%02X", data);
+			break;
+		case 0x14: // Bankswitch for Channel 0
+			sprintf(WriteStr, "Bankswitch (Ch0): 0x%02X", data);
+			break;
+		case 0x15: // Bankswitch for Channel 1
+			sprintf(WriteStr, "Bankswitch (Ch1): 0x%02X", data);
+			break;
 		case 0x1F: // Special command for k007232 read
 			sprintf(WriteStr, "Read register 0x%02X", data);
 			break;
-        default:
-            sprintf(WriteStr, "Unknown Register 0x%02X: data 0x%02X", offset, data);
-            break;
-        }
-    }
+		default:
+			sprintf(WriteStr, "Unknown Register 0x%02X: data 0x%02X", offset, data);
+			break;
+		}
+	}
 
-    // Final output string
-    sprintf(TempStr, "K007232: %s", WriteStr);
+	// Final output string
+	sprintf(TempStr, "K007232: %s", WriteStr);
 }
 
 void k005289_write(char* TempStr, UINT8 offset, UINT16 data)
@@ -4373,12 +4373,12 @@ void k005289_write(char* TempStr, UINT8 offset, UINT16 data)
 		case 0x05:
 			sprintf(RedirectStr, "Frequency update trigger set 0x%04X", data);
 			break;
-    }
+	}
 
 	sprintf(WriteStr, "Ch%u: %s", ch, RedirectStr);
 
-    // Final output string
-    sprintf(TempStr, "K005289: %s", WriteStr);
+	// Final output string
+	sprintf(TempStr, "K005289: %s", WriteStr);
 }
 
 
@@ -4491,10 +4491,10 @@ void ics2115_write(char* TempStr, UINT8 offset, UINT8 data)
 		case 0x03:
 			sprintf(WriteStr, "Write register MSB 0x%02X", data);
 			break;
-    }
+	}
 
-    // Final output string
-    sprintf(TempStr, "ICS2115: %s", WriteStr);
+	// Final output string
+	sprintf(TempStr, "ICS2115: %s", WriteStr);
 }
 
 void mikey_write(char* TempStr, UINT8 offset, UINT8 data)
@@ -4715,36 +4715,36 @@ void bsmt2000_write(char* TempStr, UINT8 Offset, UINT16 Value)
 	{
 		switch (Value & 0xFF)
 		{
-        /* mode 0: 24kHz, 12 channel PCM, 1 channel ADPCM, mono; from PinMAME */
-        case 0:
-            TempBSMT->Voices = 12;
-            TempBSMT->ADPCM = 1;
-            TempBSMT->Mode = 0;
-            break;
-        /* mode 1: 24kHz, 11 channel PCM, 1 channel ADPCM, stereo */
-        case 1:
-            TempBSMT->Voices = 11;
-            TempBSMT->ADPCM = 1;
-            TempBSMT->Mode = 1;
-            break;
-        /* mode 5: 24kHz, 12 channel PCM, stereo */
-        case 5:
-            TempBSMT->Voices = 12;
-            TempBSMT->ADPCM = 0;
-            TempBSMT->Mode = 5;
-            break;
-        /* mode 6: 34kHz, 8 channel PCM, stereo */
-        case 6:
-            TempBSMT->Voices = 8;
-            TempBSMT->ADPCM = 0;
-            TempBSMT->Mode = 6;
-            break;
-        /* mode 7: 32kHz, 9 channel PCM, stereo */
-        case 7:
-            TempBSMT->Voices = 9;
-            TempBSMT->ADPCM = 0;
-            TempBSMT->Mode = 7;
-            break;
+		/* mode 0: 24kHz, 12 channel PCM, 1 channel ADPCM, mono; from PinMAME */
+		case 0:
+			TempBSMT->Voices = 12;
+			TempBSMT->ADPCM = 1;
+			TempBSMT->Mode = 0;
+			break;
+		/* mode 1: 24kHz, 11 channel PCM, 1 channel ADPCM, stereo */
+		case 1:
+			TempBSMT->Voices = 11;
+			TempBSMT->ADPCM = 1;
+			TempBSMT->Mode = 1;
+			break;
+		/* mode 5: 24kHz, 12 channel PCM, stereo */
+		case 5:
+			TempBSMT->Voices = 12;
+			TempBSMT->ADPCM = 0;
+			TempBSMT->Mode = 5;
+			break;
+		/* mode 6: 34kHz, 8 channel PCM, stereo */
+		case 6:
+			TempBSMT->Voices = 8;
+			TempBSMT->ADPCM = 0;
+			TempBSMT->Mode = 6;
+			break;
+		/* mode 7: 32kHz, 9 channel PCM, stereo */
+		case 7:
+			TempBSMT->Voices = 9;
+			TempBSMT->ADPCM = 0;
+			TempBSMT->Mode = 7;
+			break;
 		default:
 			sprintf(WriteStr, "Unknown Chip Mode: 0x%04X", Value);
 			sprintf(TempStr, "%s%s", ChipStr, WriteStr);
@@ -4758,48 +4758,48 @@ void bsmt2000_write(char* TempStr, UINT8 Offset, UINT16 Value)
 		return;
 	}
 
-    // Standard voices (interleaved register layout)
-    if (Offset < 0x6d)
+	// Standard voices (interleaved register layout)
+	if (Offset < 0x6d)
 	{
-        int voice_index;
-        int regindex = BSMT2000_REG_TOTAL - 1;
-        while (Offset < bsmt2000_regmap[TempBSMT->Mode][regindex])
-            --regindex;
+		int voice_index;
+		int regindex = BSMT2000_REG_TOTAL - 1;
+		while (Offset < bsmt2000_regmap[TempBSMT->Mode][regindex])
+			--regindex;
 
-        voice_index = Offset - bsmt2000_regmap[TempBSMT->Mode][regindex];
-        if (voice_index >= TempBSMT->Voices)
-            return;
+		voice_index = Offset - bsmt2000_regmap[TempBSMT->Mode][regindex];
+		if (voice_index >= TempBSMT->Voices)
+			return;
 
-        ch = voice_index;
+		ch = voice_index;
 		reg = regindex;
-    }
-    // Compressed/ADPCM channel (11-voice model only)
-    else if (TempBSMT->ADPCM != 0 && Offset >= 0x6d)
+	}
+	// Compressed/ADPCM channel (11-voice model only)
+	else if (TempBSMT->ADPCM != 0 && Offset >= 0x6d)
 	{
-        ch = BSMT2000_ADPCM_INDEX;
-        switch (Offset) {
-        case 0x6d:
-            reg = BSMT2000_REG_LOOPEND;
-            break;
-        case 0x6f:
-            reg = BSMT2000_REG_BANK;
-            break;
-        case 0x6e: // main right channel volume control, used when ADPCM is alreay playing
-        case 0x74:
-            reg = BSMT2000_REG_RIGHTVOL;
-            break;
-        case 0x75:
-            reg = BSMT2000_REG_CURRPOS;
-            break;
-        case 0x70: // main left channel volume control, used when ADPCM is alreay playing
-        case 0x78:
-            reg = BSMT2000_REG_LEFTVOL;
-            break;
+		ch = BSMT2000_ADPCM_INDEX;
+		switch (Offset) {
+		case 0x6d:
+			reg = BSMT2000_REG_LOOPEND;
+			break;
+		case 0x6f:
+			reg = BSMT2000_REG_BANK;
+			break;
+		case 0x6e: // main right channel volume control, used when ADPCM is alreay playing
+		case 0x74:
+			reg = BSMT2000_REG_RIGHTVOL;
+			break;
+		case 0x75:
+			reg = BSMT2000_REG_CURRPOS;
+			break;
+		case 0x70: // main left channel volume control, used when ADPCM is alreay playing
+		case 0x78:
+			reg = BSMT2000_REG_LEFTVOL;
+			break;
 		default:
 			sprintf(TempStr, "%sUnknown register write 0x%02X: 0x%04X", ChipStr, Offset, Value);
 			return;
-        }
-    }
+		}
+	}
 
 	switch (reg)
 	{

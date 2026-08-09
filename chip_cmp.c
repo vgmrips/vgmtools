@@ -311,14 +311,14 @@ typedef struct okim5232_data
 #define BSMT2000_MAX_VOICES   (BSMT2000_CHANNELS + 1)  /* 12 PCM + 1 ADPCM/compressed */
 
 static const UINT8 bsmt2000_regmap[8][7] = {
-    { 0x00, 0x18, 0x24, 0x30, 0x3c, 0x48, 0xff }, // last one (stereo/leftvol) unused, set to max for mapping
-    { 0x00, 0x16, 0x21, 0x2c, 0x37, 0x42, 0x4d },
-    { 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 }, // mode 2 only a testmode left channel
-    { 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 }, // mode 3 only a testmode right channel
-    { 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 }, // mode 4 only a testmode left channel
-    { 0x00, 0x18, 0x24, 0x30, 0x3c, 0x54, 0x60 },
-    { 0x00, 0x10, 0x18, 0x20, 0x28, 0x38, 0x40 },
-    { 0x00, 0x12, 0x1b, 0x24, 0x2d, 0x3f, 0x48 } };
+	{ 0x00, 0x18, 0x24, 0x30, 0x3c, 0x48, 0xff }, // last one (stereo/leftvol) unused, set to max for mapping
+	{ 0x00, 0x16, 0x21, 0x2c, 0x37, 0x42, 0x4d },
+	{ 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 }, // mode 2 only a testmode left channel
+	{ 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 }, // mode 3 only a testmode right channel
+	{ 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 }, // mode 4 only a testmode left channel
+	{ 0x00, 0x18, 0x24, 0x30, 0x3c, 0x54, 0x60 },
+	{ 0x00, 0x10, 0x18, 0x20, 0x28, 0x38, 0x40 },
+	{ 0x00, 0x12, 0x1b, 0x24, 0x2d, 0x3f, 0x48 } };
 
 typedef struct bsmt2000_data
 {
@@ -2953,7 +2953,7 @@ bool ics2115_write(UINT8 Register, UINT8 Data)
 		if (Data == 0x0F)
 			return false;
 
-		if (Data >= 0x13 && Data <= 0x4E)
+		if ((Data >= 0x13 && Data <= 0x3F) && (Data >= 0x4C && Data <= 0x4E))
 			return false;
 
 		if (Data >= 0x50)
@@ -3209,36 +3209,36 @@ bool bsmt2000_write(UINT8 Offset, UINT16 Value)
 	{
 		switch (Value & 0xFF)
 		{
-        /* mode 0: 24kHz, 12 channel PCM, 1 channel ADPCM, mono; from PinMAME */
-        case 0:
-            chip->Voices = 12;
-            chip->ADPCM = 1;
-            chip->Mode = 0;
-            break;
-        /* mode 1: 24kHz, 11 channel PCM, 1 channel ADPCM, stereo */
-        case 1:
-            chip->Voices = 11;
-            chip->ADPCM = 1;
-            chip->Mode = 1;
-            break;
-        /* mode 5: 24kHz, 12 channel PCM, stereo */
-        case 5:
-            chip->Voices = 12;
-            chip->ADPCM = 0;
-            chip->Mode = 5;
-            break;
-        /* mode 6: 34kHz, 8 channel PCM, stereo */
-        case 6:
-            chip->Voices = 8;
-            chip->ADPCM = 0;
-            chip->Mode = 6;
-            break;
-        /* mode 7: 32kHz, 9 channel PCM, stereo */
-        case 7:
-            chip->Voices = 9;
-            chip->ADPCM = 0;
-            chip->Mode = 7;
-            break;
+		/* mode 0: 24kHz, 12 channel PCM, 1 channel ADPCM, mono; from PinMAME */
+		case 0:
+			chip->Voices = 12;
+			chip->ADPCM = 1;
+			chip->Mode = 0;
+			break;
+		/* mode 1: 24kHz, 11 channel PCM, 1 channel ADPCM, stereo */
+		case 1:
+			chip->Voices = 11;
+			chip->ADPCM = 1;
+			chip->Mode = 1;
+			break;
+		/* mode 5: 24kHz, 12 channel PCM, stereo */
+		case 5:
+			chip->Voices = 12;
+			chip->ADPCM = 0;
+			chip->Mode = 5;
+			break;
+		/* mode 6: 34kHz, 8 channel PCM, stereo */
+		case 6:
+			chip->Voices = 8;
+			chip->ADPCM = 0;
+			chip->Mode = 6;
+			break;
+		/* mode 7: 32kHz, 9 channel PCM, stereo */
+		case 7:
+			chip->Voices = 9;
+			chip->ADPCM = 0;
+			chip->Mode = 7;
+			break;
 		}
 		memset(chip->RegFirst, 0x01, 0x80 * sizeof(UINT8));
 		return true;
@@ -3247,46 +3247,46 @@ bool bsmt2000_write(UINT8 Offset, UINT16 Value)
 	if (chip->Mode > 0x07)
 		return false;
 
-    // Standard voices (interleaved register layout)
-    if (Offset < 0x6d)
+	// Standard voices (interleaved register layout)
+	if (Offset < 0x6d)
 	{
-        int voice_index;
-        int regindex = BSMT2000_REG_TOTAL - 1;
-        while (Offset < bsmt2000_regmap[chip->Mode][regindex])
-            --regindex;
+		int voice_index;
+		int regindex = BSMT2000_REG_TOTAL - 1;
+		while (Offset < bsmt2000_regmap[chip->Mode][regindex])
+			--regindex;
 
-        voice_index = Offset - bsmt2000_regmap[chip->Mode][regindex];
-        if (voice_index >= chip->Voices)
-            return;
+		voice_index = Offset - bsmt2000_regmap[chip->Mode][regindex];
+		if (voice_index >= chip->Voices)
+			return false;
 
-        switch (regindex)
+		switch (regindex)
 		{
-            case BSMT2000_REG_CURRPOS:
-            case BSMT2000_REG_RIGHTVOL:
-            case BSMT2000_REG_LEFTVOL:
+			case BSMT2000_REG_CURRPOS:
+			case BSMT2000_REG_RIGHTVOL:
+			case BSMT2000_REG_LEFTVOL:
 				return true;
-        }
-    }
-    // Compressed/ADPCM channel (11-voice model only)
-    else if (Offset >= 0x6d)
+		}
+	}
+	// Compressed/ADPCM channel (11-voice model only)
+	else if (Offset >= 0x6d)
 	{
 		if (chip->ADPCM == 0)
 			return false;
 
-        switch (Offset)
+		switch (Offset)
 		{
-        case 0x6e: // main right channel volume control, used when ADPCM is alreay playing
-        case 0x74:
-        case 0x75:
-        case 0x70: // main left channel volume control, used when ADPCM is alreay playing
-        case 0x78:
+		case 0x6e: // main right channel volume control, used when ADPCM is alreay playing
+		case 0x74:
+		case 0x75:
+		case 0x70: // main left channel volume control, used when ADPCM is alreay playing
+		case 0x78:
 			return true;
-        case 0x6f:
+		case 0x6f:
 			break;
 		default:
 			return false;
-        }
-    }
+		}
+	}
 
 	if (! chip->RegFirst[Offset] && Value == chip->RegData[Offset])
 		return false;
