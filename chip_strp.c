@@ -112,6 +112,27 @@ typedef struct k005289_data
 	UINT8 RegFirst[0x8];
 } K005289_DATA;
 
+typedef struct ics2115_data
+{
+	UINT8 ChnSel;
+	UINT8 ChnCnt;
+	UINT8 RegSel;
+	UINT16 RegData[0x80 * 0x20];
+	UINT8 RegFirst[0x80 * 0x20];
+} ICS2115_DATA;
+
+typedef struct mikey_data
+{
+	UINT16 RegData[0x51];
+	UINT8 RegFirst[0x51];
+} MIKEY_DATA;
+
+typedef struct okim5232_data
+{
+	UINT16 RegData[0x24];
+	UINT8 RegFirst[0x24];
+} OKIM5232_DATA;
+
 typedef struct all_chips
 {
 	//UINT8 GGSt;
@@ -134,6 +155,9 @@ typedef struct all_chips
 	RF5C68_DATA RF5C164;
 	C140_DATA C140;
 	K005289_DATA K005289;
+	ICS2115_DATA ICS2115;
+	MIKEY_DATA Mikey;
+	OKIM5232_DATA OKIM5232;
 } ALL_CHIPS;
 
 
@@ -152,6 +176,9 @@ void InitAllChips(void)
 	for (CurChip = 0x00; CurChip < ChipCount; CurChip ++)
 	{
 		memset(ChipData, 0xFF, ChipCount * sizeof(ALL_CHIPS));
+		ChipData->ICS2115.ChnCnt = 31;
+		ChipData->ICS2115.ChnSel = 0;
+		ChipData->ICS2115.RegSel = 0;
 	}
 
 	SetChipSet(0x00);
@@ -702,12 +729,176 @@ bool c140_write(UINT8 Port, UINT8 Register, UINT8 Data)
 bool k005289_write(UINT8 Register, UINT16 Data)
 {
 	STRIP_PSG* strip = &StpDat->K005289;
+	K005289_DATA* chip = &ChDat->K005289;
+	UINT8 Channel;
 
 	if (strip->All)
 		return false;
-	return true;
-	ChDat->K005289.RegFirst[Register] = 0x00;
-	ChDat->K005289.RegData[Register] = Data;
+
+	Channel = Register & 1;
+	if (strip->ChnMask & (0x01 << Channel))
+		return false;
+
+	if ((Register & 0x06) == 0x04)
+		return true;
+
+	if (! chip->RegFirst[Register] && Data == chip->RegData[Register])
+		return false;
+
+	chip->RegFirst[Register] = 0x00;
+	chip->RegData[Register] = Data;
 	return true;
 }
 
+bool ics2115_write(UINT8 Register, UINT8 Data)
+{
+	STRIP_PCM* strip = &StpDat->ICS2115;
+	ICS2115_DATA* chip = &ChDat->ICS2115;
+	UINT16 RegVal;
+
+	if (strip->All)
+		return false;
+
+	switch (Register)
+	{
+		case 0x01:
+			chip->RegSel = Data;
+			return true;
+			break;
+		case 0x02:
+			RegVal = chip->RegSel;
+			if ((chip->RegSel <= 0x12) && (chip->RegSel != 0x0E))
+			{
+				if (strip->ChnMask & (0x01 << chip->ChnSel))
+					return false;
+
+				RegVal |= (chip->ChnSel << 7);
+			}
+			switch (chip->RegSel)
+			{
+				case 0x01:
+					Data &= 0xFE; // ignore lowest bit
+					break;
+				case 0x09:
+				case 0x0A:
+				case 0x0B:
+					return true;
+				case 0x4F:
+					chip->ChnSel = (Data & 0xFF) % (chip->ChnCnt + 1);
+					break;
+			}
+			if (! chip->RegFirst[RegVal] && Data == (chip->RegData[RegVal] & 0xFF))
+				return false;
+
+			chip->RegFirst[RegVal] = 0x00;
+			chip->RegData[RegVal] = (chip->RegData[RegVal] & 0xFF00) | Data;
+			break;
+		case 0x03:
+			RegVal = chip->RegSel;
+			if ((chip->RegSel <= 0x12) && (chip->RegSel != 0x0E))
+			{
+				if (strip->ChnMask & (0x01 << chip->ChnSel))
+					return false;
+
+				RegVal |= (chip->ChnSel << 7);
+			}
+			switch (chip->RegSel)
+			{
+				case 0x00:
+				case 0x09:
+				case 0x0A:
+				case 0x0B:
+				case 0x0D:
+					return true;
+				case 0x0E:
+					Data &= 0x1F;
+					chip->ChnCnt = Data;
+					break;
+			}
+			if (! chip->RegFirst[RegVal] && Data == ((chip->RegData[RegVal] >> 8) & 0xFF))
+				return false;
+
+			chip->RegFirst[RegVal] = 0x00;
+			chip->RegData[RegVal] = (chip->RegData[RegVal] & 0x00FF) | (((UINT16)Data) << 8);
+			break;
+	}
+	return true;
+}
+
+bool mikey_write(UINT8 Register, UINT8 Data)
+{
+	MIKEY_DATA* chip = &ChDat->Mikey;
+	STRIP_PSG* strip = &StpDat->Mikey;
+	UINT8 Channel;
+	UINT8 ChnMask;
+
+	if (strip->All)
+		return false;
+
+	if (Register < 0x20)
+		return false;
+	else if (Register < 0x40)
+	{
+		Channel = (Register >> 3) & 3;
+		if (strip->ChnMask & (0x01 << Channel))
+			return false;
+		if ((Register & 0x07) == 0x02)
+			return true;
+	}
+	else
+	{
+		switch (Register)
+		{
+		case 0x40:
+		case 0x41:
+		case 0x42:
+		case 0x43:
+			Channel = Register & 3;
+			if (strip->ChnMask & (0x01 << Channel))
+				return false;
+			break;
+		case 0x44:
+		case 0x50:
+			ChnMask = 0x11;
+			for (Channel = 0; Channel < 4; Channel ++, ChnMask <<= 1)
+			{
+				// 0 - enable, 1 - disable
+				//      Channel Enable &&    Strip Channel
+				if (((Data & ChnMask) != ChnMask) && (strip->ChnMask & (0x01 << Channel)))
+					Data |= ChnMask;	// disable channel
+			}
+			break;
+		}
+	}
+	if (! chip->RegFirst[Register] && Data == chip->RegData[Register])
+		return false;
+
+	chip->RegFirst[Register] = 0x00;
+	chip->RegData[Register] = Data;
+	return true;
+}
+
+bool okim5232_write(UINT8 Register, UINT8 Data)
+{
+	STRIP_PSG* strip = &StpDat->OKIM5232;
+	OKIM5232_DATA* chip = &ChDat->OKIM5232;
+	UINT16 RegVal;
+	UINT8 Channel;
+
+	if (strip->All)
+		return false;
+
+	if (Register < 0x08)
+	{
+		Channel = Register & 0x07;
+		if (strip->ChnMask & (0x01 << Channel))
+			return false;
+	}
+	if (! chip->RegFirst[Register] && Data == chip->RegData[Register])
+		return false;
+
+	chip->RegFirst[Register] = 0x00;
+	chip->RegData[Register] = Data;
+
+	return true;
+}

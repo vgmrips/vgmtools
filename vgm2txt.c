@@ -465,6 +465,7 @@ static void WriteVGM2Txt(const char* FileName)
 	
 	WriteClockText(TempStr, VGMHead.lngHzOKIM5205, "OKIM5205");
 	fprintf(hFile, "OKIM5205 Clock:\t\t%s\n", TempStr);
+	fprintf(hFile, "OKIM5205 Flags:\t\t0x%02X\n", VGMHead.bytOKI5205Flags);
 	
 	WriteClockText(TempStr, VGMHead.lngHzOKIM5232, "OKIM5232");
 	fprintf(hFile, "OKIM5232 Clock:\t\t%s\n", TempStr);
@@ -1404,6 +1405,14 @@ static void WriteVGMData2Txt(FILE* hFile)
 				}
 				CmdLen = 0x04;
 				break;
+			case 0xC9:	// BSMT2000 write
+				if (WriteEvents)
+				{
+					SetChip((VGMPnt[0x01] & 0x80) >> 7);
+					bsmt2000_write(TempStr, VGMPnt[0x01] & 0x7F, (VGMPnt[0x02] << 8) | (VGMPnt[0x03] << 0));
+				}
+				CmdLen = 0x04;
+				break;
 			case 0xBC:	// WonderSwan write
 				if (WriteEvents)
 				{
@@ -1480,6 +1489,14 @@ static void WriteVGMData2Txt(FILE* hFile)
 				}
 				CmdLen = 0x04;
 				break;
+			case 0x40:	// Mikey write
+				if (WriteEvents)
+				{
+					SetChip((VGMPnt[0x01] & 0x80) >> 7);
+					mikey_write(TempStr, VGMPnt[0x01] & 0x7F, VGMPnt[0x02]);
+				}
+				CmdLen = 0x03;
+				break;
 			case 0x41:	// K007232 write
 				if (WriteEvents)
 				{
@@ -1495,6 +1512,30 @@ static void WriteVGMData2Txt(FILE* hFile)
 					k005289_write(TempStr, (VGMPnt[0x01] & 0x70) >> 4,
 										(VGMPnt[0x01] & 0x0F) << 8 |
 										(VGMPnt[0x02] << 0));
+				}
+				CmdLen = 0x03;
+				break;
+			case 0x32:	// OKIM5205 write
+				if (WriteEvents)
+				{
+					SetChip((VGMPnt[0x01] & 0x80) >> 7);
+					okim5205_write(TempStr, (VGMPnt[0x01] >> 4) & 0x7, VGMPnt[0x01] & 0xF);
+				}
+				CmdLen = 0x02;
+				break;
+			case 0x43:	// OKIM5232 write
+				if (WriteEvents)
+				{
+					SetChip((VGMPnt[0x01] & 0x80) >> 7);
+					okim5232_write(TempStr, VGMPnt[0x01] & 0x7F, VGMPnt[0x02]);
+				}
+				CmdLen = 0x03;
+				break;
+			case 0x44:	// ICS2115 write
+				if (WriteEvents)
+				{
+					SetChip((VGMPnt[0x01] & 0x80) >> 7);
+					ics2115_write(TempStr, VGMPnt[0x01] & 0x7F, VGMPnt[0x02]);
 				}
 				CmdLen = 0x03;
 				break;

@@ -341,18 +341,18 @@ typedef struct x1010_data
 #define K007232_PCM_MAX   2
 
 typedef struct {
-    UINT32 start;     // start address (17 bits)
-    UINT16 step;      // frequency/step value (12 bits)
-    UINT32 bank;      // base bank address (upper bits, shifted left by 17)
+	UINT32 start;     // start address (17 bits)
+	UINT16 step;      // frequency/step value (12 bits)
+	UINT32 bank;      // base bank address (upper bits, shifted left by 17)
 } K007232_CHANNEL;
 
 typedef struct k007232_data
 {
-    K007232_CHANNEL channel[K007232_PCM_MAX];
-    UINT8 wreg[0x10];
-    UINT32 ROMSize;
-    UINT8* ROMData;
-    UINT8* ROMUsage;
+	K007232_CHANNEL channel[K007232_PCM_MAX];
+	UINT8 wreg[0x10];
+	UINT32 ROMSize;
+	UINT8* ROMData;
+	UINT8* ROMUsage;
 } K007232_DATA;
 
 typedef struct k005289_channel
@@ -512,6 +512,86 @@ typedef struct es5506_data
 	ES5506_VOICE voice[32];
 } ES5506_DATA;
 
+
+typedef struct ics2115_voice
+{
+	struct {
+		UINT32 acc, start, end; // address counters (20.9 fixed point)
+		UINT8 ctl, saddr;
+	} osc;
+
+	union {
+		struct {
+			UINT8 ulaw       : 1;   // compressed sample format
+			UINT8 stop       : 1;   // stops wave + vol envelope
+			UINT8 eightbit   : 1;   // 8 bit sample format
+			UINT8 loop       : 1;   // loop enable
+			UINT8 loop_bidir : 1;   // bi-directional loop enable
+			UINT8 irq        : 1;   // enable IRQ generation
+			UINT8 invert     : 1;   // invert direction
+			UINT8 irq_pending: 1;   // (read only?) IRQ pending
+			// IRQ on variable?
+		} bitflags;
+		UINT8 value;
+	} osc_conf;
+	struct {
+		bool on;
+	} state;
+} ICS2115_VOICE;
+typedef struct ics2115_data
+{
+	UINT32 ROMSize;
+	UINT8* ROMData;
+	UINT8* ROMUsage;
+	UINT8 regAddr; // Register address
+	UINT8 voiceSel; // Voice select
+	UINT8 voiceCount;
+	ICS2115_VOICE voice[32];
+} ICS2115_DATA;
+
+#define BSMT2000_CHANNELS     12          /* up to 12 PCM voices, plus ADPCM */
+#define BSMT2000_ADPCM_INDEX  12          /* 0..11 = PCM, 12 = ADPCM/compressed */
+#define BSMT2000_REG_CURRPOS  0
+#define BSMT2000_REG_RATE 1
+#define BSMT2000_REG_LOOPEND     2
+#define BSMT2000_REG_LOOPSTART  3
+#define BSMT2000_REG_BANK 4
+#define BSMT2000_REG_RIGHTVOL     5
+#define BSMT2000_REG_LEFTVOL 6
+#define BSMT2000_REG_TOTAL    7
+
+#define BSMT2000_MAX_VOICES   (BSMT2000_CHANNELS + 1)  /* 12 PCM + 1 ADPCM/compressed */
+
+static const UINT8 bsmt2000_regmap[8][7] = {
+	{ 0x00, 0x18, 0x24, 0x30, 0x3c, 0x48, 0xff }, // last one (stereo/leftvol) unused, set to max for mapping
+	{ 0x00, 0x16, 0x21, 0x2c, 0x37, 0x42, 0x4d },
+	{ 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 }, // mode 2 only a testmode left channel
+	{ 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 }, // mode 3 only a testmode right channel
+	{ 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 }, // mode 4 only a testmode left channel
+	{ 0x00, 0x18, 0x24, 0x30, 0x3c, 0x54, 0x60 },
+	{ 0x00, 0x10, 0x18, 0x20, 0x28, 0x38, 0x40 },
+	{ 0x00, 0x12, 0x1b, 0x24, 0x2d, 0x3f, 0x48 } };
+
+typedef struct _bsmt2000_channel
+{
+	UINT32 bank;		// bank (x16)
+	INT32 address;	// start address
+	INT32 end;		// end address
+} BSMT2000_CHANNEL;
+typedef struct bsmt2000_data
+{
+	BSMT2000_CHANNEL channel[BSMT2000_MAX_VOICES];
+	UINT16 data;	// register latch data
+	UINT8 Mode;
+	UINT8 ADPCM;
+	UINT8 Voices;
+
+	UINT32 ROMSize;
+	UINT8* ROMData;
+	UINT8* ROMUsage;
+} BSMT2000_DATA;
+
+
 typedef struct all_chips
 {
 	SEGAPCM_DATA SegaPCM;
@@ -538,6 +618,8 @@ typedef struct all_chips
 	GA20_DATA GA20;
 	K007232_DATA K007232;
 	K005289_DATA K005289;
+	ICS2115_DATA ICS2115;
+	BSMT2000_DATA BSMT2000;
 } ALL_CHIPS;
 
 void InitAllChips(void);
@@ -574,7 +656,9 @@ void es5503_write(UINT8 Register, UINT8 Data);
 void ymf278b_write(UINT8 Port, UINT8 Register, UINT8 Data);
 void es550x_w(UINT8 Offset, UINT8 Data);
 void es550x_w16(UINT8 Offset, UINT16 Data);
-void k005289_write(UINT8 offset, UINT16 data);
+void k005289_write(UINT8 Offset, UINT16 data);
+void ics2115_write(UINT8 Offset, UINT8 data);
+void bsmt2000_write(UINT8 Offset, UINT16 Value);
 void write_rom_data(UINT8 ROMType, UINT32 ROMSize, UINT32 DataStart, UINT32 DataLength,
 					const UINT8* ROMData);
 UINT32 GetROMMask(UINT8 ROMType, UINT8** MaskData);
@@ -632,6 +716,10 @@ void InitAllChips(void)
 		ChDat->K054539.flags = K054539_RESET_FLAGS;
 		ChDat->C140.banking_type = 0x00;
 		ChDat->ES5506.voiceCount = 32;
+		ChDat->ICS2115.voiceCount = 31;
+		ChDat->BSMT2000.Mode = 1;
+		ChDat->BSMT2000.Voices = 12;
+		ChDat->BSMT2000.ADPCM = 1;
 
 		for (CurChn = 0; CurChn < 28; CurChn ++)
 			ChDat->MultiPCM.slot[CurChn].SmplID = 0xFFFF;
@@ -1663,75 +1751,75 @@ static void k007232_keyon(K007232_DATA* chip, K007232_CHANNEL* v)
 
 void k007232_write(UINT8 offset, UINT8 data)
 {
-    K007232_DATA* chip = &ChDat->K007232;
-    int reg_base;
-    int ch;
-    K007232_CHANNEL* v;
+	K007232_DATA* chip = &ChDat->K007232;
+	int reg_base;
+	int ch;
+	K007232_CHANNEL* v;
 
-    // Handle register 0x1F as a special "read" trigger
-    if (offset == 0x1F) {
-        // "data" is the original offset; treat as a read at that offset
-        if (data == 5 || data == 11) {
-            ch = (data >= 6) ? 1 : 0;
-            k007232_keyon(chip, &chip->channel[ch]);
-        }
-        return;
-    }
+	// Handle register 0x1F as a special "read" trigger
+	if (offset == 0x1F) {
+		// "data" is the original offset; treat as a read at that offset
+		if (data == 5 || data == 11) {
+			ch = (data >= 6) ? 1 : 0;
+			k007232_keyon(chip, &chip->channel[ch]);
+		}
+		return;
+	}
 
-    if(offset >= 0x14 && offset <= 0x15) {
-        switch(offset) {
-            case 0x14:
-                chip->channel[0].bank = data << 17;
-                break;
-            case 0x15:
-                chip->channel[1].bank = data << 17;
-                break;
-        }
-        return;
-    }
+	if(offset >= 0x14 && offset <= 0x15) {
+		switch(offset) {
+			case 0x14:
+				chip->channel[0].bank = data << 17;
+				break;
+			case 0x15:
+				chip->channel[1].bank = data << 17;
+				break;
+		}
+		return;
+	}
 
-    ch = offset / 6;
-    if(ch >= K007232_PCM_MAX) return;
+	ch = offset / 6;
+	if(ch >= K007232_PCM_MAX) return;
 
-    v = &chip->channel[ch];
-    reg_base = ch * 6;
+	v = &chip->channel[ch];
+	reg_base = ch * 6;
 
-    chip->wreg[offset] = data;
+	chip->wreg[offset] = data;
 
-    switch(offset - reg_base)
-    {
-        case 0x00: // Pitch LSB
-        case 0x01: // Pitch MSB
-            v->step = ((chip->wreg[reg_base + 1] & 0x0F) << 8) |
-                       chip->wreg[reg_base + 0];
-            break;
-        case 0x02: // Start LSB
-        case 0x03: // Start MID
-        case 0x04: // Start MSB
-            v->start = ((chip->wreg[reg_base + 4] & 0x01) << 16) |
-                       (chip->wreg[reg_base + 3] << 8) |
-                        chip->wreg[reg_base + 2];
-            break;
-        case 0x05: // Key On
-            k007232_keyon(chip, v);
-            break;
-    }
-    return;
+	switch(offset - reg_base)
+	{
+		case 0x00: // Pitch LSB
+		case 0x01: // Pitch MSB
+			v->step = ((chip->wreg[reg_base + 1] & 0x0F) << 8) |
+					   chip->wreg[reg_base + 0];
+			break;
+		case 0x02: // Start LSB
+		case 0x03: // Start MID
+		case 0x04: // Start MSB
+			v->start = ((chip->wreg[reg_base + 4] & 0x01) << 16) |
+					   (chip->wreg[reg_base + 3] << 8) |
+						chip->wreg[reg_base + 2];
+			break;
+		case 0x05: // Key On
+			k007232_keyon(chip, v);
+			break;
+	}
+	return;
 }
 
-void k005289_write(UINT8 offset, UINT16 data)
+void k005289_write(UINT8 Offset, UINT16 data)
 {
-    K005289_DATA* chip = &ChDat->K005289;
-    int ch;
-    K005289_CHANNEL* v;
+	K005289_DATA* chip = &ChDat->K005289;
+	int ch;
+	K005289_CHANNEL* v;
 	UINT32 start;
 	UINT32 addr;
 	UINT32 end;
 
-    ch = offset & 1;
-    v = &chip->channel[ch];
+	ch = Offset & 1;
+	v = &chip->channel[ch];
 
-	switch (offset)
+	switch (Offset)
 	{
 		case 0:
 		case 1:
@@ -2722,9 +2810,13 @@ void ga20_write(UINT8 offset, UINT8 data)
 		if(data)
 		{
 			startpos = TempChn->start;
-			endpos = TempChn->end;
-			for (addr = startpos; addr < endpos; addr ++)
+			endpos = TempChn->end | 0xF;
+			for (addr = startpos; addr <= endpos; addr ++)
+			{
 				chip->ROMUsage[addr] |= 0x01;
+				if (chip->ROMData[addr] == 0x00)
+					break;
+			}
 		}
 		break;
 	}
@@ -3223,6 +3315,280 @@ void es550x_w16(UINT8 Offset, UINT16 Data)
 	return;
 }
 
+
+
+static void ics2115_do_ctrl(ICS2115_DATA* chip, ICS2115_VOICE* voice)
+{
+	UINT32 baseOfs = (voice->osc.saddr & 0x0F) << 20;
+	UINT32 AddrSt;
+	UINT32 AddrEnd;
+	UINT32 CurAddr;
+
+	if ((chip->voiceSel & 0x1F) > chip->voiceCount)
+		return;
+	if (voice->osc_conf.bitflags.stop)
+		return;
+	if (voice->osc.start > voice->osc.end)
+		return;
+
+	CurAddr = voice->osc.acc >> 12;
+	AddrSt = voice->osc.start >> 12;
+	AddrEnd = voice->osc.end >> 12;
+	if (! (voice->osc_conf.bitflags.invert))
+	{
+		// playing forwards
+		if (CurAddr < AddrSt)
+			AddrSt = CurAddr;
+	}
+	else
+	{
+		// playing backwards
+		if (CurAddr > AddrEnd)
+			AddrEnd = CurAddr;
+	}
+	AddrEnd ++;	// turn <= into <
+
+	// Offsets are indices into 8-Bit data.
+	for (CurAddr = AddrSt; CurAddr < AddrEnd; CurAddr ++)
+		chip->ROMUsage[baseOfs + CurAddr] |= 0x01;
+
+	voice->state.on = false;
+
+	return;
+}
+
+#define ACCESSING_BITS_8_15 ((Mask & 0xFF00) != 0)
+#define ACCESSING_BITS_0_7 ((Mask & 0x00FF) != 0)
+
+static void ics2115_regs_w(ICS2115_DATA* chip, UINT8 Offset, UINT16 Data, UINT16 Mask)
+{
+	ICS2115_VOICE* voice = &chip->voice[chip->voiceSel & 0x1F];
+	if (Offset == 0x4F)	// voice select
+	{
+		if (ACCESSING_BITS_0_7)
+			chip->voiceSel = (Data & 0xff) % (1 + chip->voiceCount);
+		return;
+	}
+	// per-voice register
+	switch(Offset)
+	{
+	case 0x00: // [osc] Oscillator Configuration
+		if (ACCESSING_BITS_8_15)
+		{
+			voice->osc_conf.value &= 0x80;
+			voice->osc_conf.value |= (Data >> 8) & 0x7f;
+			if (voice->state.on && (!voice->osc_conf.bitflags.stop))
+				ics2115_do_ctrl(chip, voice);
+		}
+		break;
+	case 0x02: // [osc] Wavesample loop start high
+		if (ACCESSING_BITS_8_15)
+			voice->osc.start = (voice->osc.start & 0x00ffffff) | ((Data & 0xff00) << 16);
+		if (ACCESSING_BITS_0_7)
+			voice->osc.start = (voice->osc.start & 0xff00ffff) | ((Data & 0x00ff) << 16);
+		break;
+
+	case 0x03: // [osc] Wavesample loop start low
+		if (ACCESSING_BITS_8_15)
+			voice->osc.start = (voice->osc.start & 0xffff00ff) | (Data & 0xff00);
+		// This is unused?
+		//if (ACCESSING_BITS_0_7)
+			//voice->osc.start = (voice->osc.start & 0xffffff00) | (Data & 0);
+		break;
+
+	case 0x04: // [osc] Wavesample loop end high
+		if (ACCESSING_BITS_8_15)
+			voice->osc.end = (voice->osc.end & 0x00ffffff) | ((Data & 0xff00) << 16);
+		if (ACCESSING_BITS_0_7)
+			voice->osc.end = (voice->osc.end & 0xff00ffff) | ((Data & 0x00ff) << 16);
+		break;
+
+	case 0x05: // [osc] Wavesample loop end low
+		if (ACCESSING_BITS_8_15)
+			voice->osc.end = (voice->osc.end & 0xffff00ff) | (Data & 0xff00);
+		// lsb is unused?
+		break;
+
+	case 0x0a: // [osc] Wavesample address high
+		if (ACCESSING_BITS_8_15)
+			voice->osc.acc = (voice->osc.acc & 0x00ffffff) | ((Data & 0xff00) << 16);
+		if (ACCESSING_BITS_0_7)
+			voice->osc.acc = (voice->osc.acc & 0xff00ffff) | ((Data & 0x00ff) << 16);
+		break;
+
+	case 0x0b: // [osc] Wavesample address low
+		if (ACCESSING_BITS_8_15)
+			voice->osc.acc = (voice->osc.acc & 0xffff00ff) | (Data & 0xff00);
+		if (ACCESSING_BITS_0_7)
+			voice->osc.acc = (voice->osc.acc & 0xffffff00) | (Data & 0x00f8);
+		break;
+
+	case 0x0e: // Active Voices
+		//Does this value get added to 1? Not sure. Could trace for writes of 32.
+		if (ACCESSING_BITS_8_15)
+			chip->voiceCount = (Data >> 8) & 0x1f; // & 0x1f ? (Guessing)
+		break;
+	//2X8 ?
+	case 0x10: // [osc] Oscillator Control
+		//Could this be 2X9?
+		//[7 R | 6 M2 | 5 M1 | 4-2 Reserve | 1 - Timer 2 Strt | 0 - Timer 1 Strt]
+
+		if (ACCESSING_BITS_8_15)
+		{
+			Data >>= 8;
+			voice->osc.ctl = (UINT8)Data;
+			voice->state.on = !voice->osc.ctl; // some early PGM games need this
+			if (!Data)
+				ics2115_do_ctrl(chip, voice);
+		}
+		break;
+
+	case 0x11: // [osc] Wavesample static address 27-20
+		if (ACCESSING_BITS_8_15)
+			voice->osc.saddr = (Data >> 8);
+		break;
+	default:
+		break;
+	}
+
+	return;
+}
+
+void ics2115_write(UINT8 Offset, UINT8 Data)
+{
+	ICS2115_DATA* chip = &ChDat->ICS2115;
+
+	switch (Offset & 0x03)
+	{
+	case 0x01:
+		chip->regAddr = Data;
+		break;
+	case 0x02: // Register data LSB
+		ics2115_regs_w(chip, chip->regAddr, Data, 0x00FF);
+		break;
+	case 0x03: // Register data MSB
+		ics2115_regs_w(chip, chip->regAddr, Data << 8, 0xFF00);
+		break;
+	}
+	return;
+}
+
+void bsmt2000_write(UINT8 Offset, UINT16 Value)
+{
+	BSMT2000_DATA* chip = &ChDat->BSMT2000;
+
+	UINT8 ch;
+	UINT8 reg;
+	BSMT2000_CHANNEL* TempChn;
+	UINT32 StAddr;
+	UINT32 EndAddr;
+	UINT32 Addr;
+	UINT32 Bank;
+
+	if (Offset == 0x7F)
+	{
+		switch (Value & 0xFF)
+		{
+		/* mode 0: 24kHz, 12 channel PCM, 1 channel ADPCM, mono; from PinMAME */
+		case 0:
+			chip->Voices = 12;
+			chip->ADPCM = 1;
+			chip->Mode = 0;
+			break;
+		/* mode 1: 24kHz, 11 channel PCM, 1 channel ADPCM, stereo */
+		case 1:
+			chip->Voices = 11;
+			chip->ADPCM = 1;
+			chip->Mode = 1;
+			break;
+		/* mode 5: 24kHz, 12 channel PCM, stereo */
+		case 5:
+			chip->Voices = 12;
+			chip->ADPCM = 0;
+			chip->Mode = 5;
+			break;
+		/* mode 6: 34kHz, 8 channel PCM, stereo */
+		case 6:
+			chip->Voices = 8;
+			chip->ADPCM = 0;
+			chip->Mode = 6;
+			break;
+		/* mode 7: 32kHz, 9 channel PCM, stereo */
+		case 7:
+			chip->Voices = 9;
+			chip->ADPCM = 0;
+			chip->Mode = 7;
+			break;
+		}
+		for (ch = 0; ch < BSMT2000_MAX_VOICES; ch++)
+		{
+			TempChn = &chip->channel[ch];
+			TempChn->bank = 0;
+			TempChn->address = 0;
+			TempChn->end = 0;
+		}
+		return;
+	}
+
+	// Standard voices (interleaved register layout)
+	if (Offset < 0x6d)
+	{
+		int voice_index;
+		int regindex = BSMT2000_REG_TOTAL - 1;
+		while (Offset < bsmt2000_regmap[chip->Mode][regindex])
+			--regindex;
+
+		voice_index = Offset - bsmt2000_regmap[chip->Mode][regindex];
+		if (voice_index >= chip->Voices)
+			return;
+
+		TempChn = &chip->channel[voice_index];
+		reg = regindex;
+	}
+	// Compressed/ADPCM channel (11-voice model only)
+	else if (chip->ADPCM != 0 && Offset >= 0x6d)
+	{
+		TempChn = &chip->channel[BSMT2000_ADPCM_INDEX];
+		switch (Offset) {
+		case 0x6d:
+			reg = BSMT2000_REG_LOOPEND;
+			break;
+		case 0x6f:
+			reg = BSMT2000_REG_BANK;
+			break;
+		case 0x75:
+			reg = BSMT2000_REG_CURRPOS;
+			break;
+		}
+	}
+
+	switch (reg)
+	{
+	case BSMT2000_REG_BANK:
+		TempChn->bank = Value; // REG_BANK
+		break;
+	case BSMT2000_REG_LOOPEND:
+		TempChn->end = Value;
+		break;
+	case BSMT2000_REG_CURRPOS:
+		TempChn->address = Value;
+		break;
+	default:
+		return;
+	}
+
+	Bank = TempChn->bank << 16;
+	StAddr = TempChn->address;
+	EndAddr = TempChn->end;
+	if (Bank >= chip->ROMSize)
+		return;
+	EndAddr ++;
+	for (Addr = StAddr; Addr < EndAddr; Addr ++)
+		chip->ROMUsage[Bank + (Addr & 0xffff)] |= 0x01;
+
+	return;
+}
+
 #define ROM_BORDER_CHECK					\
 	if (DataStart > ROMSize)				\
 		return;								\
@@ -3255,6 +3621,8 @@ void write_rom_data(UINT8 ROMType, UINT32 ROMSize, UINT32 DataStart, UINT32 Data
 	GA20_DATA* ga20;
 	K007232_DATA* k007232;
 	K005289_DATA* k005289;
+	ICS2115_DATA* ics2115;
+	BSMT2000_DATA* bsmt2000;
 
 	switch(ROMType)
 	{
@@ -3636,6 +4004,38 @@ void write_rom_data(UINT8 ROMType, UINT32 ROMSize, UINT32 DataStart, UINT32 Data
 		memcpy(k007232->ROMData + DataStart, ROMData, DataLength);
 		memset(k007232->ROMUsage + DataStart, 0x00, DataLength);
 		break;
+	case 0x95:	// BSMT2000 ROM
+		bsmt2000 = &ChDat->BSMT2000;
+
+		if (bsmt2000->ROMSize != ROMSize)
+		{
+			bsmt2000->ROMData = (UINT8*)realloc(bsmt2000->ROMData, ROMSize);
+			bsmt2000->ROMUsage = (UINT8*)realloc(bsmt2000->ROMUsage, ROMSize);
+			bsmt2000->ROMSize = ROMSize;
+			memset(bsmt2000->ROMData, 0xFF, ROMSize);
+			memset(bsmt2000->ROMUsage, 0x02, ROMSize);
+		}
+
+		ROM_BORDER_CHECK
+		memcpy(bsmt2000->ROMData + DataStart, ROMData, DataLength);
+		memset(bsmt2000->ROMUsage + DataStart, 0x00, DataLength);
+		break;
+	case 0x96:	// ICS2115 ROM
+		ics2115 = &ChDat->ICS2115;
+
+		if (ics2115->ROMSize != ROMSize)
+		{
+			ics2115->ROMData = (UINT8*)realloc(ics2115->ROMData, ROMSize);
+			ics2115->ROMUsage = (UINT8*)realloc(ics2115->ROMUsage, ROMSize);
+			ics2115->ROMSize = ROMSize;
+			memset(ics2115->ROMData, 0xFF, ROMSize);
+			memset(ics2115->ROMUsage, 0x02, ROMSize);
+		}
+
+		ROM_BORDER_CHECK
+		memcpy(ics2115->ROMData + DataStart, ROMData, DataLength);
+		memset(ics2115->ROMUsage + DataStart, 0x00, DataLength);
+		break;
 	case 0xC0:	// RF5C68 RAM
 	case 0xC1:	// RF5C164 RAM
 		rf5c = (ROMType == 0xC0) ? &ChDat->RF5C68 : &ChDat->RF5C164;
@@ -3736,6 +4136,8 @@ UINT32 GetROMMask(UINT8 ROMType, UINT8** MaskData)
 	GA20_DATA* ga20;
 	K007232_DATA* k007232;
 	K005289_DATA* k005289;
+	ICS2115_DATA* ics2115;
+	BSMT2000_DATA* bsmt2000;
 
 	switch(ROMType)
 	{
@@ -3845,6 +4247,16 @@ UINT32 GetROMMask(UINT8 ROMType, UINT8** MaskData)
 
 		*MaskData = k007232->ROMUsage;
 		return k007232->ROMSize;
+	case 0x95:	// BSMT2000 ROM
+		bsmt2000 = &ChDat->BSMT2000;
+
+		*MaskData = bsmt2000->ROMUsage;
+		return bsmt2000->ROMSize;
+	case 0x96:	// ICS2115 ROM
+		ics2115 = &ChDat->ICS2115;
+
+		*MaskData = ics2115->ROMUsage;
+		return ics2115->ROMSize;
 	case 0xC0:	// RF5C68 RAM
 		rf5c = &ChDat->RF5C68;
 
@@ -3900,6 +4312,8 @@ UINT32 GetROMData(UINT8 ROMType, UINT8** ROMData)
 	GA20_DATA* ga20;
 	K007232_DATA* k007232;
 	K005289_DATA* k005289;
+	ICS2115_DATA* ics2115;
+	BSMT2000_DATA* bsmt2000;
 
 	switch(ROMType)
 	{
@@ -4003,11 +4417,21 @@ UINT32 GetROMData(UINT8 ROMType, UINT8** ROMData)
 
 		*ROMData = ga20->ROMData;
 		return ga20->ROMSize;
-	case 0x94:	// GA20 ROM
+	case 0x94:	// K007232 ROM
 		k007232 = &ChDat->K007232;
 
 		*ROMData = k007232->ROMData;
 		return k007232->ROMSize;
+	case 0x95:	// BSMT2000 ROM
+		bsmt2000 = &ChDat->BSMT2000;
+
+		*ROMData = bsmt2000->ROMData;
+		return bsmt2000->ROMSize;
+	case 0x96:	// ICS2115 ROM
+		ics2115 = &ChDat->ICS2115;
+
+		*ROMData = ics2115->ROMData;
+		return ics2115->ROMSize;
 	case 0xC0:	// RF5C68 RAM
 		rf5c = &ChDat->RF5C68;
 

@@ -236,6 +236,7 @@ typedef struct okim6295_data
 	UINT8 RegFirst[0x14];
 } OKIM6295_DATA;
 typedef struct okim6295_data OKIM6258_DATA;
+typedef struct okim6295_data OKIM5205_DATA;
 typedef struct upd7759_data
 {
 	UINT8 RegData[0x04];
@@ -277,7 +278,57 @@ typedef struct k007232_data
 	UINT8 RegData[0x20];
 	UINT8 RegFirst[0x20];
 } K007232_DATA;
+typedef struct ics2115_data
+{
+	UINT8 RegAddr;
+	UINT8 RegAddrFirst;
+	UINT8 RegCh;
+	UINT16 RegData[0x80 * 0x20];
+	UINT16 RegFirst[0x80 * 0x20];
+} ICS2115_DATA;
+typedef struct mikey_data
+{
+	UINT16 RegData[0x51];
+	UINT8 RegFirst[0x51];
+} MIKEY_DATA;
+typedef struct okim5232_data
+{
+	UINT16 RegData[0x24];
+	UINT8 RegFirst[0x24];
+} OKIM5232_DATA;
 
+#define BSMT2000_CHANNELS     12          /* up to 12 PCM voices, plus ADPCM */
+#define BSMT2000_ADPCM_INDEX  12          /* 0..11 = PCM, 12 = ADPCM/compressed */
+#define BSMT2000_REG_CURRPOS  0
+#define BSMT2000_REG_RATE 1
+#define BSMT2000_REG_LOOPEND     2
+#define BSMT2000_REG_LOOPSTART  3
+#define BSMT2000_REG_BANK 4
+#define BSMT2000_REG_RIGHTVOL     5
+#define BSMT2000_REG_LEFTVOL 6
+#define BSMT2000_REG_TOTAL    7
+
+#define BSMT2000_MAX_VOICES   (BSMT2000_CHANNELS + 1)  /* 12 PCM + 1 ADPCM/compressed */
+
+static const UINT8 bsmt2000_regmap[8][7] = {
+	{ 0x00, 0x18, 0x24, 0x30, 0x3c, 0x48, 0xff }, // last one (stereo/leftvol) unused, set to max for mapping
+	{ 0x00, 0x16, 0x21, 0x2c, 0x37, 0x42, 0x4d },
+	{ 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 }, // mode 2 only a testmode left channel
+	{ 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 }, // mode 3 only a testmode right channel
+	{ 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 }, // mode 4 only a testmode left channel
+	{ 0x00, 0x18, 0x24, 0x30, 0x3c, 0x54, 0x60 },
+	{ 0x00, 0x10, 0x18, 0x20, 0x28, 0x38, 0x40 },
+	{ 0x00, 0x12, 0x1b, 0x24, 0x2d, 0x3f, 0x48 } };
+
+typedef struct bsmt2000_data
+{
+	UINT16 RegData[0x80];
+	UINT8 RegFirst[0x80];
+	UINT8 KeyOn[0x10];
+	UINT8 Mode;
+	UINT8 ADPCM;
+	UINT8 Voices;
+} BSMT2000_DATA;
 typedef struct all_chips
 {
 	UINT8 GGSt;
@@ -319,6 +370,11 @@ typedef struct all_chips
 	VSU_DATA VSU;
 	K005289_DATA K005289;
 	K007232_DATA K007232;
+	ICS2115_DATA ICS2115;
+	MIKEY_DATA Mikey;
+	OKIM5205_DATA OKIM5205;
+	OKIM5232_DATA OKIM5232;
+	BSMT2000_DATA BSMT2000;
 } ALL_CHIPS;
 
 
@@ -370,6 +426,11 @@ bool vsu_write(UINT16 Register, UINT8 Data);
 bool wswan_write(UINT8 Register, UINT8 Data);
 bool k005289_write(UINT8 Register, UINT16 Data);
 bool k007232_write(UINT8 Register, UINT8 Data);
+bool ics2115_write(UINT8 Register, UINT8 Data);
+bool mikey_write(UINT8 Register, UINT8 Data);
+bool okim5205_write(UINT8 Port, UINT8 Data);
+bool okim5232_write(UINT8 Register, UINT8 Data);
+bool bsmt2000_write(UINT8 Offset, UINT16 Value);
 
 // Function Prototypes from vgm_cmp.c
 bool GetNextChipCommand(void);
@@ -407,6 +468,10 @@ void InitAllChips(void)
 		memset(TempChp->YMZ280B.KeyOn, 0x00, sizeof(UINT8) * 0x08);
 		TempChp->C140.banking_type = 0x00;
 		memset(TempChp->QSound.KeyOn, 0x00, sizeof(UINT8) * 0x10);
+		memset(TempChp->BSMT2000.KeyOn, 0x00, sizeof(UINT8) * 0x10);
+		TempChp->BSMT2000.Mode = 1;
+		TempChp->BSMT2000.ADPCM = 1;
+		TempChp->BSMT2000.Voices = 12;
 
 		memset(&TempChp->OKIM6258.RegFirst[0x08], 0x00, 0x0D-0x08);
 		memset(TempChp->WSwan.RegData, 0x00, 0x20);
@@ -447,6 +512,10 @@ void ResetAllChips(void)
 		memset(TempChp->YMZ280B.KeyOn, 0x00, sizeof(UINT8) * 0x08);
 		TempChp->C140.banking_type = RegBak[0x03];
 		memset(TempChp->QSound.KeyOn, 0x00, sizeof(UINT8) * 0x10);
+		memset(TempChp->BSMT2000.KeyOn, 0x00, sizeof(UINT8) * 0x10);
+		TempChp->BSMT2000.Mode = 1;
+		TempChp->BSMT2000.ADPCM = 1;
+		TempChp->BSMT2000.Voices = 12;
 
 		TempChp->RF5C68.RegData[RF_CBANK] = RegBak[0x00];
 		TempChp->RF5C68.RegData[RF_CHN_LOOP] = RegBak[0x00];
@@ -2865,6 +2934,365 @@ bool k007232_write(UINT8 Register, UINT8 Data)
 
 	chip->RegFirst[Register] = JustTimerCmds;
 	chip->RegData[Register] = Data;
+
+	return true;
+}
+
+bool ics2115_write(UINT8 Register, UINT8 Data)
+{
+	ICS2115_DATA* chip = &ChDat->ICS2115;
+	UINT8 RegShift, RegBits;
+	UINT16 RegInd;
+
+	if (Register >= 0x04 || Register == 0x00)
+		return false;
+
+	// Register index
+	if (Register == 0x01)
+	{
+		if (Data == 0x0F)
+			return false;
+
+		if ((Data >= 0x13 && Data <= 0x3F) && (Data >= 0x4C && Data <= 0x4E))
+			return false;
+
+		if (Data >= 0x50)
+			return false;
+
+		if (! chip->RegAddrFirst && Data == chip->RegAddr)
+			return false;
+
+		chip->RegAddrFirst = JustTimerCmds;
+		chip->RegAddr = Data;
+
+		return true;
+	}
+	RegBits = Register & 1;
+	switch (chip->RegAddr)
+	{
+		case 0x00: // [osc] Oscillator Configuration
+			if (!RegBits) // ignore LSB
+				return false;
+			return true; // written dynamically by chip
+
+		case 0x01: // [osc] Wavesample frequency
+			// freq = fc*33075/1024 in 32 voices mode, fc*44100/1024 in 24 voices mode
+			if (!RegBits) // ignore lowest bit
+				Data &= 0xFE;
+			break;
+
+		case 0x02: // [osc] Wavesample loop start high
+		case 0x03: // [osc] Wavesample loop start low
+			break;
+
+		case 0x04: // [osc] Wavesample loop end high
+		case 0x05: // [osc] Wavesample loop end low
+			break;
+
+		case 0x06: // [osc] Volume Increment
+			if (!RegBits) // ignore LSB
+				return false;
+			break;
+		case 0x07: // [osc] Volume Start
+		case 0x08: // [osc] Volume End
+			if (RegBits) // ignore MSB
+				return false;
+			break;
+
+		case 0x09: // [osc] Volume accumulator
+			return true; // written dynamically by chip
+
+		case 0x0a: // [osc] Wavesample address high
+		case 0x0b: // [osc] Wavesample address low
+			return true; // written dynamically by chip
+
+		case 0x0c: // [osc] Pan
+			if (!RegBits) // ignore LSB
+				return false;
+			break;
+
+		case 0x0d: // [osc] Volume Envelope Control
+			if (!RegBits) // ignore LSB
+				return false;
+			return true; // written dynamically by chip
+
+		case 0x0e: // Active Voices
+			if (!RegBits) // ignore LSB
+				return false;
+			Data &= 0x1F;
+			break;
+		//2X8 ?
+		case 0x10: // [osc] Oscillator Control
+			if (!RegBits) // ignore LSB
+				return false;
+			break;
+
+		case 0x11: // [osc] Wavesample static address 27-20
+			if (!RegBits) // ignore LSB
+				return false;
+			break;
+		case 0x12:
+			//Could be per voice! -- investigate.
+			if (!RegBits) // ignore LSB
+				return false;
+			break;
+
+		case 0x4f: // Oscillator Address being Programmed
+			if (RegBits) // ignore MSB
+				return false;
+			chip->RegCh = Data & 0x1f;
+			break;
+
+		default:
+			return false;
+	}
+
+	RegShift = RegBits << 3;
+	RegInd = chip->RegAddr;
+	// per-channel register
+	if ((chip->RegAddr <= 0x12) && (chip->RegAddr != 0x0E))
+		RegInd |= (((UINT16)chip->RegCh) << 7);
+	if (! chip->RegFirst[RegInd] &&
+		Data == ((chip->RegData[RegInd] >> RegShift) & 0xFF))
+		return false;
+
+	chip->RegFirst[RegInd] = JustTimerCmds;
+	chip->RegData[RegInd] =
+			(chip->RegData[RegInd] & ~(0xFF << RegShift)) |
+			(((UINT16)Data) << RegShift);
+
+	return true;
+}
+
+bool mikey_write(UINT8 Register, UINT8 Data)
+{
+	MIKEY_DATA* chip = &ChDat->Mikey;
+	UINT8 FreqMode, ch;
+
+	if (Register < 0x20)
+		return false;
+	else if (Register < 0x40)
+	{
+		// don't strip counter, direct output and shifter write
+		switch (Register & 0x07)
+		{
+		case 0x01:
+		case 0x02:
+		case 0x03:
+		case 0x04:
+		case 0x05:
+		case 0x06:
+		case 0x07:
+			return true;
+		}
+	}
+	else
+	{
+		switch (Register)
+		{
+		case 0x40:
+		case 0x41:
+		case 0x42:
+		case 0x43:
+		case 0x44:
+		case 0x50:
+			break;
+		default:
+			return false;
+		}
+	}
+
+	if (! chip->RegFirst[Register] && Data == chip->RegData[Register])
+		return false;
+
+	chip->RegFirst[Register] = JustTimerCmds;
+	chip->RegData[Register] = Data;
+
+	return true;
+}
+
+bool okim5205_write(UINT8 Port, UINT8 Data)
+{
+	OKIM5205_DATA* chip = &ChDat->OKIM5205;
+	Data &= 0x0F;
+	switch (Port & 0x07)
+	{
+	case 0x01: // doesn't strip data write
+		return true;
+	case 0x03:
+	case 0x06:
+	case 0x07:
+		return false;
+	}
+
+	if (! chip->RegFirst[Port] && Data == chip->RegData[Port])
+		return false;
+
+	chip->RegFirst[Port] = JustTimerCmds;
+	chip->RegData[Port] = Data;
+
+	return true;
+}
+
+bool okim5232_write(UINT8 Register, UINT8 Data)
+{
+	OKIM5232_DATA* chip = &ChDat->OKIM5232;
+
+	if (Register >= 0x24)
+		return false;
+
+	switch (Register)
+	{
+	case 0x00: // pitch/keyon
+	case 0x01:
+	case 0x02:
+	case 0x03:
+	case 0x04:
+	case 0x05:
+	case 0x06:
+	case 0x07:
+	case 0x0C: // per group control
+	case 0x0D:
+		return true;
+	case 0x08: // per group attack/decay
+	case 0x09:
+	case 0x0A:
+	case 0x0B:
+	case 0x10: // per output volume
+	case 0x11:
+	case 0x12:
+	case 0x13:
+	case 0x14:
+	case 0x15:
+	case 0x16:
+	case 0x17:
+	case 0x18:
+	case 0x19:
+	case 0x1A:
+	case 0x1E:
+	case 0x1F:
+		break;
+	case 0x20:	// Master Clock 000000dd
+	case 0x21:	// Master Clock 0000dd00
+	case 0x22:	// Master Clock 00dd0000
+		if (/*! chip->RegFirst[Register] &&*/ Data == chip->RegData[Register])
+			return false;
+
+		chip->RegData[Register] = Data;
+		chip->RegFirst[Register] = 0x00;
+		chip->RegFirst[0x23] = 0x01;	// force Clock rewrite
+		break;
+	case 0x23:	// Master Clock dd000000
+		if (! chip->RegFirst[Register] && Data == chip->RegData[Register])
+			return false;
+
+		chip->RegData[Register] = Data;
+		chip->RegFirst[Register] = 0x00;
+		break;
+	default:
+		return false;
+	}
+
+	if (! chip->RegFirst[Register] && Data == chip->RegData[Register])
+		return false;
+
+	chip->RegFirst[Register] = JustTimerCmds;
+	chip->RegData[Register] = Data;
+	return true;
+}
+
+bool bsmt2000_write(UINT8 Offset, UINT16 Value)
+{
+	BSMT2000_DATA* chip = &ChDat->BSMT2000;
+
+	if (Offset == 0x7F) // set mode (reset)
+	{
+		switch (Value & 0xFF)
+		{
+		/* mode 0: 24kHz, 12 channel PCM, 1 channel ADPCM, mono; from PinMAME */
+		case 0:
+			chip->Voices = 12;
+			chip->ADPCM = 1;
+			chip->Mode = 0;
+			break;
+		/* mode 1: 24kHz, 11 channel PCM, 1 channel ADPCM, stereo */
+		case 1:
+			chip->Voices = 11;
+			chip->ADPCM = 1;
+			chip->Mode = 1;
+			break;
+		/* mode 5: 24kHz, 12 channel PCM, stereo */
+		case 5:
+			chip->Voices = 12;
+			chip->ADPCM = 0;
+			chip->Mode = 5;
+			break;
+		/* mode 6: 34kHz, 8 channel PCM, stereo */
+		case 6:
+			chip->Voices = 8;
+			chip->ADPCM = 0;
+			chip->Mode = 6;
+			break;
+		/* mode 7: 32kHz, 9 channel PCM, stereo */
+		case 7:
+			chip->Voices = 9;
+			chip->ADPCM = 0;
+			chip->Mode = 7;
+			break;
+		}
+		memset(chip->RegFirst, 0x01, 0x80 * sizeof(UINT8));
+		return true;
+	}
+
+	if (chip->Mode > 0x07)
+		return false;
+
+	// Standard voices (interleaved register layout)
+	if (Offset < 0x6d)
+	{
+		int voice_index;
+		int regindex = BSMT2000_REG_TOTAL - 1;
+		while (Offset < bsmt2000_regmap[chip->Mode][regindex])
+			--regindex;
+
+		voice_index = Offset - bsmt2000_regmap[chip->Mode][regindex];
+		if (voice_index >= chip->Voices)
+			return false;
+
+		switch (regindex)
+		{
+			case BSMT2000_REG_CURRPOS:
+			case BSMT2000_REG_RIGHTVOL:
+			case BSMT2000_REG_LEFTVOL:
+				return true;
+		}
+	}
+	// Compressed/ADPCM channel (11-voice model only)
+	else if (Offset >= 0x6d)
+	{
+		if (chip->ADPCM == 0)
+			return false;
+
+		switch (Offset)
+		{
+		case 0x6e: // main right channel volume control, used when ADPCM is alreay playing
+		case 0x74:
+		case 0x75:
+		case 0x70: // main left channel volume control, used when ADPCM is alreay playing
+		case 0x78:
+			return true;
+		case 0x6f:
+			break;
+		default:
+			return false;
+		}
+	}
+
+	if (! chip->RegFirst[Offset] && Value == chip->RegData[Offset])
+		return false;
+
+	chip->RegFirst[Offset] = JustTimerCmds;
+	chip->RegData[Offset] = Value;
 
 	return true;
 }

@@ -537,7 +537,7 @@ static void PrepareChipMemory(void)
 			{
 				TempRC->QSound.Regs.Mode = 0x01;
 				TempRC->QSound.Regs.RegCount = 0x100;
-				TempRC->QSound.Chns.ChnCount = 0x10;
+				TempRC->QSound.Chns.ChnCount = 0x13;
 			}
 		}
 		if (VGMHead.lngHzSCSP)
@@ -619,6 +619,14 @@ static void PrepareChipMemory(void)
 				TempRC->GA20.Chns.ChnCount = 0x04;
 			}
 		}
+		if (VGMHead.lngHzMikey)
+		{
+			if (! CurCSet || (VGMHead.lngHzMikey & 0x40000000))
+			{
+				TempRC->Mikey.Regs.RegCount = 0x51;
+				TempRC->Mikey.Chns.ChnCount = 0x04;
+			}
+		}
 		if (VGMHead.lngHzK007232)
 		{
 			if (! CurCSet || (VGMHead.lngHzK007232 & 0x40000000))
@@ -633,6 +641,42 @@ static void PrepareChipMemory(void)
 			{
 				TempRC->K005289.Regs.RegCount = 0x06;
 				TempRC->K005289.Chns.ChnCount = 0x02;
+			}
+		}
+		if (VGMHead.lngHzOKIM5205)
+		{
+			if (! CurCSet || (VGMHead.lngHzOKIM5205 & 0x40000000))
+			{
+				// One reg for every port (Ctrl, Data, Pan) Clock-stuff
+				TempRC->OKIM5205.Regs.RegCount = 0x06;
+				TempRC->OKIM5205.Chns.ChnCount = 0x01;
+			}
+		}
+		if (VGMHead.lngHzOKIM5232)
+		{
+			if (! CurCSet || (VGMHead.lngHzOKIM5232 & 0x40000000))
+			{
+				TempRC->OKIM5232.Regs.RegCount = 0x24;
+				TempRC->OKIM5232.Chns.ChnCount = 0x8;
+			}
+		}
+		if (VGMHead.lngHzBSMT2000)
+		{
+			if (! CurCSet || (VGMHead.lngHzBSMT2000 & 0x40000000))
+			{
+				TempRC->BSMT2000.Regs.Mode = 0x01;
+				TempRC->BSMT2000.Regs.RegCount = 0x80;
+				TempRC->BSMT2000.Chns.ChnCount = 0x0D;
+			}
+		}
+		if (VGMHead.lngHzICS2115)
+		{
+			if (! CurCSet || (VGMHead.lngHzICS2115 & 0x40000000))
+			{
+				// 0x20 pages with 0x80 registers with 2 bytes + register index
+				TempRC->ICS2115.Regs.Mode = 0x00;
+				TempRC->ICS2115.Regs.RegCount = ((0x80 * 0x20) * 2) + 1;
+				TempRC->ICS2115.Chns.ChnCount = 0x20;
 			}
 		}
 	}
@@ -928,10 +972,59 @@ static void SetImportantCommands(void)
 			case 0x28:	// GA20
 				break;
 			case 0x29:	// Mikey
+				for (CurReg = 0x20; CurReg < 0x40; CurReg += 0x8)
+				{
+					TempReg->RegMask[CurReg + 0x00] |= 0x80; // Volume
+					TempReg->RegMask[CurReg + 0x04] |= 0x80; // Backup
+					TempReg->RegMask[CurReg + 0x05] |= 0x80; // Control
+					TempReg->RegMask[CurReg + 0x07] |= 0x80; // Other
+				}
+				for (CurReg = 0x40; CurReg <= 0x44; CurReg++)
+				{
+					TempReg->RegMask[CurReg] |= 0x80; // Volume
+				}
+				TempReg->RegMask[0x50] |= 0x80; // Master enable
 				break;
 			case 0x2A:	// K007232
 				break;
 			case 0x2B:	// K005289
+				break;
+			case 0x2C:	// OKIM5205
+				TempReg->RegData.R08[0x04] = (VGMHead.bytOKI5205Flags >>  0) & 0x3;
+				TempReg->RegData.R08[0x05] = (VGMHead.bytOKI5205Flags >>  2) & 0x1;
+				for (CurReg = 0x04; CurReg <= 0x05; CurReg ++)
+					TempReg->RegMask[CurReg] |= 0x80;
+				break;
+			case 0x2D:	// OKIM5232
+				// clock
+				TempReg->RegData.R08[0x20] = (VGMHead.lngHzOKIM5232 >>  0) & 0xFF;
+				TempReg->RegData.R08[0x21] = (VGMHead.lngHzOKIM5232 >>  8) & 0xFF;
+				TempReg->RegData.R08[0x22] = (VGMHead.lngHzOKIM5232 >> 16) & 0xFF;
+				TempReg->RegData.R08[0x23] = (VGMHead.lngHzOKIM5232 >> 24) & 0x3F;
+				// control registers
+				for (CurReg = 0xC; CurReg < 0xD; CurReg ++)
+					TempReg->RegMask[CurReg] |= 0x80;
+				break;
+			case 0x2E:	// BSMT2000
+				TempReg->RegMask[0x7F] |= 0x80;
+				break;
+			case 0x2F:	// ICS2115
+				for (CurReg = 0x00; CurReg < 0x20; CurReg++)
+				{
+					TempReg->RegMask[(((CurReg << 7) | 0x00) << 1) | 1] |= 0x80; // Oscillator Configuration
+					TempReg->RegMask[(((CurReg << 7) | 0x06) << 1) | 1] |= 0x80; // Volume Increment
+					TempReg->RegMask[(((CurReg << 7) | 0x07) << 1) | 0] |= 0x80; // Volume Start
+					TempReg->RegMask[(((CurReg << 7) | 0x08) << 1) | 0] |= 0x80; // Volume End
+					TempReg->RegMask[(((CurReg << 7) | 0x09) << 1) | 0] |= 0x80; // Volume accumulator
+					TempReg->RegMask[(((CurReg << 7) | 0x09) << 1) | 1] |= 0x80; // Volume accumulator
+					TempReg->RegMask[(((CurReg << 7) | 0x0C) << 1) | 1] |= 0x80; // Pan
+					TempReg->RegMask[(((CurReg << 7) | 0x0D) << 1) | 1] |= 0x80; // Volume Envelope Control
+					TempReg->RegMask[(((CurReg << 7) | 0x11) << 1) | 1] |= 0x80; // Wavesample static address 27-20
+					TempReg->RegMask[(((CurReg << 7) | 0x12) << 1) | 1] |= 0x80; // vmode
+				}
+				TempReg->RegMask[(0x4F << 1) | 0] |= 0x80; // Voice select
+				TempReg->RegMask[(0x0E << 1) | 1] |= 0x80; // Number of voices
+				TempReg->RegMask[(0x80 | (0x20 << 7)) << 1] |= 0x80; // Register select
 				break;
 			}
 		}
@@ -1766,8 +1859,10 @@ static void InitializeVGM(UINT8** DstDataRef, UINT32* DstPosRef)
 				ChipCmd = 0xBF;
 				CmdType = 0x12;
 				break;
-			//case 0x29:	// Mikey
-			//	break;
+			case 0x29:	// Mikey
+				ChipCmd = 0x40;
+				CmdType = 0x12;
+				break;
 			case 0x2A:	// K007232
 				ChipCmd = 0x41;
 				CmdType = 0x12;
@@ -1783,6 +1878,184 @@ static void InitializeVGM(UINT8** DstDataRef, UINT32* DstPosRef)
 						DstData[DstPos + 0x02] = TempReg->RegData.R16[CurReg] & 0xFF;
 						DstPos += 0x03;
 					}
+				}
+
+				CmdType = 0x00;
+				break;
+			case 0x2C:	// OKIM5205
+				ChipCmd = 0x32;
+				CmdType = 0xFF;
+				if ((TempReg->RegMask[0x04] & 0x7F) == 0x01)
+				{
+					VGMHead.bytOKI5205Flags &= ~0x03;
+					VGMHead.bytOKI5205Flags |= TempReg->RegData.R08[0x04] & 0x03;
+				}
+				if ((TempReg->RegMask[0x05] & 0x7F) == 0x01)
+				{
+					VGMHead.bytOKI5205Flags &= ~0x04;
+					VGMHead.bytOKI5205Flags |= (TempReg->RegData.R08[0x05] & 0x01) << 2;
+				}
+
+				for (CurReg = 0x00; CurReg < 0x03; CurReg ++)
+				{
+					WrtReg = (0x02 + CurReg) % 0x03;	// write in order 02, 00, 01
+					if ((TempReg->RegMask[WrtReg] & 0x7F) == 0x01)
+					{
+						DstData[DstPos + 0x00] = ChipCmd;
+						DstData[DstPos + 0x01] = (CurCSet << 7) | ((WrtReg & 7) << 4) | (TempReg->RegData.R08[WrtReg] & 0x0F);
+						DstPos += 0x02;
+					}
+				}
+				break;
+			case 0x2D:	// OKIM5232
+				ChipCmd = 0x43;
+				CmdType = 0x12;
+				if (! CurCSet &&	// only chip 1 can change the master clock
+					((TempReg->RegMask[0x23] & 0x7F) == 0x01))
+				{
+					TempLng = VGMHead.lngHzOKIM5232 & 0x40000000;
+					VGMHead.lngHzOKIM5232 =	(TempReg->RegData.R08[0x20] <<  0) |
+											(TempReg->RegData.R08[0x21] <<  8) |
+											(TempReg->RegData.R08[0x22] << 16) |
+											(TempReg->RegData.R08[0x23] << 24) |
+											TempLng;
+					for (CurReg = 0x20; CurReg <= 0x23; CurReg ++)
+						TempReg->RegMask[CurReg] = 0x00;
+				}
+				else if ((TempReg->RegMask[0x23] & 0x7F) == 0x01)
+				{
+					for (CurReg = 0x20; CurReg <= 0x23; CurReg ++)
+						TempReg->RegMask[CurReg] = TempReg->RegMask[0x23];
+				}
+				break;
+			case 0x2E:	// BSMT2000
+				ChipCmd = 0xC9;
+
+				CurReg = 0x7F;
+				if ((TempReg->RegMask[CurReg] & 0x7F) == 0x01)
+				{
+					TempSht = TempReg->RegData.R16[CurReg];
+					DstData[DstPos + 0x00] = ChipCmd;
+					DstData[DstPos + 0x01] = (CurCSet << 7) | CurReg;
+					DstData[DstPos + 0x02] = (TempSht & 0xFF00) >> 8;
+					DstData[DstPos + 0x03] = (TempSht & 0x00FF) >> 0;
+					DstPos += 0x04;
+				}
+				for (CurReg = 0x00; CurReg < 0x7F; CurReg ++)
+				{
+					if ((TempReg->RegMask[CurReg] & 0x7F) == 0x01)
+					{
+						TempSht = TempReg->RegData.R16[CurReg];
+						DstData[DstPos + 0x00] = ChipCmd;
+						DstData[DstPos + 0x01] = (CurCSet << 7) | CurReg;
+						DstData[DstPos + 0x02] = (TempSht & 0xFF00) >> 8;
+						DstData[DstPos + 0x03] = (TempSht & 0x00FF) >> 0;
+						DstPos += 0x04;
+					}
+				}
+
+				CmdType = 0xFF;
+				break;
+			case 0x2F:	// ICS2115
+				ChipCmd = 0x44;
+
+				TempSht = (TempReg->RegData.R08[(0x0E << 1) | 1] >> 8) & 0xFF;
+				if ((TempReg->RegMask[0x0E] & 0x7F) == 0x01)
+				{
+					DstData[DstPos + 0x00] = ChipCmd;
+					DstData[DstPos + 0x01] = (CurCSet << 7) | 0x01;
+					DstData[DstPos + 0x02] = 0x0E;
+					DstPos += 0x03;
+					DstData[DstPos + 0x00] = ChipCmd;
+					DstData[DstPos + 0x01] = (CurCSet << 7) | 0x03;
+					DstData[DstPos + 0x02] = TempSht;
+					DstPos += 0x03;
+				}
+
+				for (TempByt = 0x00; TempByt <= TempSht; TempByt ++)
+				{
+					CmdType = 0x00;
+					WrtReg = TempByt * 0x80;
+					for (CurReg = 0x00; CurReg < 0x12; CurReg ++)
+					{
+						if ((CurReg == 0x0E) || (CurReg == 0x0F))
+							continue;
+
+						// Register LSB
+						if ((TempReg->RegMask[((WrtReg + CurReg) << 1) | 0] & 0x7F) == 0x01)
+						{
+							if (! CmdType)
+							{
+								// write Channel Select
+								DstData[DstPos + 0x00] = ChipCmd;
+								DstData[DstPos + 0x01] = (CurCSet << 7) | 0x01;
+								DstData[DstPos + 0x02] = 0x4F;
+								DstPos += 0x03;
+								DstData[DstPos + 0x00] = ChipCmd;
+								DstData[DstPos + 0x01] = (CurCSet << 7) | 0x02;
+								DstData[DstPos + 0x02] = TempByt;
+								DstPos += 0x03;
+								CmdType = 0x01;
+							}
+
+							DstData[DstPos + 0x00] = ChipCmd;
+							DstData[DstPos + 0x01] = (CurCSet << 7) | 0x01;
+							DstData[DstPos + 0x02] = CurReg;
+							DstPos += 0x03;
+							DstData[DstPos + 0x00] = ChipCmd;
+							DstData[DstPos + 0x01] = (CurCSet << 7) | 0x02;
+							DstData[DstPos + 0x02] = TempReg->RegData.R08[((WrtReg + CurReg) << 1) | 0] & 0xFF;
+							DstPos += 0x03;
+						}
+						// Register MSB
+						if ((TempReg->RegMask[((WrtReg + CurReg) << 1) | 1] & 0x7F) == 0x01)
+						{
+							if (! CmdType)
+							{
+								// write Channel Select
+								DstData[DstPos + 0x00] = ChipCmd;
+								DstData[DstPos + 0x01] = (CurCSet << 7) | 0x01;
+								DstData[DstPos + 0x02] = 0x4F;
+								DstPos += 0x03;
+								DstData[DstPos + 0x00] = ChipCmd;
+								DstData[DstPos + 0x01] = (CurCSet << 7) | 0x02;
+								DstData[DstPos + 0x02] = TempByt;
+								DstPos += 0x03;
+								CmdType = 0x01;
+							}
+
+							DstData[DstPos + 0x00] = ChipCmd;
+							DstData[DstPos + 0x01] = (CurCSet << 7) | 0x01;
+							DstData[DstPos + 0x02] = CurReg;
+							DstPos += 0x03;
+							DstData[DstPos + 0x00] = ChipCmd;
+							DstData[DstPos + 0x01] = (CurCSet << 7) | 0x03;
+							DstData[DstPos + 0x02] = TempReg->RegData.R08[((WrtReg + CurReg) << 1) | 1] & 0xFF;
+							DstPos += 0x03;
+						}
+					}
+				}
+
+				CurReg = (0x4F << 1) | 0;
+				if ((TempReg->RegMask[CurReg] & 0x7F) == 0x01)
+				{
+					DstData[DstPos + 0x00] = ChipCmd;
+					DstData[DstPos + 0x01] = (CurCSet << 7) | 0x01;
+					DstData[DstPos + 0x02] = CurReg;
+					DstPos += 0x03;
+					DstData[DstPos + 0x00] = ChipCmd;
+					DstData[DstPos + 0x01] = (CurCSet << 7) | 0x02;
+					DstData[DstPos + 0x02] = TempReg->RegData.R08[CurReg] & 0xFF;
+					DstPos += 0x03;
+				}
+
+				CurReg = (0x80 | (0x20 << 7)) << 1;
+				if ((TempReg->RegMask[CurReg] & 0x7F) == 0x01)
+				{
+					DstData[DstPos + 0x00] = ChipCmd;
+					DstData[DstPos + 0x01] = (CurCSet << 7) | 0x01;
+					DstData[DstPos + 0x02] = TempReg->RegData.R08[CurReg] & 0xFF;
+					DstPos += 0x03;
 				}
 
 				CmdType = 0x00;
@@ -2070,7 +2343,7 @@ static UINT32 ReadCommand(UINT8 Mask)
 	UINT8 ChipID;
 	UINT8 Command;
 	//UINT8 TempByt;
-	//UINT16 TempSht;
+	UINT16 TempSht;
 	//UINT32 TempLng;
 	UINT16 CmdReg;
 	UINT16 ChnReg;
@@ -2090,6 +2363,21 @@ static UINT32 ReadCommand(UINT8 Mask)
 	TempChp = NULL;
 	switch(Command)
 	{
+	case 0x40:	// Mikey write
+		TempChp = &RC[ChipID].Mikey;
+		TempReg = &TempChp->Regs;
+		if (TempReg->RegCount)
+		{
+			CmdReg = VGMData[VGMPos + 0x01] & 0x7F;
+			if (CmdReg < TempReg->RegCount)
+			{
+				TempReg->RegMask[CmdReg] |= Mask;
+				if (Mask == 0x01)
+					TempReg->RegData.R08[CmdReg] = VGMData[VGMPos + 0x02];
+			}
+		}
+		CmdLen = 0x03;
+		break;
 	case 0x41:	// K007232 write
 		TempChp = &RC[ChipID].K007232;
 		TempReg = &TempChp->Regs;
@@ -2120,6 +2408,21 @@ static UINT32 ReadCommand(UINT8 Mask)
 			}
 		}
 
+		CmdLen = 0x03;
+		break;
+	case 0x43:	// OKIM5232 write
+		TempChp = &RC[ChipID].OKIM5232;
+		TempReg = &TempChp->Regs;
+		if (TempReg->RegCount)
+		{
+			CmdReg = VGMData[VGMPos + 0x01] & 0x7F;
+			if (CmdReg < TempReg->RegCount)
+			{
+				TempReg->RegMask[CmdReg] |= Mask;
+				if (Mask == 0x01)
+					TempReg->RegData.R08[CmdReg] = VGMData[VGMPos + 0x02];
+			}
+		}
 		CmdLen = 0x03;
 		break;
 	case 0x50:	// SN76496 write
@@ -2615,11 +2918,86 @@ static UINT32 ReadCommand(UINT8 Mask)
 
 		CmdLen = 0x04;
 		break;
+	case 0xC9:	// BSMT2000 write
+		ChipID = VGMData[VGMPos + 0x01] >> 7;
+		TempChp = &RC[ChipID].BSMT2000;
+		TempReg = &TempChp->Regs;
+
+		if (TempReg->RegCount)
+		{
+			CmdReg = VGMData[VGMPos + 0x01] & 0x7F;
+			if (CmdReg < TempReg->RegCount)
+			{
+				TempReg->RegMask[CmdReg] |= Mask;
+				if (Mask == 0x01)
+					TempReg->RegData.R16[CmdReg] = (VGMData[VGMPos + 0x02] << 8) |
+													(VGMData[VGMPos + 0x03] << 0);
+			}
+		}
+
+		CmdLen = 0x04;
+		break;
 	case 0xBE:	// ES5506 write (8-bit data)
 		CmdLen = 0x03;
 		break;
 	case 0xD6:	// ES5506 write (16-bit data)
 		CmdLen = 0x04;
+		break;
+	case 0x32:	// OKIM5205 write
+		ChipID = VGMData[VGMPos + 0x01] >> 7;
+		TempChp = &RC[ChipID].OKIM5205;
+		TempReg = &TempChp->Regs;
+
+		if (TempReg->RegCount)
+		{
+			CmdReg = (VGMData[VGMPos + 0x01] >> 4) & 0x7;
+			if (CmdReg < TempReg->RegCount)
+			{
+				TempReg->RegMask[CmdReg] |= Mask;
+				if (Mask == 0x01)
+					TempReg->RegData.R08[CmdReg] = VGMData[VGMPos + 0x01] & 0xF;
+			}
+		}
+
+		CmdLen = 0x02;
+		break;
+	case 0x44:	// ICS2115 write (8-bit data)
+		ChipID = VGMData[VGMPos + 0x01] >> 7;
+		TempChp = &RC[ChipID].ICS2115;
+		TempReg = &TempChp->Regs;
+		if (TempReg->RegCount)
+		{
+			// Bit 0 - Byte select (0 = LSB, 1 = MSB)
+			// Bit 1 to 7 - Register index
+			// Bit 8 to 12 - Channel index
+			// 0x2000 - Register select
+			CmdReg = VGMData[VGMPos + 0x01];
+			switch (CmdReg)
+			{
+			case 0x01:
+				CmdReg = (0x80 | (0x20 << 7)) << 1;
+				TempReg->RegMask[CmdReg] |= Mask;
+				if (Mask == 0x01)
+					TempReg->RegData.R08[CmdReg] = VGMData[VGMPos + 0x02];
+				break;
+			case 0x02:
+			case 0x03:
+				TempSht = CmdReg & 0x01;
+				CmdReg = TempReg->RegData.R08[(0x80 | (0x20 << 7)) << 1];
+				if ((CmdReg <= 0x12) && (CmdReg != 0x0E) && (CmdReg != 0x0F))
+				{
+					ChnReg = TempReg->RegData.R08[(0x4F << 1) | 0];
+					CmdReg |= ChnReg << 7;
+				}
+				CmdReg = (CmdReg << 1) | TempSht;
+				TempReg->RegMask[CmdReg] |= Mask;
+				if (Mask == 0x01)
+					TempReg->RegData.R08[CmdReg] = VGMData[VGMPos + 0x02];
+				break;
+			}
+		}
+
+		CmdLen = 0x03;
 		break;
 	}
 	CommandCheck(0x00, Command, TempChp, CmdReg);
@@ -2636,6 +3014,7 @@ static void CommandCheck(UINT8 Mode, UINT8 Command, CHIP_DATA* ChpData, UINT16 C
 	UINT8 CurChn;
 	UINT8 KeyOnOff;
 	UINT16 TempSht;
+	UINT16 TempVal;
 
 	if (ChpData == NULL)
 		return;
@@ -2862,6 +3241,8 @@ static void CommandCheck(UINT8 Mode, UINT8 Command, CHIP_DATA* ChpData, UINT16 C
 		break;
 	case 0xC5:	// SCSP write
 		break;
+	case 0xC9:	// BSMT2000 write
+		break;
 	case 0xBC:	// WonderSwan write
 		if (CmdReg == 0x10)
 		{
@@ -2935,6 +3316,18 @@ static void CommandCheck(UINT8 Mode, UINT8 Command, CHIP_DATA* ChpData, UINT16 C
 		break;
 	case 0xBF:	// GA20 write
 		break;
+	case 0x40:	// Mikey write
+		if ((CmdReg >= 0x20) && (CmdReg < 0x40))
+		{
+			CurChn = (CmdReg >> 3) & 3;
+			if ((CmdReg & 0x07) == 0x05)
+			{
+				KeyOnOff = (TempReg->RegData.R08[CmdReg] & 0x08) >> 3;
+				TempChn->ChnMask &= ~(1 << CurChn);
+				TempChn->ChnMask |= (KeyOnOff << CurChn);
+			}
+		}
+		break;
 	case 0x41:	// K007232 write
 		if (CmdReg == 0x1F)
 			CmdReg = TempReg->RegData.R08[CmdReg];
@@ -2952,6 +3345,58 @@ static void CommandCheck(UINT8 Mode, UINT8 Command, CHIP_DATA* ChpData, UINT16 C
 			KeyOnOff = 1;
 			TempChn->ChnMask &= ~(1 << CurChn);
 			TempChn->ChnMask |= (KeyOnOff << CurChn);
+		}
+		break;
+	case 0x42:	// K005289 write
+		CurChn = CmdReg & 0x01;
+		KeyOnOff = 0x00;
+
+		// test Frequency
+		if ((CmdReg & 0x06) == 0x04)
+		{
+			TempSht = TempReg->RegData.R16[CmdReg | 0x02];
+			if (TempSht >= 0xFFF)
+				KeyOnOff |= 0x01;	// inaudible frequency - key off
+		}
+		// test volume
+		if ((TempReg->RegData.R16[CmdReg | 0x00] & 0x00) == 0x00)
+			KeyOnOff |= 0x01;	// volume 0 - key off
+
+		KeyOnOff = ! KeyOnOff;
+		TempChn->ChnMask &= ~(1 << CurChn);
+		TempChn->ChnMask |= (KeyOnOff << CurChn);
+		break;
+	case 0x43:	// OKIM5232 write
+		if (CmdReg < 0x8)
+		{
+			CurChn = CmdReg & 0x7;
+			KeyOnOff = (TempReg->RegData.R08[CmdReg] & 0x80) >> 7;
+			TempChn->ChnMask &= ~(1 << CurChn);
+			TempChn->ChnMask |= (KeyOnOff << CurChn);
+		}
+		break;
+	case 0x44:	// ICS2115 write (8-bit data)
+		switch (CmdReg)
+		{
+		case 0x02:
+		case 0x03:
+			TempSht = CmdReg & 0x01;
+			CurChn = TempReg->RegData.R08[(0x4F << 1) | 0];
+			CmdReg = TempReg->RegData.R08[(0x80 | (0x20 << 7)) << 1];
+			TempVal = CmdReg;
+			if ((CmdReg <= 0x12) && (CmdReg != 0x0E) && (CmdReg != 0x0F))
+			{
+				TempVal |= CurChn << 7;
+			}
+			TempVal = (TempVal << 1) | TempSht;
+			if ((CmdReg == 0x10) && (TempSht == 1))
+			{
+				KeyOnOff = TempReg->RegData.R08[TempVal] == 0;
+
+				TempChn->ChnMask &= ~(1 << CurChn);
+				TempChn->ChnMask |= (KeyOnOff << CurChn);
+			}
+			break;
 		}
 		break;
 	}
