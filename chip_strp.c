@@ -742,11 +742,6 @@ bool k005289_write(UINT8 Register, UINT16 Data)
 	if ((Register & 0x06) == 0x04)
 		return true;
 
-	if (! chip->RegFirst[Register] && Data == chip->RegData[Register])
-		return false;
-
-	chip->RegFirst[Register] = 0x00;
-	chip->RegData[Register] = Data;
 	return true;
 }
 
@@ -787,11 +782,6 @@ bool ics2115_write(UINT8 Register, UINT8 Data)
 					chip->ChnSel = (Data & 0xFF) % (chip->ChnCnt + 1);
 					break;
 			}
-			if (! chip->RegFirst[RegVal] && Data == (chip->RegData[RegVal] & 0xFF))
-				return false;
-
-			chip->RegFirst[RegVal] = 0x00;
-			chip->RegData[RegVal] = (chip->RegData[RegVal] & 0xFF00) | Data;
 			break;
 		case 0x03:
 			RegVal = chip->RegSel;
@@ -815,11 +805,6 @@ bool ics2115_write(UINT8 Register, UINT8 Data)
 					chip->ChnCnt = Data;
 					break;
 			}
-			if (! chip->RegFirst[RegVal] && Data == ((chip->RegData[RegVal] >> 8) & 0xFF))
-				return false;
-
-			chip->RegFirst[RegVal] = 0x00;
-			chip->RegData[RegVal] = (chip->RegData[RegVal] & 0x00FF) | (((UINT16)Data) << 8);
 			break;
 	}
 	return true;
@@ -870,11 +855,6 @@ bool mikey_write(UINT8 Register, UINT8 Data)
 			break;
 		}
 	}
-	if (! chip->RegFirst[Register] && Data == chip->RegData[Register])
-		return false;
-
-	chip->RegFirst[Register] = 0x00;
-	chip->RegData[Register] = Data;
 	return true;
 }
 
@@ -894,11 +874,6 @@ bool okim5232_write(UINT8 Register, UINT8 Data)
 		if (strip->ChnMask & (0x01 << Channel))
 			return false;
 	}
-	if (! chip->RegFirst[Register] && Data == chip->RegData[Register])
-		return false;
-
-	chip->RegFirst[Register] = 0x00;
-	chip->RegData[Register] = Data;
 
 	return true;
 }
