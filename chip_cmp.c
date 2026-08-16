@@ -3067,7 +3067,6 @@ bool ics2115_write(UINT8 Register, UINT8 Data)
 bool mikey_write(UINT8 Register, UINT8 Data)
 {
 	MIKEY_DATA* chip = &ChDat->Mikey;
-	UINT8 FreqMode, ch;
 
 	if (Register < 0x20)
 		return false;

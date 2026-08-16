@@ -4350,9 +4350,11 @@ void k007232_write(char* TempStr, UINT8 offset, UINT8 data)
 
 void k005289_write(char* TempStr, UINT8 offset, UINT16 data)
 {
+	UINT8 ch;
+	
 	WriteChipID(0x2B);
 	
-	UINT8 ch = offset & 1; // Channel 0 or 1
+	ch = offset & 1; // Channel 0 or 1
 	switch (offset)
 	{
 		// Control A (Channel 1)
@@ -4704,7 +4706,6 @@ void bsmt2000_write(char* TempStr, UINT8 Offset, UINT16 Value)
 {
 	UINT8 ch;
 	UINT8 reg;
-	INT8 TempByt;
 	BSMT2000_DATA* TempBSMT;
 
 	WriteChipID(0x2E);
