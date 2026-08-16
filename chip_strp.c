@@ -13,27 +13,19 @@ typedef struct sn76496_data
 } SN76496_DATA;
 typedef struct ym2413_data
 {
-	UINT8 RegData[0x100];
-	UINT8 RegFirst[0x100];
+	UINT8 dummy;
 } YM2413_DATA;
 typedef struct ym2612_data
 {
-	UINT8 RegData[0x200];
-	UINT8 RegFirst[0x200];
-	UINT8 KeyOn[0x08];
-	UINT8 KeyFirst[0x08];
+	UINT8 dummy;
 } YM2612_DATA;
 typedef struct ym2151_data
 {
-	UINT8 RegData[0x100];
-	UINT8 RegFirst[0x100];
-	UINT8 MCMask[0x08];
-	UINT8 MCFirst[0x08];
+	UINT8 dummy;
 } YM2151_DATA;
 typedef struct _rf5c68_channel
 {
-	UINT8 ChnReg[0x07];
-	UINT8 RegFirst[0x07];
+	UINT8 dummy;
 } RF5C68_CHANNEL;
 typedef struct rf5c68_data
 {
@@ -42,95 +34,65 @@ typedef struct rf5c68_data
 } RF5C68_DATA;
 typedef struct ym2203_data
 {
-	UINT8 RegData[0x100];
-	UINT8 RegFirst[0x100];
-	UINT8 KeyOn[0x04];
-	UINT8 KeyFirst[0x04];
-	UINT8 PreSclCmd;
+	UINT8 dummy;
 } YM2203_DATA;
 typedef struct ym2608_data
 {
-	UINT8 RegData[0x200];
-	UINT8 RegFirst[0x200];
-	UINT8 KeyOn[0x08];
-	UINT8 KeyFirst[0x08];
-	UINT8 PreSclCmd;
+	UINT8 dummy;
 } YM2608_DATA;
 typedef struct ym2610_data
 {
-	UINT8 RegData[0x200];
-	UINT8 RegFirst[0x200];
-	UINT8 KeyOn[0x08];
-	UINT8 KeyFirst[0x08];
-	UINT8 PreSclCmd;
+	UINT8 dummy;
 } YM2610_DATA;
 typedef struct ym3812_data
 {
-	UINT8 RegData[0x100];
-	UINT8 RegFirst[0x100];
+	UINT8 dummy;
 } YM3812_DATA;
 typedef struct ym3526_data
 {
-	UINT8 RegData[0x100];
-	UINT8 RegFirst[0x100];
+	UINT8 dummy;
 } YM3526_DATA;
 typedef struct y8950_data
 {
-	UINT8 RegData[0x100];
-	UINT8 RegFirst[0x100];
+	UINT8 dummy;
 } Y8950_DATA;
 typedef struct ymf262_data
 {
-	UINT8 RegData[0x200];
-	UINT8 RegFirst[0x200];
+	UINT8 dummy;
 } YMF262_DATA;
 typedef struct ymf271_data
 {
-	UINT8 RegData[0x100];
-	UINT8 RegFirst[0x100];
+	UINT8 dummy;
 } YMF271_DATA;
 typedef struct ymf278b_data
 {
-	UINT8 RegData[0x100];
-	UINT8 RegFirst[0x100];
+	UINT8 dummy;
 } YMF278B_DATA;
 typedef struct ymz280b_data
 {
-	UINT8 RegData[0x100];
-	UINT8 RegFirst[0x100];
+	UINT8 dummy;
 } YMZ280B_DATA;
 typedef struct c140_data
 {
 	UINT8 BankType;
-	UINT8 RegData[0x200];
-	UINT8 RegFirst[0x200];
 } C140_DATA;
-
 typedef struct k005289_data
 {
-	UINT16 RegData[0x8];
-	UINT8 RegFirst[0x8];
+	UINT8 dummy;
 } K005289_DATA;
-
 typedef struct ics2115_data
 {
 	UINT8 ChnSel;
 	UINT8 ChnCnt;
 	UINT8 RegSel;
-	UINT16 RegData[0x80 * 0x20];
-	UINT8 RegFirst[0x80 * 0x20];
 } ICS2115_DATA;
-
 typedef struct mikey_data
 {
-	UINT16 RegData[0x51];
-	UINT8 RegFirst[0x51];
+	UINT8 dummy;
 } MIKEY_DATA;
-
 typedef struct okim5232_data
 {
-	UINT16 RegData[0x24];
-	UINT8 RegFirst[0x24];
+	UINT8 dummy;
 } OKIM5232_DATA;
 
 typedef struct all_chips
@@ -246,9 +208,6 @@ bool ym2413_write(UINT8 Register, UINT8 Data)
 	if (strip->All)
 		return false;
 	return true;
-	ChDat->YM2413.RegFirst[Register] = 0x00;
-	ChDat->YM2413.RegData[Register] = Data;
-	return true;
 }
 
 bool ym2612_write(UINT8 Port, UINT8 Register, UINT8 Data)
@@ -314,18 +273,8 @@ bool ym2151_write(UINT8 Register, UINT8 Data)
 	{
 	case 0x08:
 		Channel = Data & 0x07;
-		if (! chip->MCFirst[Channel] && (Data & 0xF8) == chip->MCMask[Channel])
-			return false;
-
-		chip->MCFirst[Channel] = 0x00;
-		chip->MCMask[Channel] = Data & 0xF8;
 		break;
 	default:
-		if (! chip->RegFirst[Register] && Data == chip->RegData[Register])
-			return false;
-
-		chip->RegFirst[Register] = 0x00;
-		chip->RegData[Register] = Data;
 		break;
 	}
 	return true;
@@ -427,29 +376,9 @@ bool ym2203_write(UINT8 Register, UINT8 Data)
 	chip = &ChDat->YM2203;
 	switch(Register)
 	{
-	case 0x24:	// Timer Registers
-	case 0x25:
-	case 0x26:
-		return false;
-	case 0x2D:	// OPN Prescaler Registers
-	case 0x2E:
-	case 0x2F:
-		if (chip->PreSclCmd == Register)
-			return false;
-		chip->PreSclCmd = Register;
-		break;
 	case 0x28:
 		Channel = Data & 0x03;
-
-		if (! chip->KeyFirst[Channel] && Data == chip->KeyOn[Channel])
-			return false;
-
-		chip->KeyFirst[Channel] = 0x00;
-		chip->KeyOn[Channel] = Data;
 		break;
-	case 0x27:
-		Data &= 0xC0;	// mask out all timer-relevant bits
-		// fall through
 	default:
 		if ((Register & 0xF0) < 0x10)
 			return true;	// I don't know anything about the SSG emulator
@@ -459,18 +388,7 @@ bool ym2203_write(UINT8 Register, UINT8 Data)
 			return true;	// Rewrite is neccessary: Phase Increment is recalculated
 		case 0xA4:	// A4-A7 and AC-AF - Frequence Latch
 			return true;
-			// For some reason (I really can't say why) the code below doesn't work properly
-			/*if ((RegVal & 0x03) == 0x03)
-				break;
-			RegVal &= 0x0FC;	// Registers A4-A6 (AC-AE for Ch3) write to the same offset
-			break;*/
 		}
-
-		if (! chip->RegFirst[Register] && Data == chip->RegData[Register])
-			return false;
-
-		chip->RegFirst[Register] = 0x00;
-		chip->RegData[Register] = Data;
 		break;
 	}
 	return true;
@@ -490,28 +408,9 @@ bool ym2608_write(UINT8 Port, UINT8 Register, UINT8 Data)
 	RegVal = (Port << 8) | Register;
 	switch(RegVal)
 	{
-	case 0x24:	// Timer Registers
-	case 0x25:
-	case 0x26:
-		return false;
-	case 0x2D:	// OPN Prescaler Registers
-	case 0x2E:
-	case 0x2F:
-		if (chip->PreSclCmd == Register)
-			return false;
-		break;
 	case 0x28:
 		Channel = Data & 0x07;
-
-		if (! chip->KeyFirst[Channel] && Data == chip->KeyOn[Channel])
-			return false;
-
-		chip->KeyFirst[Channel] = 0x00;
-		chip->KeyOn[Channel] = Data;
 		break;
-	case 0x27:
-		Data &= 0xC0;	// mask out all timer-relevant bits
-		// fall through
 	default:
 		if ((RegVal & 0x1F0) < 0x10)
 			return true;	// I don't know anything about the SSG emulator
@@ -526,18 +425,7 @@ bool ym2608_write(UINT8 Port, UINT8 Register, UINT8 Data)
 			return true;	// Rewrite is neccessary: Phase Increment is recalculated
 		case 0xA4:	// A4-A7 and AC-AF - Frequence Latch
 			return true;
-			// For some reason (I really can't say why) the code below doesn't work properly
-			/*if ((RegVal & 0x03) == 0x03)
-				break;
-			RegVal &= 0x0FC;	// Registers A4-A6 (AC-AE for Ch3) write to the same offset
-			break;*/
 		}
-
-		if (! chip->RegFirst[RegVal] && Data == chip->RegData[RegVal])
-			return false;
-
-		chip->RegFirst[RegVal] = 0x00;
-		chip->RegData[RegVal] = Data;
 		break;
 	}
 	return true;
@@ -557,26 +445,10 @@ bool ym2610_write(UINT8 Port, UINT8 Register, UINT8 Data)
 	RegVal = (Port << 8) | Register;
 	switch(RegVal)
 	{
-	case 0x24:	// Timer Registers
-	case 0x25:
-	case 0x26:
-		return false;
-	// no OPN Prescaler Registers for YM2610
 	case 0x28:
 		Channel = Data & 0x07;
-
-		if (! chip->KeyFirst[Channel] && Data == chip->KeyOn[Channel])
-			return false;
-
-		chip->KeyFirst[Channel] = 0x00;
-		chip->KeyOn[Channel] = Data;
 		break;
-	case 0x27:
-		Data &= 0xC0;	// mask out all timer-relevant bits
-		// fall through
 	default:
-		if (RegVal == 0x1C)
-			return false;	// controls only Status Bits
 		if ((RegVal & 0x1F0) < 0x10)
 			return true;	// I don't know anything about the SSG emulator
 		if ((RegVal & 0x1F0) >= 0x010 && (RegVal & 0x1F0) < 0x020)	// DELTA-T
@@ -589,18 +461,7 @@ bool ym2610_write(UINT8 Port, UINT8 Register, UINT8 Data)
 			return true;	// Rewrite is neccessary: Phase Increment is recalculated
 		case 0xA4:	// A4-A7 and AC-AF - Frequence Latch
 			return true;
-			// For some reason (I really can't say why) the code below doesn't work properly
-			/*if ((RegVal & 0x03) == 0x03)
-				break;
-			RegVal &= 0x0FC;	// Registers A4-A6 (AC-AE for Ch3) write to the same offset
-			break;*/
 		}
-
-		if (! chip->RegFirst[RegVal] && Data == chip->RegData[RegVal])
-			return false;
-
-		chip->RegFirst[RegVal] = 0x00;
-		chip->RegData[RegVal] = Data;
 		break;
 	}
 	return true;
@@ -613,9 +474,6 @@ bool ym3812_write(UINT8 Register, UINT8 Data)
 	if (strip->All)
 		return false;
 	return true;
-	ChDat->YM3812.RegFirst[Register] = 0x00;
-	ChDat->YM3812.RegData[Register] = Data;
-	return true;
 }
 
 bool ym3526_write(UINT8 Register, UINT8 Data)
@@ -625,9 +483,6 @@ bool ym3526_write(UINT8 Register, UINT8 Data)
 	if (strip->All)
 		return false;
 	return true;
-	ChDat->YM3526.RegFirst[Register] = 0x00;
-	ChDat->YM3526.RegData[Register] = Data;
-	return true;
 }
 
 bool y8950_write(UINT8 Register, UINT8 Data)
@@ -636,9 +491,6 @@ bool y8950_write(UINT8 Register, UINT8 Data)
 
 	if (strip->All)
 		return false;
-	return true;
-	ChDat->Y8950.RegFirst[Register] = 0x00;
-	ChDat->Y8950.RegData[Register] = Data;
 	return true;
 }
 
@@ -652,9 +504,6 @@ bool ymf262_write(UINT8 Port, UINT8 Register, UINT8 Data)
 
 	RegVal = (Port << 8) | Register;
 	return true;
-	ChDat->YMF262.RegFirst[RegVal] = 0x00;
-	ChDat->YMF262.RegData[RegVal] = Data;
-	return true;
 }
 
 bool ymz280b_write(UINT8 Register, UINT8 Data)
@@ -663,9 +512,6 @@ bool ymz280b_write(UINT8 Register, UINT8 Data)
 
 	if (strip->All)
 		return false;
-	return true;
-	ChDat->YMZ280B.RegFirst[Register] = 0x00;
-	ChDat->YMZ280B.RegData[Register] = Data;
 	return true;
 }
 
@@ -759,7 +605,6 @@ bool ics2115_write(UINT8 Register, UINT8 Data)
 		case 0x01:
 			chip->RegSel = Data;
 			return true;
-			break;
 		case 0x02:
 			RegVal = chip->RegSel;
 			if ((chip->RegSel <= 0x12) && (chip->RegSel != 0x0E))
@@ -862,7 +707,6 @@ bool okim5232_write(UINT8 Register, UINT8 Data)
 {
 	STRIP_PSG* strip = &StpDat->OKIM5232;
 	OKIM5232_DATA* chip = &ChDat->OKIM5232;
-	UINT16 RegVal;
 	UINT8 Channel;
 
 	if (strip->All)
