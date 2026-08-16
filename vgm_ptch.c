@@ -2106,9 +2106,9 @@ static UINT32 CheckForMinVersion(void)
 				switch(Command & 0xF0)
 				{
 				case 0x30:
-				case 0x40:
 					CmdLen = 0x02;
 					break;
+				case 0x40:
 				case 0x50:
 				case 0xA0:
 				case 0xB0:
@@ -3078,9 +3078,9 @@ static UINT32 RelocateVGMLoop(void)
 				switch(Command & 0xF0)
 				{
 				case 0x30:
-				case 0x40:
 					CmdLen = 0x02;
 					break;
+				case 0x40:
 				case 0x50:
 				case 0xA0:
 				case 0xB0:
@@ -4005,9 +4005,9 @@ static void StripVGMData(void)
 				switch(Command & 0xF0)
 				{
 				case 0x30:
-				case 0x40:
 					CmdLen = 0x02;
 					break;
+				case 0x40:
 				case 0x50:
 				case 0xA0:
 				case 0xB0:
