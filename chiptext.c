@@ -3524,7 +3524,7 @@ void multipcm_write(char* TempStr, UINT8 Port, UINT8 Data)
 		sprintf(RedirectStr, "Channel = %d", TempMPCM->Slot);
 		break;
 	case 2:
-		TempMPCM->Address = (Data > 7) ? 7 : Data;
+		TempMPCM->Address = Data;
 		sprintf(RedirectStr, "Register = %d", TempMPCM->Address);
 		break;
 	default:
@@ -3568,8 +3568,23 @@ static void multipcm_WriteSlot(char* TempStr, INT8 Slot, UINT8 Register, UINT8 D
 		sprintf(WriteStr, "LFO Frequency: %u, Phase LFO: %u",
 				(Data >> 3) & 0x07, Data & 0x07);
 		break;
-	case 7:	// ALFO
+	case 7:	// Attack+Decay1
+		sprintf(WriteStr, "Attack rate: %u, Decay 1 rate: %u",
+				(Data >> 4) & 0x0F, Data & 0x0F);
+		break;
+	case 8:	// Decay Level+Decay2
+		sprintf(WriteStr, "Decay level: %u, Decay 2 rate: %u",
+				(Data >> 4) & 0x0F, Data & 0x0F);
+		break;
+	case 9:	// Rate Correction+Release
+		sprintf(WriteStr, "Rate correction: %u, Release rate: %u",
+				(Data >> 4) & 0x0F, Data & 0x0F);
+		break;
+	case 10:	// ALFO
 		sprintf(WriteStr, "Amplitude LFO: %u", Data & 0x07);
+		break;
+	default:
+		sprintf(WriteStr, "Unknown register %d: %02X", Register, Data);
 		break;
 	}
 	sprintf(TempStr, "Channel %d: %s", Slot, WriteStr);

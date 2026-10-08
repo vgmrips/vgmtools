@@ -450,8 +450,8 @@ static void PrepareChipMemory(void)
 		{
 			if (! CurCSet || (VGMHead.lngHzMultiPCM & 0x40000000))
 			{
-				// 28 Chn * 8 Reg + CurSlot + CurAddr
-				TempRC->MultiPCM.Regs.RegCount = 0xE2;
+				// 28 Chn * 11 Reg + CurSlot + CurAddr
+				TempRC->MultiPCM.Regs.RegCount = 0x136;
 				TempRC->MultiPCM.Chns.ChnCount = 0x1C;
 			}
 		}

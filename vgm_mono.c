@@ -791,7 +791,7 @@ static void CompressVGMData(void)
 					MPCMSlot = (VGMPnt[0x02] & 0x07) + ((VGMPnt[0x02] >> 3) * 7);
 					break;
 				case 0x02:
-					MPCMAddr = (VGMPnt[0x02] > 7) ? 7 : VGMPnt[0x02];
+					MPCMAddr = VGMPnt[0x02];
 					break;
 				}
 				CmdLen = 0x03;
