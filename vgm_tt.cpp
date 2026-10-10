@@ -58,6 +58,7 @@ typedef std::map<VGM_FINF_KEY, size_t> VF_MAP;
 typedef std::vector<VGM_ASSIGNMENT> VA_LIST;
 
 
+static UINT32 ParseTagList(const char* tagListStr);
 static bool IsDirectory(const std::string& dirName);
 static std::string Dir2Path(const std::string& dirName);
 static void ReadDirectory(const char* dirName, VFINF_LIST& vgmInfoList);
@@ -67,7 +68,9 @@ static void CompareDirs_FileNames(const VFINF_LIST& srcFiles, const VFINF_LIST& 
 static void PrintMappings(const VFINF_LIST& srcFiles, const VFINF_LIST& dstFiles, const VA_LIST& assignList);
 static void ExecuteTransfer(const char* srcDir, const VFINF_LIST& srcFiles, const char* dstDir,
 							const VFINF_LIST& dstFiles, const VA_LIST& assignList, UINT8 actions);
-static UINT8 CopyTag(const char* srcFile, const char* dstFile);
+static UINT32 GetTagSize(const std::vector<UINT8>& gd3Data, UINT32 tagStartPos);
+static std::vector<UINT8> FuseTags(const std::vector<UINT8>& srcData, const std::vector<UINT8>& dstData);
+static UINT8 CopyTags(const char* srcFile, const char* dstFile);
 
 
 #define MATCH_TRIM	0x01
@@ -75,11 +78,50 @@ static UINT8 CopyTag(const char* srcFile, const char* dstFile);
 #define ACT_RENAME	0x01
 #define ACT_RETAG	0x02
 
+#define TAGID_TITLE_EN	0
+#define TAGID_TITLE_JP	1
+#define TAGID_GAME_EN	2
+#define TAGID_GAME_JP	3
+#define TAGID_SYSTEM_EN	4
+#define TAGID_SYSTEM_JP	5
+#define TAGID_AUTHOR_EN	6
+#define TAGID_AUTHOR_JP	7
+#define TAGID_YEAR		8
+#define TAGID_CREATOR	9
+#define TAGID_NOTES		10
+#define TAG_COUNT		11
+#define TAGMASK_ALL		((1 << TAG_COUNT) - 1)
+
+typedef struct _tag_name_mask_item
+{
+	const char* name;
+	UINT32 mask;
+} TAG_NM_ITEM;
+static TAG_NM_ITEM TAG_NAME_MASK_LIST[] = {
+	{"Title", (1 << TAGID_TITLE_EN) | (1 << TAGID_TITLE_JP)},
+	{"TitleE", 1 << TAGID_TITLE_EN},
+	{"TitleJ", 1 << TAGID_TITLE_JP},
+	{"Game", (1 << TAGID_GAME_EN) | (1 << TAGID_GAME_JP)},
+	{"GameE", 1 << TAGID_GAME_EN},
+	{"GameJ", 1 << TAGID_GAME_JP},
+	{"System", (1 << TAGID_SYSTEM_EN) | (1 << TAGID_SYSTEM_JP)},
+	{"SystemE", 1 << TAGID_SYSTEM_EN},
+	{"SystemJ", 1 << TAGID_SYSTEM_JP},
+	{"Author", (1 << TAGID_AUTHOR_EN) | (1 << TAGID_AUTHOR_JP)},
+	{"AuthorE", 1 << TAGID_AUTHOR_EN},
+	{"AuthorJ", 1 << TAGID_AUTHOR_JP},
+	{"Year", 1 << TAGID_YEAR},
+	{"Creator", 1 << TAGID_CREATOR},
+	{"Notes", 1 << TAGID_NOTES},
+	{NULL, 0},
+};
+
 static VFINF_LIST refFiles;
 static VFINF_LIST dstFiles;
 static VA_LIST refDstAssign;
 static UINT8 matchMode;
 static UINT8 fileActions;
+static UINT32 tagMask;
 
 int main(int argc, char* argv[])
 {
@@ -99,6 +141,10 @@ int main(int argc, char* argv[])
 		printf("    -mname   - Mode: match files using file names\n");
 		printf("    -rename  - rename files\n");
 		printf("    -tag     - transfer tags\n");
+		printf("    -tags T  - only transfer a specific set of tags (default: all)\n");
+		printf("               replace T with a comma-separated list of these:\n");
+		printf("                 TitleE, TitleJ, AuthorE, AuthorJ, GameE, GameJ,\n");
+		printf("                 SystemE, SystemJ, Year, Creator, Notes, all\n");
 		printf("By default, only matches are shown, but no action is taken.\n");
 		printf("You can transfer tags between two files directly by specifying\n");
 		printf("two files instead of folders.\n");
@@ -108,6 +154,7 @@ int main(int argc, char* argv[])
 	argbase = 1;
 	matchMode = MATCH_TRIM;
 	fileActions = 0x00;
+	tagMask = TAGMASK_ALL;	// default to all
 	while(argbase < argc && argv[argbase][0] == '-')
 	{
 		if (! stricmp(argv[argbase], "-mtrim"))
@@ -129,6 +176,17 @@ int main(int argc, char* argv[])
 		{
 			fileActions |= ACT_RETAG;
 			argbase ++;
+		}
+		else if (! stricmp(argv[argbase], "-tags"))
+		{
+			argbase ++;
+			if (argbase < argc)
+			{
+				UINT32 result = ParseTagList(argv[argbase]);
+				if (result != (UINT32)-1)
+					tagMask = result;
+				argbase ++;
+			}
 		}
 		else
 		{
@@ -195,6 +253,46 @@ int main(int argc, char* argv[])
 		ExecuteTransfer(refDir, refFiles, dstDir, dstFiles, refDstAssign, fileActions);
 
 	return 0;
+}
+
+static UINT32 ParseTagList(const char* tagListStr)
+{
+	char* tagListTmp;
+	char* curTagPtr;
+	char* nextTagPtr;
+	UINT32 resultMask;
+	const TAG_NM_ITEM* tagNMItm;
+
+	if (tagListStr == NULL)
+		return (UINT32)-1;	// Passing no argument is valid
+
+	// Format: "Tag1,Tag2,Tag3"
+	resultMask = 0x00;	// empty parameter = "no tags"
+	tagListTmp = strdup(tagListStr);
+	curTagPtr = tagListTmp;
+	while(curTagPtr != NULL && *curTagPtr != '\0')
+	{
+		nextTagPtr = strchr(curTagPtr, ',');
+		if (nextTagPtr != NULL)
+		{
+			*nextTagPtr = '\0';	// terminate the tag string in curTagPtr at the separator
+			nextTagPtr ++;
+		}
+
+		for (tagNMItm = TAG_NAME_MASK_LIST; tagNMItm->name != NULL; tagNMItm++)
+		{
+			if (! stricmp(curTagPtr, tagNMItm->name))
+			{
+				resultMask |= tagNMItm->mask;
+				break;
+			}
+		}
+
+		curTagPtr = nextTagPtr;
+	}
+	free(tagListTmp);
+
+	return resultMask;
 }
 
 static bool IsDirectory(const std::string& dirName)
@@ -492,7 +590,7 @@ static void ExecuteTransfer(const char* srcDir, const VFINF_LIST& srcFiles, cons
 		{
 			srcFilePath = srcBasePath + srcName;
 			dstFilePath = dstBasePath + dstName;
-			retVal = CopyTag(srcFilePath.c_str(), dstFilePath.c_str());
+			retVal = CopyTags(srcFilePath.c_str(), dstFilePath.c_str());
 			if (retVal & 0x80)
 				printf("Tag transfer failed with error code 0x%02X!\n", retVal);
 		}
@@ -509,7 +607,74 @@ static void ExecuteTransfer(const char* srcDir, const VFINF_LIST& srcFiles, cons
 	return;
 }
 
-static UINT8 CopyTag(const char* srcFile, const char* dstFile)
+static UINT32 GetTagSize(const std::vector<UINT8>& gd3Data, UINT32 tagStartPos)
+{
+	UINT32 curPos;
+	UINT16 ucs2Char;
+
+	for (curPos = tagStartPos; curPos < gd3Data.size(); curPos += 0x02)
+	{
+		memcpy(&ucs2Char, &gd3Data[curPos], 0x02);
+		if (ucs2Char == 0x0000)
+		{
+			curPos += 0x02;
+			break;
+		}
+	}
+	return curPos - tagStartPos;
+}
+
+static std::vector<UINT8> FuseTags(const std::vector<UINT8>& srcData, const std::vector<UINT8>& dstData)
+{
+	std::vector<UINT8> fusedData;
+	UINT32 srcVer;
+	UINT32 dstVer;
+	UINT32 curTag;
+	UINT32 srcPos;
+	UINT32 dstPos;
+	UINT32 fsdPos;
+	
+	fusedData.resize(srcData.size() + dstData.size());	// just be generous with the allocation for now
+	
+	memcpy(&fusedData[0x00], "Gd3 ", 0x04);
+	if (srcData.size() >= 0x08)
+		memcpy(&srcVer, &srcData[0x04], 0x04);
+	if (dstData.size() >= 0x08)
+		memcpy(&dstVer, &dstData[0x04], 0x04);
+	if (dstVer < srcVer)
+		dstVer = srcVer;
+	memcpy(&fusedData[0x04], &dstVer, 0x04);
+	
+	srcPos = dstPos = fsdPos = 0x0C;
+	for (curTag = 0; curTag < TAG_COUNT; curTag ++)
+	{
+		UINT32 srcLen = GetTagSize(srcData, srcPos);
+		UINT32 dstLen = GetTagSize(dstData, dstPos);
+
+		// "transfer" bit set? -> copy source file tag (transfer)
+		// bit not set -> copy destination file tag (keep)
+		if (tagMask & (1 << curTag))
+		{
+			memcpy(&fusedData[fsdPos], &srcData[srcPos], srcLen);
+			fsdPos += srcLen;
+		}
+		else
+		{
+			memcpy(&fusedData[fsdPos], &dstData[dstPos], dstLen);
+			fsdPos += dstLen;
+		}
+		srcPos += srcLen;
+		dstPos += dstLen;
+	}
+	fusedData.resize(fsdPos);
+	
+	fsdPos -= 0x0C;
+	memcpy(&fusedData[0x08], &fsdPos, 0x04);	// write tag length
+	
+	return fusedData;
+}
+
+static UINT8 CopyTags(const char* srcFile, const char* dstFile)
 {
 	gzFile hFileSrc;
 	gzFile hFileDst;
@@ -520,7 +685,8 @@ static UINT8 CopyTag(const char* srcFile, const char* dstFile)
 	UINT32 eofOfs;
 	UINT32 tempOfs;
 	bool isGZ;
-	std::vector<UINT8> gd3Data;
+	std::vector<UINT8> gd3SrcData;
+	std::vector<UINT8> gd3DstData;
 	std::vector<UINT8> fileData;
 
 	hFileSrc = gzopen(srcFile, "rb");
@@ -540,7 +706,10 @@ static UINT8 CopyTag(const char* srcFile, const char* dstFile)
 		gzclose(hFileSrc);
 		return 0x01;	// no tag to copy (destination file's tag is kept)
 	}
-	gzseek(hFileSrc, 0x14 + gd3Ofs, SEEK_SET);
+	if (gd3Ofs)
+		gd3Ofs += 0x14;
+	// load source file GD3 tag
+	gzseek(hFileSrc, gd3Ofs, SEEK_SET);
 	gzread(hFileSrc, gd3Hdr, 0x0C);
 	if (memcmp(&gd3Hdr, "Gd3 ", 0x04))
 	{
@@ -548,10 +717,12 @@ static UINT8 CopyTag(const char* srcFile, const char* dstFile)
 		return 0x80;	// bad source file tag
 	}
 	memcpy(&gd3Len, &gd3Hdr[0x08], 0x04);
-	gd3Data.resize(gd3Len);
-	gzread(hFileSrc, &gd3Data[0x00], gd3Len);
+	gd3SrcData.resize(0x0C + gd3Len);
+	memcpy(&gd3SrcData[0x00], &gd3Hdr[0x00], 0x0C);
+	gzread(hFileSrc, &gd3SrcData[0x0C], gd3Len);
 
 	gzclose(hFileSrc);	hFileSrc = NULL;
+
 
 	hFileDst = gzopen(dstFile, "rb");
 	if (hFileDst == NULL)
@@ -573,12 +744,35 @@ static UINT8 CopyTag(const char* srcFile, const char* dstFile)
 		gd3Ofs += 0x14;
 	else if (! gd3Ofs)
 		gd3Ofs = eofOfs;
-	eofOfs = gd3Ofs + 0x0C + gd3Len;	// calculate new GD3 offset
-
 	fileData.resize(gd3Ofs);	// load everything but the GD3 tag
 	gzread(hFileDst, &fileData[0x00], fileData.size());
+
+	if (! (~tagMask & TAGMASK_ALL))
+	{
+		// when all tag mask bits are set, just copy the whole tag block over
+		gd3DstData = gd3SrcData;
+	}
+	else
+	{
+		// else try to read the destination file's GD3 tag and fuse the blocks
+		if (gd3Ofs < eofOfs)
+		{
+			gzread(hFileDst, gd3Hdr, 0x0C);
+			if (! memcmp(&gd3Hdr, "Gd3 ", 0x04))
+			{
+				memcpy(&gd3Len, &gd3Hdr[0x08], 0x04);
+				gd3DstData.resize(0x0C + gd3Len);
+				memcpy(&gd3DstData[0x00], &gd3Hdr[0x00], 0x0C);
+				gzread(hFileDst, &gd3DstData[0x0C], gd3Len);
+			}
+		}
+		gd3DstData = FuseTags(gd3SrcData, gd3DstData);
+	}
+	
 	gzclose(hFileDst);	hFileDst = NULL;
 
+	gd3Len = gd3DstData.size();
+	eofOfs = gd3Ofs + gd3Len;	// calculate new GD3 offset
 	tempOfs = eofOfs - 0x04;
 	memcpy(&fileData[0x04], &tempOfs, 0x04);	// set new EOF offset
 	tempOfs = gd3Ofs - 0x14;
@@ -593,8 +787,7 @@ static UINT8 CopyTag(const char* srcFile, const char* dstFile)
 			return 0xFF;
 
 		fwrite(&fileData[0x00], 0x01, gd3Ofs, hFile);
-		fwrite(gd3Hdr, 0x01, 0x0C, hFile);
-		fwrite(&gd3Data[0x00], 0x01, gd3Len, hFile);
+		fwrite(&gd3DstData[0x00], 0x01, gd3Len, hFile);
 
 		fclose(hFile);
 	}
@@ -607,8 +800,7 @@ static UINT8 CopyTag(const char* srcFile, const char* dstFile)
 			return 0xFF;
 
 		gzwrite(hFile, &fileData[0x00], gd3Ofs);
-		gzwrite(hFile, gd3Hdr, 0x0C);
-		gzwrite(hFile, &gd3Data[0x00], gd3Len);
+		gzwrite(hFile, &gd3DstData[0x00], gd3Len);
 
 		gzclose(hFile);
 	}
