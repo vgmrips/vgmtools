@@ -2304,11 +2304,12 @@ void ymf271_write(char* TempStr, UINT8 Port, UINT8 Register, UINT8 Data)
 	case 0x04:
 		if ((Register & 0x03) == 0x03)
 		{
-			sprintf(WriteStr, "Invalid Slot");
+			sprintf(RedirectStr, "PCM Write: Invalid Slot");
 		}
 		else
 		{
 			SlotNum = ((Register & 0x0F) / 0x04 * 0x03) + (Register & 0x03);
+			SlotNum *= 4;
 			Addr = (Register >> 4) % 3;
 
 			switch((Register >> 4) & 0x0F)
@@ -2316,29 +2317,28 @@ void ymf271_write(char* TempStr, UINT8 Port, UINT8 Register, UINT8 Data)
 			case 0:
 			case 1:
 			case 2:
-				sprintf(RedirectStr, "Start Address %s: %02X", ADDR_3S_STR[Addr], Data);
+				sprintf(WriteStr, "Start Address %s: %02X", ADDR_3S_STR[Addr], Data);
 				break;
 			case 3:
 			case 4:
 			case 5:
-				sprintf(RedirectStr, "End Address %s: %02X", ADDR_3S_STR[Addr], Data);
+				sprintf(WriteStr, "End Address %s: %02X", ADDR_3S_STR[Addr], Data);
 				break;
 			case 6:
 			case 7:
 			case 8:
-				sprintf(RedirectStr, "Loop Address %s: %02X", ADDR_3S_STR[Addr], Data);
+				sprintf(WriteStr, "Loop Address %s: %02X", ADDR_3S_STR[Addr], Data);
 				break;
 			case 9:
-				sprintf(RedirectStr, "FS: %u, Bits: %u, SrcNote: %u, SrcB: %u", Data & 0x03,
+				sprintf(WriteStr, "FS: %u, Bits: %u, SrcNote: %u, SrcB: %u", Data & 0x03,
 						(Data & 0x04) ? 12 : 8, (Data >> 3) & 0x03, (Data >> 5) & 0x07);
 				break;
 			default:
-				sprintf(RedirectStr, "Invalid Register");
+				sprintf(WriteStr, "Invalid Register");
 				break;
 			}
-			sprintf(WriteStr, "Slot %u %s", SlotNum, RedirectStr);
+			sprintf(RedirectStr, "Slot %u PCM Write: %s", SlotNum, WriteStr);
 		}
-		sprintf(RedirectStr, "PCM Write: %s", WriteStr);
 		break;
 	case 0x06:
 		if (! (Register & 0xF0))

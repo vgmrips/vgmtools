@@ -18,7 +18,8 @@
 // ADPCM type A channel struct
 typedef struct
 {
-	UINT8 flag;			// port state
+	UINT8 keyon;	// port state
+	UINT32 keystart;	// sample data start address while keyed on
 	UINT32 start;	// sample data start address
 	UINT32 end;		// sample data end address
 } ADPCM_CH;
@@ -880,6 +881,7 @@ static void FM_ADPCMAWrite(YM2610_DATA *F2610, UINT8 r, UINT8 v)
 	UINT32 SampleLen;
 	UINT32 CurSmpl;
 	UINT8* MaskBase;
+	UINT32 OldAddr;
 
 	// an almost complete copy-paste-and-delete from MAME
 	F2610->ADPCMReg[r] = v; // stock data
@@ -894,35 +896,30 @@ static void FM_ADPCMAWrite(YM2610_DATA *F2610, UINT8 r, UINT8 v)
 				if( (v>>c)&1 )
 				{
 					// *** start adpcm ***
-					adpcm[c].flag = 1;
+					const UINT32 addrMask = (1 << 20) - 1;	// YM2610 checks only 20 bits while playing
+					UINT32 startAddr, endAddr;
 
-					adpcm[c].end &= (1 << 20) - 1;	// YM2610 checks only 20 bits while playing
-					adpcm[c].end |= adpcm[c].start & ~((1 << 20) - 1);
-					if (adpcm[c].end < adpcm[c].start)
-					{
-						printf("YM2610: ADPCM-A Start %06X > End %06X\n", adpcm[c].start, adpcm[c].end);
-						adpcm[c].end += (1 << 20);
-					}
-					adpcm[c].end ++;
-
-					if(adpcm[c].start >= F2610->AP_ROMSize)	// Check Start in Range
+					adpcm[c].keyon = 1;
+					adpcm[c].keystart = adpcm[c].start;
+					if(adpcm[c].keystart >= F2610->AP_ROMSize)	// Check Start in Range
 					{
 						printf("YM2610: ADPCM-A start out of range: $%08x\n", adpcm[c].start);
-						adpcm[c].flag = 0;
+						adpcm[c].keyon = 0;
 						continue;
 					}
-					if(adpcm[c].end > F2610->AP_ROMSize)	// Check End in Range
-					{
-						printf("YM2610 Ch %u: ADPCM-A end out of range\n", c);
-						printf("ADPCM-A Start: %06x\tADPCM-A End: %06x\n",
-								adpcm[c].start, adpcm[c].end);
-						adpcm[c].end = F2610->AP_ROMSize;
-						//continue;	// uncomment to ignore the fact that the complete rom
-									// may be used
-					}
 
-					SampleLen = adpcm[c].end - adpcm[c].start;
-					MaskBase = &F2610->AP_ROMUsage[adpcm[c].start];
+					startAddr = adpcm[c].keystart & addrMask;
+					endAddr = adpcm[c].end & addrMask;
+					if (endAddr < startAddr)
+					{
+						printf("YM2610: ADPCM-A Start %06X > End %06X\n", adpcm[c].keystart, adpcm[c].end);
+						endAddr += (1 << 20);
+					}
+					SampleLen = endAddr + 1 - adpcm[c].keystart;
+					if (adpcm[c].keystart + SampleLen > F2610->AP_ROMSize)
+						SampleLen = F2610->AP_ROMSize - adpcm[c].keystart;
+
+					MaskBase = &F2610->AP_ROMUsage[adpcm[c].keystart];
 					for (CurSmpl = 0x00; CurSmpl < SampleLen; CurSmpl ++)
 						MaskBase[CurSmpl] |= 0x01;
 				}
@@ -933,7 +930,7 @@ static void FM_ADPCMAWrite(YM2610_DATA *F2610, UINT8 r, UINT8 v)
 			// KEY OFF
 			for( c = 0; c < 6; c++ )
 				if( (v>>c)&1 )
-					adpcm[c].flag = 0;
+					adpcm[c].keyon = 0;
 		}
 		break;
 	case 0x01:	// Total Level
@@ -950,21 +947,42 @@ static void FM_ADPCMAWrite(YM2610_DATA *F2610, UINT8 r, UINT8 v)
 			adpcm[c].start  = ((F2610->ADPCMReg[0x18 + c] * 0x0100 |
 								F2610->ADPCMReg[0x10 + c]) << ADPCMA_ADDRESS_SHIFT);
 
-			if (adpcm[c].flag)
-			{
-				printf("ADPCM-A Ch %u StartAddr: %06X\n", c, adpcm[c].start);
-			}
+			//if (adpcm[c].keyon)
+			//	printf("ADPCM-A Ch %u StartAddr = %06X while playing\n", c, adpcm[c].start);
 			break;
 		case 0x20:	// Sample End Address
 		case 0x28:
+			OldAddr = adpcm[c].end;
 			adpcm[c].end    = ((F2610->ADPCMReg[0x28 + c] * 0x0100 |
 								F2610->ADPCMReg[0x20 + c]) << ADPCMA_ADDRESS_SHIFT);
 			adpcm[c].end   += (1<<ADPCMA_ADDRESS_SHIFT) - 1;
 			//adpcm[c].end   += (2<<ADPCMA_ADDRESS_SHIFT) - 1; // Puzzle De Pon-Patch
 
-			if (adpcm[c].flag)
+			if (adpcm[c].keyon && OldAddr != adpcm[c].end)
 			{
-				printf("ADPCM-A Ch %u EndAddr: %06X\n", c, adpcm[c].end);
+				printf("ADPCM-A Ch %u: change EndAddr %06X -> %06X while playing\n",
+					c, OldAddr, adpcm[c].end);
+
+				if(adpcm[c].start < F2610->AP_ROMSize)	// Check Start in Range
+				{
+					const UINT32 addrMask = (1 << 20) - 1;	// YM2610 checks only 20 bits while playing
+					UINT32 startAddr, endAddr;
+
+					startAddr = adpcm[c].keystart & addrMask;
+					endAddr = adpcm[c].end & addrMask;
+					if (endAddr < startAddr)
+					{
+						printf("YM2610: ADPCM-A Start %06X > End %06X\n", adpcm[c].keystart, adpcm[c].end);
+						endAddr += (1 << 20);
+					}
+					SampleLen = endAddr + 1 - adpcm[c].keystart;
+					if (adpcm[c].keystart + SampleLen > F2610->AP_ROMSize)
+						SampleLen = F2610->AP_ROMSize - adpcm[c].keystart;
+
+					MaskBase = &F2610->AP_ROMUsage[adpcm[c].keystart];
+					for (CurSmpl = 0x00; CurSmpl < SampleLen; CurSmpl ++)
+						MaskBase[CurSmpl] |= 0x01;
+				}
 			}
 			break;
 		}
@@ -1308,8 +1326,14 @@ static void ymf271_write_fm_reg(YMF271_DATA* chip, UINT8 SlotNum, UINT8 Register
 			}
 
 			DataLen = slot->endaddr + 1;
+			if (slot->startaddr + DataLen > chip->ROMSize)
+			{
+				printf("YMF271 slot %u: StartOfs %06X + Len %06X > ROMSize %06X\n",
+					SlotNum, slot->startaddr, slot->endaddr, chip->ROMSize);
+				DataLen = chip->ROMSize - slot->startaddr;
+			}
 			if (slot->bits != 8)
-			DataLen = (DataLen * slot->bits + 7) / 8;	// scale up for 12-bit samples
+				DataLen = (DataLen * slot->bits + 7) / 8;	// scale up for 12-bit samples
 			Addr = slot->startaddr;
 			for (CurByt = 0x00; CurByt < DataLen; CurByt ++, Addr ++)
 				chip->ROMUsage[Addr] |= 0x01;
